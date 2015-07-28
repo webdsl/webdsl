@@ -850,7 +850,7 @@ native class java.lang.Double as Double {
   */
 
   define ignore-access-control menubar(){
-    var elementid := "menu"+getTemplate().getUniqueId()
+    var elementid := "menu"+id
     includeCSS("dropdownmenu.css")
     <div class="menuwrapper" id=elementid all attributes>
       <ul id="p7menubar" class="menubar">
@@ -1073,22 +1073,21 @@ native class java.lang.Double as Double {
   }
 
   template dateinputgeneric(d:Ref<Date>, dateformat : String, picker : String, options:String){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
 
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        datepickerinput(d,dateformat,tname,picker,options)[all attributes]
+        datepickerinput(d,dateformat,id,picker,options)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      datepickerinput(d,dateformat,tname,picker,options)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      datepickerinput(d,dateformat,id,picker,options)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
@@ -1100,7 +1099,7 @@ native class java.lang.Double as Double {
       }
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := d.getValidationErrors();
-        errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+        errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       }
       errors := handleValidationErrors(errors);
     }
@@ -1189,26 +1188,25 @@ native class java.lang.Double as Double {
     selectcheckbox(set,set.getAllowed())[all attributes]{elements()}
   }
   define selectcheckbox(set:Ref<Set<Entity>>, from : List<Entity>){
-    var tname := getTemplate().getUniqueId()
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputCheckboxSetInternal(set,from,tname)[all attributes]
+        inputCheckboxSetInternal(set,from,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputCheckboxSetInternal(set,from,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputCheckboxSetInternal(set,from,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := set.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -1260,26 +1258,25 @@ native class java.lang.Double as Double {
     select(set,set.getAllowed())[all attributes]{elements()}
   }
   define select(set:Ref<Set<Entity>>, from : List<Entity>){
-    var tname := getTemplate().getUniqueId()
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputSelectMultipleInternal(set,from,tname)[all attributes]
+        inputSelectMultipleInternal(set,from,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputSelectMultipleInternal(set,from,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputSelectMultipleInternal(set,from,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := set.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -1350,26 +1347,25 @@ native class java.lang.Double as Double {
     select(ent,ent.getAllowed())[all attributes]{elements()}
   }
   define select(ent : Ref<Entity>, from : List<Entity>){
-    var tname := getTemplate().getUniqueId()
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputEntityInternal(ent,from,tname)[all attributes]
+        inputEntityInternal(ent,from,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputEntityInternal(ent,from,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputEntityInternal(ent,from,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := ent.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -1428,28 +1424,27 @@ native class java.lang.Double as Double {
     radio(ent,ent.getAllowed())[all attributes]{elements()}
   }
   define radio(ent1:Ref<Entity>,ent2:List<Entity>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
 
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        radioInternal(ent1, ent2, tname)[all attributes]
+        radioInternal(ent1, ent2, id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      radioInternal(ent1, ent2, tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      radioInternal(ent1, ent2, id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := ent1.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -1529,26 +1524,25 @@ native class java.lang.Double as Double {
     input(list,list.getAllowed())[all attributes]{elements()}
   }
   define input(list:Ref<List<Entity>>, from : List<Entity>){
-    var tname := getTemplate().getUniqueId()
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputListInternal(list,from,tname)[all attributes]
+        inputListInternal(list,from,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputListInternal(list,from,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputListInternal(list,from,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := list.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -1667,24 +1661,23 @@ native class java.lang.Double as Double {
   }
 
   define label(s:String) {
-    var tname := getTemplate().getUniqueId()
     request var errors : List<String> := null
     request var tc := getPage().getTemplateContext().clone()
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        labelInternal(s,tname,tc)[all attributes]{
+        labelInternal(s,id,tc)[all attributes]{
           elements()[templateContext=tc] //change templateContext to make sure the same name attributes are generated
         }
       }
     }
     else{
-        labelInternal(s,tname,tc)[all attributes]{
+        labelInternal(s,id,tc)[all attributes]{
           elements()[templateContext=tc]
         }
     }
     validate{
-      errors := getPage().getValidationErrorsByName(tname);
+      errors := getPage().getValidationErrorsByName(id);
     }
   }
 
@@ -1710,22 +1703,21 @@ native class java.lang.Double as Double {
   }
 
   define input(i:Ref<Int>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
 
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputIntInternal(i,tname)[all attributes]
+        inputIntInternal(i,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputIntInternal(i,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputIntInternal(i,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
@@ -1742,7 +1734,7 @@ native class java.lang.Double as Double {
       }
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := i.getValidationErrors();
-        errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+        errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       }
       errors := handleValidationErrors(errors);
     }
@@ -1779,22 +1771,21 @@ native class java.lang.Double as Double {
   }
 
   define input(i:Ref<Float>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
 
     request var errors : List<String> := null
 
     if(errors != null){
       errorTemplateInput(errors){
-        inputFloatInternal(i,tname)[all attributes]
+        inputFloatInternal(i,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputFloatInternal(i,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputFloatInternal(i,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
@@ -1812,7 +1803,7 @@ native class java.lang.Double as Double {
       }
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := i.getValidationErrors();
-        errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+        errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       }
       errors := handleValidationErrors(errors);
     }
@@ -1849,22 +1840,21 @@ native class java.lang.Double as Double {
   }
 
   define input(i:Ref<Long>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
 
     request var errors : List<String> := null
 
     if(errors != null){
       errorTemplateInput(errors){
-        inputLongInternal(i,tname)[all attributes]
+        inputLongInternal(i,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputLongInternal(i,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputLongInternal(i,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
@@ -1881,7 +1871,7 @@ native class java.lang.Double as Double {
       }
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := i.getValidationErrors();
-        errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+        errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       }
       errors := handleValidationErrors(errors);
     }
@@ -1918,28 +1908,27 @@ native class java.lang.Double as Double {
   }
 
   define input(s:Ref<Secret>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
 
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputSecretInternal(s,tname)[all attributes]
+        inputSecretInternal(s,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputSecretInternal(s,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputSecretInternal(s,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -1982,28 +1971,27 @@ native class java.lang.Double as Double {
   }
 
   define input(s:Ref<String>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
 
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputStringInternal(s,tname)[all attributes]
-        validate{ getPage().enterLabelContext(tname); }
+        inputStringInternal(s,id)[all attributes]
+        validate{ getPage().enterLabelContext(id); }
         elements()
         validate{ getPage().leaveLabelContext();}
       }
     }
     else{
-      inputStringInternal(s,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputStringInternal(s,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -2046,28 +2034,27 @@ native class java.lang.Double as Double {
   }
 
   define input(s:Ref<Text>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
 
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputTextInternal(s,tname)[all attributes]
+        inputTextInternal(s,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputTextInternal(s,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputTextInternal(s,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -2105,28 +2092,27 @@ native class java.lang.Double as Double {
   }
 
   define input(s:Ref<URL>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
 
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputURLInternal(s,tname)[all attributes]
+        inputURLInternal(s,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputURLInternal(s,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputURLInternal(s,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -2167,28 +2153,27 @@ native class java.lang.Double as Double {
   }
 
   define input(s:Ref<WikiText>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
 
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputWikiTextInternal(s,tname)[all attributes]
+        inputWikiTextInternal(s,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputWikiTextInternal(s,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputWikiTextInternal(s,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -2226,22 +2211,21 @@ native class java.lang.Double as Double {
   }
 
   define input(s:Ref<Email>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
 
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputEmailInternal(s,tname)[all attributes]
+        inputEmailInternal(s,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputEmailInternal(s,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputEmailInternal(s,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
@@ -2253,7 +2237,7 @@ native class java.lang.Double as Double {
       }
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := s.getValidationErrors();
-        errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+        errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       }
       errors := handleValidationErrors(errors);
     }
@@ -2298,26 +2282,25 @@ native class java.lang.Double as Double {
   }
 
   define input(b:Ref<Bool>){
-    var tname := getTemplate().getUniqueId() // regular var is reset when validation fails
-    request var errors : List<String> := null // need a var that keeps its value, even when validation fails
+    request var errors : List<String> := null // request var keeps its value, even when validation fails (regular var is reset when validation fails)
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputBoolInternal(b,tname)[all attributes]  // use same tname so the inputs are updated in both cases
-        validate{ getPage().enterLabelContext(tname); }
+        inputBoolInternal(b,id)[all attributes]  // use same id so the inputs are updated in both cases
+        validate{ getPage().enterLabelContext(id); }
         elements()
         validate{ getPage().leaveLabelContext();}
       }
     }
     else{
-      inputBoolInternal(b,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputBoolInternal(b,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := b.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -2356,26 +2339,25 @@ native class java.lang.Double as Double {
   //input File
 
   define input(f:Ref<File>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
     if(errors != null){
       errorTemplateInput(errors){
-        inputFileInternal(f,tname)[all attributes]
+        inputFileInternal(f,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputFileInternal(f,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputFileInternal(f,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := f.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -2407,26 +2389,25 @@ native class java.lang.Double as Double {
   }
 
   define input(f:Ref<List<File>>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
     if(errors != null){
       errorTemplateInput(errors){
-        inputMultiFileInternal(f,tname)[all attributes]
+        inputMultiFileInternal(f,id)[all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputMultiFileInternal(f,tname)[all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputMultiFileInternal(f,id)[all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     validate{
       errors := f.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+      errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       errors := handleValidationErrors(errors);
     }
   }
@@ -2498,22 +2479,21 @@ native class java.lang.Double as Double {
   }
 
   define inputSDF(s:Ref<Text>,language: String){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
 
     request var errors : List<String> := null
 
     if(errors != null && errors.length > 0){
       errorTemplateInput(errors){
-        inputTextInternal(s,tname)[inputSDF attributes, all attributes]
+        inputTextInternal(s,id)[inputSDF attributes, all attributes]
       }
-      validate{ getPage().enterLabelContext(tname); }
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
     else{
-      inputTextInternal(s,tname)[inputSDF attributes, all attributes]
-      validate{ getPage().enterLabelContext(tname); }
+      inputTextInternal(s,id)[inputSDF attributes, all attributes]
+      validate{ getPage().enterLabelContext(id); }
       elements()
       validate{ getPage().leaveLabelContext();}
     }
@@ -2523,7 +2503,7 @@ native class java.lang.Double as Double {
       }
       if(errors == null){ // if no wellformedness errors, check datamodel validations
         errors := s.getValidationErrors();
-        errors.addAll(getPage().getValidationErrorsByName(tname)); //nested validate elements
+        errors.addAll(getPage().getValidationErrorsByName(id)); //nested validate elements
       }
       errors := handleValidationErrors(errors);
     }
@@ -2564,36 +2544,35 @@ native class java.lang.Double as Double {
   define ajax noMessages(){}
 
   define inputajax(b:Ref<Bool>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
-    inputBoolInternal(b,tname)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
-    validate{ getPage().enterLabelContext(tname); }
+    inputBoolInternal(b,id)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
+    validate{ getPage().enterLabelContext(id); }
     elements()
     validate{ getPage().leaveLabelContext();}
-    placeholder "validate"+tname {
+    placeholder "validate"+id {
       if(errors != null && errors.length > 0){
         showMessages(errors)
       }
     }
     validate{
       errors := b.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
         cancel();
       }
     }
     action ignore-validation validator(){
       errors := b.getValidationErrors();
-      getPage().enterLabelContext(tname);
+      getPage().enterLabelContext(id);
       validatetemplate(elements());
       getPage().leaveLabelContext();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
-        replace("validate"+tname,showMessages(errors));
+        replace("validate"+id,showMessages(errors));
       }
       else{
-        replace("validate"+tname,noMessages());
+        replace("validate"+id,noMessages());
       }
       rollback();
     }
@@ -2615,14 +2594,13 @@ native class java.lang.Double as Double {
     return errors;
   }
   define inputajax(f:Ref<Float>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
-    inputFloatInternal(f,tname)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
-    validate{ getPage().enterLabelContext(tname); }
+    inputFloatInternal(f,id)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
+    validate{ getPage().enterLabelContext(id); }
     elements()
     validate{ getPage().leaveLabelContext();}
-    placeholder "validate"+tname {
+    placeholder "validate"+id {
       if(errors != null && errors.length > 0){
         showMessages(errors)
       }
@@ -2631,7 +2609,7 @@ native class java.lang.Double as Double {
       errors := checkFloatWellformedness(req);
       if(errors==null){
         errors := f.getValidationErrors();
-        errors.addAll(getPage().getValidationErrorsByName(tname));
+        errors.addAll(getPage().getValidationErrorsByName(id));
       }
       if(errors.length > 0){
         cancel();
@@ -2641,16 +2619,16 @@ native class java.lang.Double as Double {
       errors := checkFloatWellformedness(req);
       if(errors==null){
         errors := f.getValidationErrors();
-        getPage().enterLabelContext(tname);
+        getPage().enterLabelContext(id);
         validatetemplate(elements());
         getPage().leaveLabelContext();
-        errors.addAll(getPage().getValidationErrorsByName(tname));
+        errors.addAll(getPage().getValidationErrorsByName(id));
       }
       if(errors.length > 0){
-        replace("validate"+tname,showMessages(errors));
+        replace("validate"+id,showMessages(errors));
       }
       else{
-        replace("validate"+tname,noMessages());
+        replace("validate"+id,noMessages());
       }
       rollback();
     }
@@ -2671,14 +2649,13 @@ native class java.lang.Double as Double {
     return errors;
   }
   define inputajax(i:Ref<Int>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
-    inputIntInternal(i,tname)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
-    validate{ getPage().enterLabelContext(tname); }
+    inputIntInternal(i,id)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
+    validate{ getPage().enterLabelContext(id); }
     elements()
     validate{ getPage().leaveLabelContext();}
-    placeholder "validate"+tname {
+    placeholder "validate"+id {
       if(errors != null && errors.length > 0){
         showMessages(errors)
       }
@@ -2687,7 +2664,7 @@ native class java.lang.Double as Double {
       errors := checkIntWellformedness(req);
       if(errors==null){
         errors := i.getValidationErrors();
-        errors.addAll(getPage().getValidationErrorsByName(tname));
+        errors.addAll(getPage().getValidationErrorsByName(id));
       }
       if(errors.length > 0){
         cancel();
@@ -2697,16 +2674,16 @@ native class java.lang.Double as Double {
       errors := checkIntWellformedness(req);
       if(errors==null){
         errors := i.getValidationErrors();
-        getPage().enterLabelContext(tname);
+        getPage().enterLabelContext(id);
         validatetemplate(elements());
         getPage().leaveLabelContext();
-        errors.addAll(getPage().getValidationErrorsByName(tname));
+        errors.addAll(getPage().getValidationErrorsByName(id));
       }
       if(errors.length > 0){
-        replace("validate"+tname,showMessages(errors));
+        replace("validate"+id,showMessages(errors));
       }
       else{
-        replace("validate"+tname,noMessages());
+        replace("validate"+id,noMessages());
       }
       rollback();
     }
@@ -2727,14 +2704,13 @@ native class java.lang.Double as Double {
     return errors;
   }
   define inputajax(l:Ref<Long>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
-    inputLongInternal(l,tname)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
-    validate{ getPage().enterLabelContext(tname); }
+    inputLongInternal(l,id)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
+    validate{ getPage().enterLabelContext(id); }
     elements()
     validate{ getPage().leaveLabelContext();}
-    placeholder "validate"+tname {
+    placeholder "validate"+id {
       if(errors != null && errors.length > 0){
         showMessages(errors)
       }
@@ -2743,7 +2719,7 @@ native class java.lang.Double as Double {
       errors := checkLongWellformedness(req);
       if(errors==null){
         errors := l.getValidationErrors();
-        errors.addAll(getPage().getValidationErrorsByName(tname));
+        errors.addAll(getPage().getValidationErrorsByName(id));
       }
       if(errors.length > 0){
         cancel();
@@ -2753,16 +2729,16 @@ native class java.lang.Double as Double {
       errors := checkLongWellformedness(req);
       if(errors==null){
         errors := l.getValidationErrors();
-        getPage().enterLabelContext(tname);
+        getPage().enterLabelContext(id);
         validatetemplate(elements());
         getPage().leaveLabelContext();
-        errors.addAll(getPage().getValidationErrorsByName(tname));
+        errors.addAll(getPage().getValidationErrorsByName(id));
       }
       if(errors.length > 0){
-        replace("validate"+tname,showMessages(errors));
+        replace("validate"+id,showMessages(errors));
       }
       else{
-        replace("validate"+tname,noMessages());
+        replace("validate"+id,noMessages());
       }
       rollback();
     }
@@ -2781,22 +2757,21 @@ native class java.lang.Double as Double {
     inputajax(s as Ref<String>)[all attributes]{elements()}
   }
   define inputajax(s:Ref<String>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
-    inputStringInternal(s,tname)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
+    inputStringInternal(s,id)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
     //handle validations passed in call to this template
-    validate{ getPage().enterLabelContext(tname); }
+    validate{ getPage().enterLabelContext(id); }
     elements()
     validate{ getPage().leaveLabelContext();}
-    placeholder "validate"+tname {
+    placeholder "validate"+id {
       if(errors != null && errors.length > 0){
         showMessages(errors)
       }
     }
     validate{
       errors := s.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
         cancel();
       }
@@ -2804,15 +2779,15 @@ native class java.lang.Double as Double {
     action ignore-validation validator(){
       errors := s.getValidationErrors();
       //ignore-validation prevents regular validation, manually execute validate phase for elements
-      getPage().enterLabelContext(tname);
+      getPage().enterLabelContext(id);
       validatetemplate(elements());
       getPage().leaveLabelContext();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
-        replace("validate"+tname,showMessages(errors));
+        replace("validate"+id,showMessages(errors));
       }
       else{
-        replace("validate"+tname,noMessages());
+        replace("validate"+id,noMessages());
       }
       rollback();
     }
@@ -2827,14 +2802,13 @@ native class java.lang.Double as Double {
     return errors;
   }
   define inputajax(s:Ref<Email>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
-    inputEmailInternal(s,tname)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
-    validate{ getPage().enterLabelContext(tname); }
+    inputEmailInternal(s,id)[oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
+    validate{ getPage().enterLabelContext(id); }
     elements()
     validate{ getPage().leaveLabelContext();}
-    placeholder "validate"+tname {
+    placeholder "validate"+id {
       if(errors != null && errors.length > 0){
         showMessages(errors)
       }
@@ -2843,7 +2817,7 @@ native class java.lang.Double as Double {
       errors := checkEmailWellformedness(req);
       if(errors==null){
         errors := s.getValidationErrors();
-        errors.addAll(getPage().getValidationErrorsByName(tname));
+        errors.addAll(getPage().getValidationErrorsByName(id));
       }
       if(errors.length > 0){
         cancel();
@@ -2853,16 +2827,16 @@ native class java.lang.Double as Double {
       errors := checkEmailWellformedness(req);
       if(errors==null){
         errors := s.getValidationErrors();
-        getPage().enterLabelContext(tname);
+        getPage().enterLabelContext(id);
         validatetemplate(elements());
         getPage().leaveLabelContext();
-        errors.addAll(getPage().getValidationErrorsByName(tname));
+        errors.addAll(getPage().getValidationErrorsByName(id));
       }
       if(errors.length > 0){
-        replace("validate"+tname,showMessages(errors));
+        replace("validate"+id,showMessages(errors));
       }
       else{
-        replace("validate"+tname,noMessages());
+        replace("validate"+id,noMessages());
       }
       rollback();
     }
@@ -2878,21 +2852,20 @@ native class java.lang.Double as Double {
     selectcheckboxajax(set,set.getAllowed())[all attributes]{elements()}
   }
   define selectcheckboxajax(set:Ref<Set<Entity>>, from : List<Entity>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
-    inputCheckboxSetInternal(set,from,tname)[onclick=validator();""+attribute("onclick"), all attributes except "onclick"]
-    validate{ getPage().enterLabelContext(tname); }
+    inputCheckboxSetInternal(set,from,id)[onclick=validator();""+attribute("onclick"), all attributes except "onclick"]
+    validate{ getPage().enterLabelContext(id); }
     elements()
     validate{ getPage().leaveLabelContext();}
-    placeholder "validate"+tname {
+    placeholder "validate"+id {
       if(errors != null && errors.length > 0){
         showMessages(errors)
       }
     }
     validate{
       errors := set.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
         cancel();
       }
@@ -2900,15 +2873,15 @@ native class java.lang.Double as Double {
     action ignore-validation validator(){
       errors := set.getValidationErrors();
       //ignore-validation prevents regular validation, manually execute validate phase for elements
-      getPage().enterLabelContext(tname);
+      getPage().enterLabelContext(id);
       validatetemplate(elements());
       getPage().leaveLabelContext();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
-        replace("validate"+tname,showMessages(errors));
+        replace("validate"+id,showMessages(errors));
       }
       else{
-        replace("validate"+tname,noMessages());
+        replace("validate"+id,noMessages());
       }
       rollback();
     }
@@ -2917,36 +2890,35 @@ native class java.lang.Double as Double {
     selectajax(ent,ent.getAllowed())[all attributes]{elements()}
   }
   define selectajax(set:Ref<Set<Entity>>, from : List<Entity>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
-    inputSelectMultipleInternal(set,from,tname)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
-    validate{ getPage().enterLabelContext(tname); }
+    inputSelectMultipleInternal(set,from,id)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
+    validate{ getPage().enterLabelContext(id); }
     elements()
     validate{ getPage().leaveLabelContext();}
-    placeholder "validate"+tname {
+    placeholder "validate"+id {
       if(errors != null && errors.length > 0){
         showMessages(errors)
       }
     }
     validate{
       errors := set.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
         cancel();
       }
     }
     action ignore-validation validator(){
       errors := set.getValidationErrors();
-      getPage().enterLabelContext(tname);
+      getPage().enterLabelContext(id);
       validatetemplate(elements());
       getPage().leaveLabelContext();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
-        replace("validate"+tname,showMessages(errors));
+        replace("validate"+id,showMessages(errors));
       }
       else{
-        replace("validate"+tname,noMessages());
+        replace("validate"+id,noMessages());
       }
       rollback();
     }
@@ -2962,36 +2934,35 @@ native class java.lang.Double as Double {
     selectajax(ent,ent.getAllowed())[all attributes]{elements()}
   }
   define selectajax(ent : Ref<Entity>, from : List<Entity>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
-    inputEntityInternal(ent,from,tname)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
-    validate{ getPage().enterLabelContext(tname); }
+    inputEntityInternal(ent,from,id)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
+    validate{ getPage().enterLabelContext(id); }
     elements()
     validate{ getPage().leaveLabelContext();}
-    placeholder "validate"+tname {
+    placeholder "validate"+id {
       if(errors != null && errors.length > 0){
         showMessages(errors)
       }
     }
     validate{
       errors := ent.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
         cancel();
       }
     }
     action ignore-validation validator(){
       errors := ent.getValidationErrors();
-      getPage().enterLabelContext(tname);
+      getPage().enterLabelContext(id);
       validatetemplate(elements());
       getPage().leaveLabelContext();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
-        replace("validate"+tname,showMessages(errors));
+        replace("validate"+id,showMessages(errors));
       }
       else{
-        replace("validate"+tname,noMessages());
+        replace("validate"+id,noMessages());
       }
       rollback();
     }
@@ -3001,36 +2972,35 @@ native class java.lang.Double as Double {
     radioajax(ent,ent.getAllowed())[all attributes]{elements()}
   }
   define radioajax(ent1 : Ref<Entity>, ent2 : List<Entity>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
-    radioInternal(ent1,ent2,tname)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
-    validate{ getPage().enterLabelContext(tname); }
+    radioInternal(ent1,ent2,id)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
+    validate{ getPage().enterLabelContext(id); }
     elements()
     validate{ getPage().leaveLabelContext();}
-    placeholder "validate"+tname {
+    placeholder "validate"+id {
       if(errors != null && errors.length > 0){
         showMessages(errors)
       }
     }
     validate{
       errors := ent1.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
         cancel();
       }
     }
     action ignore-validation validator(){
       errors := ent1.getValidationErrors();
-      getPage().enterLabelContext(tname);
+      getPage().enterLabelContext(id);
       validatetemplate(elements());
       getPage().leaveLabelContext();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
-        replace("validate"+tname,showMessages(errors));
+        replace("validate"+id,showMessages(errors));
       }
       else{
-        replace("validate"+tname,noMessages());
+        replace("validate"+id,noMessages());
       }
       rollback();
     }
@@ -3040,36 +3010,35 @@ native class java.lang.Double as Double {
     inputajax(ent,ent.getAllowed())[all attributes]{elements()}
   }
   define inputajax(list:Ref<List<Entity>>, from : List<Entity>){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
-    inputListInternal(list,from,tname)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
-    validate{ getPage().enterLabelContext(tname); }
+    inputListInternal(list,from,id)[onchange=validator();""+attribute("onchange"), all attributes except "onchange"]
+    validate{ getPage().enterLabelContext(id); }
     elements()
     validate{ getPage().leaveLabelContext();}
-    placeholder "validate"+tname {
+    placeholder "validate"+id {
       if(errors != null && errors.length > 0){
         showMessages(errors)
       }
     }
     validate{
       errors := list.getValidationErrors();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
         cancel();
       }
     }
     action ignore-validation validator(){
       errors := list.getValidationErrors();
-      getPage().enterLabelContext(tname);
+      getPage().enterLabelContext(id);
       validatetemplate(elements());
       getPage().leaveLabelContext();
-      errors.addAll(getPage().getValidationErrorsByName(tname));
+      errors.addAll(getPage().getValidationErrorsByName(id));
       if(errors.length > 0){
-        replace("validate"+tname,showMessages(errors));
+        replace("validate"+id,showMessages(errors));
       }
       else{
-        replace("validate"+tname,noMessages());
+        replace("validate"+id,noMessages());
       }
       rollback();
     }
@@ -3084,14 +3053,13 @@ native class java.lang.Double as Double {
     return errors;
   }
   define inputSDFajax(s:Ref<Text>,language: String){
-    var tname := getTemplate().getUniqueId()
-    var req := getRequestParameter(tname)
+    var req := getRequestParameter(id)
     request var errors : List<String> := null
-    inputTextInternal(s,tname)[inputSDF attributes, oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
-    validate{ getPage().enterLabelContext(tname); }
+    inputTextInternal(s,id)[inputSDF attributes, oninput=validator();""+attribute("oninput"), all attributes except "oninput"]
+    validate{ getPage().enterLabelContext(id); }
     elements()
     validate{ getPage().leaveLabelContext();}
-    placeholder "validate"+tname {
+    placeholder "validate"+id {
       if(errors != null && errors.length > 0){
         showMessages(errors)
       }
@@ -3100,7 +3068,7 @@ native class java.lang.Double as Double {
       errors := checkSDFWellformedness(req,language);
       if(errors==null){
         errors := s.getValidationErrors();
-        errors.addAll(getPage().getValidationErrorsByName(tname));
+        errors.addAll(getPage().getValidationErrorsByName(id));
       }
       if(errors.length > 0){
         cancel();
@@ -3110,16 +3078,16 @@ native class java.lang.Double as Double {
       errors := checkSDFWellformedness(req,language);
       if(errors==null){
         errors := s.getValidationErrors();
-        getPage().enterLabelContext(tname);
+        getPage().enterLabelContext(id);
         validatetemplate(elements());
         getPage().leaveLabelContext();
-        errors.addAll(getPage().getValidationErrorsByName(tname));
+        errors.addAll(getPage().getValidationErrorsByName(id));
       }
       if(errors.length > 0){
-        replace("validate"+tname,showMessages(errors));
+        replace("validate"+id,showMessages(errors));
       }
       else{
-        replace("validate"+tname,noMessages());
+        replace("validate"+id,noMessages());
       }
       rollback();
     }

@@ -1483,6 +1483,8 @@
    HTMLWrapper                                            -- KW["htmlwrapper"] _1 _2 _3,
    HTMLWrapperAssigns                                     -- KW["["] _1 KW["]"],
    HTMLWrapperMultiple                                    -- KW["htmlwrapper"] KW["{"] _1 KW["}"],
-   HTMLWrapperBody                                        -- _1 _2 _3
+   HTMLWrapperBody                                        -- _1 _2 _3,
+
+   TemplateId                                             -- KW["id"]
 
 ]
