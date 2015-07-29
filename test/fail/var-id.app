@@ -1,4 +1,4 @@
-//#22 Variable name 'id' is not allowed
+//#29 Variable name 'id' is not allowed
 
 application test
 
@@ -40,3 +40,16 @@ page root(){
   
   output( [ id | id: Int in [ 1 ] ] ) // ForExp
 }
+
+template tmp1( id: String ){
+  template tmp2( id: String ){}
+}
+
+entity TestEnt{
+  function a( id: String ){} 
+  extend function a( id: String ){}
+  function b( id: Int ){}
+}
+  
+function testfun( id: String ){}
+extend function testfun( id: String ){} 
