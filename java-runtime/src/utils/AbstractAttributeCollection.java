@@ -11,5 +11,6 @@ public abstract class AbstractAttributeCollection {
 	public abstract String getAttributes();
 	public abstract String getClassAttribute();
 	public abstract String getStyleAttribute();
+    public abstract void addIgnoredCollections(java.util.List<String> ignorecols);
 
 }

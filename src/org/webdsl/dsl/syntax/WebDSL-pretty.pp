@@ -1449,6 +1449,7 @@
    AttributeIncludeIgnore                                 -- KW["ignore"] _1,
    AttributeIgnoreDefault                                 -- KW["ignore"] KW["default"] _1,
    AttributeCollectionOverride                            -- KW["override"],
+   AttributeIgnore                                        -- KW["ignore"] _1 KW["attributes"],
 
    TemplateElementsArgument                               -- KW["{"] _1 KW["}"],
    TemplateElementsArgumentReplaced                       -- KW["{"] KW["}"],

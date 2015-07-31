@@ -53,16 +53,20 @@ rules
             StringBuilder classattrs = new StringBuilder();
             StringBuilder styleattrs = new StringBuilder();
             java.util.List<String> ignore = new java.util.ArrayList<String>();
+            java.util.List<String> ignorecols = new java.util.ArrayList<String>();
             utils.TemplateCall.getDynamicIgnoredAttributes(attrs, ignore);
           ]|
         ; bstm_ignore_attr_collections* := <filter(add-inline-ignore-attribute-element-from-attrs)> attrs
         ; bstm_add_selected_attr_collections* := bstm*|[
             for(String attrcolname : utils.TemplateCall.getDynamicSelectedAttributeCollections(attrs)){
-              AttributeCollectionLookup.getAttributeCollection(attrcolname, classattrs, styleattrs, ignore, out);
+              if(!ignorecols.contains(attrcolname)){
+                AttributeCollectionLookup.getAttributeCollection(attrcolname, classattrs, styleattrs, ignore, ignorecols, out);
+              }
             }
           ]|
-        ; bstm_additional_attr_cols* := <map(\x -> bstm|[ AttributeCollectionLookup.getAttributeCollection("~x", classattrs, styleattrs, ignore, out); ]|\)> additional-attr-cols
         ; bstm_collect_all_printall_except_class_style* := <remove-all(?AttributeIgnoreDefault(_)); xml-attrs-to-java-inner> attrs
+        // attribute collections added to generator built-in template elements such as navigate and submit
+        ; bstm_additional_attr_cols* := <map(\x -> bstm|[  if(!ignorecols.contains("~x")){ AttributeCollectionLookup.getAttributeCollection("~x", classattrs, styleattrs, ignore, ignorecols, out); }  ]|\)> additional-attr-cols
         ; bstm_print_class_style* := bstm* |[
             utils.TemplateCall.printClassStyleAttributes(classattrs, styleattrs, out);
           ]|
@@ -70,8 +74,8 @@ rules
             [ bstm_helper*
             , bstm_ignore_attr_collections*
             , bstm_add_selected_attr_collections*
-            , bstm_additional_attr_cols*
             , bstm_collect_all_printall_except_class_style*
+            , bstm_additional_attr_cols*
             , bstm_print_class_style* ]
 
   add-inline-ignore-attribute-element-from-attrs :

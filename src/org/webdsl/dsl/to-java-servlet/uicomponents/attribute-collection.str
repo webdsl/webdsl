@@ -22,7 +22,9 @@ rules // attribute collection selectors in html elements
   xml-attr-to-java :
     AttributeSelection(name) ->
     bstm|[
-      AttributeCollectionLookup.getAttributeCollection("~name", classattrs, styleattrs, ignore, out);
+      if(!ignorecols.contains("~name")){
+        AttributeCollectionLookup.getAttributeCollection("~name", classattrs, styleattrs, ignore, ignorecols, out);
+      }
     ]|
 
 rules
@@ -52,7 +54,10 @@ rules
         public String getStyleAttribute(){
          return e_style;
         }
-        
+
+        public void addIgnoredCollections(java.util.List<String> ignorecols){
+          bstm_ignore*
+        }
       }
     ]|
     where WebDSLCompileBuiltIns <+ not(has-anno(Precompiled))  // avoid repeated code generation for attribute collections in built-in.app
@@ -61,14 +66,16 @@ rules
         ; x_class := <attribute-collection-class-name(|name, overrideanno)>
         ; e_classattr := <fetch-elem(?AttributeAssign("class",<expression-to-java-servlet>)) <+ java-string-empty> attrs
         ; e_styleattr := <fetch-elem(?AttributeAssign("style",<expression-to-java-servlet>)) <+ java-string-empty> attrs
-        ; bstm_init* := <remove-all(?AttributeAssign(<?"class"<+?"style">,_) <+ ?AttributeInclude(_,_)); map(attr-to-collection-map-init)> attrs
+        ; bstm_init* := <remove-all(?AttributeAssign(<?"class"<+?"style">,_) <+ ?AttributeInclude(_,_) <+ ?AttributeIgnore(_)); map(attr-to-collection-map-init)> attrs
         ; attrcolincludes := <filter(?AttributeInclude(_,_))> attrs
         ; attrcolincludesclass := <remove-all(where(?AttributeInclude(_, AttributeIncludeIgnore(<fetch(?"class")>))))> attrcolincludes // the fetch failing can also mean not a list, None() is used for no ignores
         ; attrcolincludesstyle := <remove-all(where(?AttributeInclude(_, AttributeIncludeIgnore(<fetch(?"style")>))))> attrcolincludes
         ; e_class := <if ?([],_) then Snd else (id, add-java-string-space-if-not-empty-java-string); foldl(add-java-expressions) end> (<map(attr-collection-include-to-class-expr); separate-by(|<java-string-space>)> attrcolincludesclass, e_classattr)
         ; e_style := <if ?([],_) then Snd else (id, add-java-string-space-if-not-empty-java-string); foldl(add-java-expressions) end> (<map(attr-collection-include-to-style-expr); separate-by(|<java-string-space>)> attrcolincludesstyle, e_styleattr)
         ; e_rest  := <if ?([],_) then Snd else foldl(add-java-expressions) end> (<map(attr-collection-include-to-expr)> attrcolincludes, java:expr|[ utils.TemplateCall.getAllAttributes(attrsmap) ]|)
-          
+        ; attrcolignores := <filter(?AttributeIgnore(<id>))> attrs
+        ; bstm_ignore* := <map(\x -> java:bstm|[  ignorecols.add("~x");  ]|\)> attrcolignores
+
   attr-collection-include-to-expr       : AttributeInclude(x_name, _) -> java:expr|[ AttributeCollectionLookup.getAttributeCollection("~x_name").getAttributes() ]|
   attr-collection-include-to-class-expr : AttributeInclude(x_name, _) -> java:expr|[ AttributeCollectionLookup.getAttributeCollection("~x_name").getClassAttribute() ]|
   attr-collection-include-to-style-expr : AttributeInclude(x_name, _) -> java:expr|[ AttributeCollectionLookup.getAttributeCollection("~x_name").getStyleAttribute() ]|
@@ -108,12 +115,13 @@ rules  // create lookup class that is always generated and handles overrides
         public static utils.AbstractAttributeCollection getAttributeCollection(String name){
           return attributeCollections.get(name);
         }
-       
-        public static void getAttributeCollection(String name, StringBuilder classAttr, StringBuilder styleAttr, java.util.List<String> ignore, java.io.PrintWriter out){
+
+        public static void getAttributeCollection(String name, StringBuilder classAttr, StringBuilder styleAttr, java.util.List<String> ignore, java.util.List<String> ignorecols, java.io.PrintWriter out){
           utils.AbstractAttributeCollection attrcol = getAttributeCollection(name);
           if(!ignore.contains("class")){ utils.TemplateCall.appendWithPadding(classAttr, attrcol.getClassAttribute()); }
           if(!ignore.contains("style")){ utils.TemplateCall.appendWithPadding(styleAttr, attrcol.getStyleAttribute()); }
           out.print(attrcol.getAttributes());
+          attrcol.addIgnoredCollections(ignorecols);
         }
 
       }
