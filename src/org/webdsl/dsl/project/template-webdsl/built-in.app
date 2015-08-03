@@ -819,6 +819,9 @@ htmlwrapper{
   block div[ class = "block" ]
   container span[ class = "container" ]
   groupitem tr
+  strong strong
+  emph em
+  code code
 }
 
 template block( s: String ){
