@@ -804,8 +804,6 @@ htmlwrapper{
   h4 h4
   h5 h5
   h6 h6
-  br br
-  break br
   div div
   span span
   table table
@@ -823,6 +821,10 @@ htmlwrapper{
   emph em
   code code
 }
+
+template br(){ <br all attributes> }
+
+template break(){ <br all attributes> }
 
 template block( s: String ){
   <div class = "block" class = s all attributes>
