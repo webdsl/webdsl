@@ -2229,9 +2229,13 @@ template input( s: ref URL ){
     elements
     validate{ getPage().leaveLabelContext(); }
   }
+  
   validate{
-    errors := s.getValidationErrors(); //only length annotation and property validations are relevant here, these are provided by getValidationErrors
-    errors.addAll( getPage().getValidationErrorsByName( id ) ); //nested validate elements
+    errors := checkURLWellformedness(req);
+    if( errors == null ){ // if no wellformedness errors, check datamodel validations
+      errors := s.getValidationErrors();
+      errors.addAll( getPage().getValidationErrorsByName( id ) ); //nested validate elements
+    }
     errors := handleValidationErrors( errors );
   }
 }
@@ -2879,8 +2883,57 @@ template inputajax( s: ref Secret ){
   inputajax( s as ref String )[ all attributes ]{ elements }
 }
 template inputajax( s: ref URL ){
-  inputajax( s as ref String )[ all attributes ]{ elements }
+  var req := getRequestParameter( id )
+  request var errors: [String] := null
+  inputURLInternal( s, id )[ oninput = validator(); "" + attribute("oninput")
+                             , all attributes except "oninput" ]
+  validate{ getPage().enterLabelContext( id ); }
+  elements
+  validate{ getPage().leaveLabelContext(); }
+  placeholder "validate" + id{
+    if( errors != null && errors.length > 0 ){
+      showMessages( errors )
+    }
+  }
+  validate{
+    errors := checkURLWellformedness( req );
+    if( errors == null ){
+      errors := s.getValidationErrors();
+      errors.addAll( getPage().getValidationErrorsByName( id ) );
+    }
+    if( errors.length > 0 ){
+      cancel();
+    }
+  }
+  action ignore-validation validator(){
+    errors := checkURLWellformedness( req );
+    if( errors == null ){
+      errors := s.getValidationErrors();
+      getPage().enterLabelContext( id );
+      validatetemplate( elements );
+      getPage().leaveLabelContext();
+      errors.addAll( getPage().getValidationErrorsByName( id ) );
+    }
+    if( errors.length > 0 ){
+      replace( "validate" + id, showMessages( errors ) );
+    }
+    else{
+      replace( "validate" + id, noMessages() );
+    }
+    rollback();
+  }
 }
+
+function checkURLWellformedness( req: String ): [String]{
+  var errors: [String] := null;
+    if( req != null ){
+      if( ! (req as URL).isValid() ){
+        errors := [ "Malformed URL, make sure the protocol (e.g. http:// or https://) is included" ];
+      }
+    }
+  return errors;
+}
+
 template inputajax( s: ref Text ){
   inputajax( s as ref String )[ all attributes ]{ elements }
 }

@@ -2,7 +2,7 @@ application exampleapp
 
 entity Ent {
   s::URL
-  validate(s.length() > 2, "length must be greater than 2")
+  validate(s.length() > 7, "length must be greater than 7")
 }
 
 var e1 := Ent{ s := "123" }
@@ -59,15 +59,27 @@ function commonTest(d:WebDriver){
  
   //correct values
   //defined input
-  inputDefinedCheck(d,"1234","1234</a>");
+  inputDefinedCheck(d,"http://abc.de","http://abc.de</a>");
+  inputDefinedCheck(d,"abc://1337.net","abc://1337.net</a>");
+  inputDefinedCheck(d,"http://例子.测试","http://例子.测试</a>");
+  inputDefinedCheck(d,"http://142.42.1.1:8080/","http://142.42.1.1:8080/</a>");
+  inputDefinedCheck(d,"https://www.example.com/foo/?bar=baz&inga=42&quux","https://www.example.com/foo/?bar=baz&inga=42&quux</a>");
   
   //trigger validation error for too long value
   //defined input
-  inputDefinedCheck(d,"123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234512345123451234512345123451234512345123451234512345X","exceeds maximum length");
+  inputDefinedCheck(d,"http://123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234512345123451234512345123451234512345123451234512345.X","exceeds maximum length");
   
   //trigger validation error for property validation (length > 2)
   //defined input
-  inputDefinedCheck(d,"a","length must be greater than 2");
+  inputDefinedCheck(d,"ftp://a","length must be greater than 7");
+  
+  //trigger validation error for malformed urls
+  inputDefinedCheck(d,"http://a.b--c.de/","Malformed URL");
+  inputDefinedCheck(d,"http://foo.bar/foo(bar)baz quux","Malformed URL");
+  inputDefinedCheck(d,":// should fail","Malformed URL");
+  inputDefinedCheck(d,"http://##/","Malformed URL");
+  inputDefinedCheck(d,"http://a.b--c.de/","Malformed URL");
+  inputDefinedCheck(d,"http://a.b--c.de/","Malformed URL");
 
 }
 
