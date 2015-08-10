@@ -39,6 +39,7 @@ import org.hibernate.search.FullTextQuery;
 import org.hibernate.search.FullTextSession;
 import org.hibernate.search.SearchFactory;
 import org.hibernate.search.query.dsl.QueryBuilder;
+import org.hibernate.search.query.dsl.RangeMatchingContext;
 import org.hibernate.search.query.dsl.RangeMatchingContext.FromRangeContext;
 import org.hibernate.search.query.dsl.RangeTerminationExcludable;
 import org.hibernate.search.query.dsl.impl.WebDSLFacetTool;
@@ -1325,7 +1326,11 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
 
     private Query createRangeQuery( QueryDef qd ) throws ParseException {
         QueryBuilder builder = getFullTextSession( ).getSearchFactory( ).buildQueryBuilder( ).forEntity( entityClass ).get( );
-        FromRangeContext<Object> fromContext = builder.range( ).onField( qd.fields[0] ).from( qd.min );
+        RangeMatchingContext fieldContext = builder.range( ).onField( qd.fields[0] );
+        for (int i = 1; i < qd.fields.length; i++) {
+			fieldContext = fieldContext.andField(qd.fields[i]);
+		}
+        FromRangeContext<Object> fromContext = fieldContext.from(qd.min);
         RangeTerminationExcludable toContext = qd.includeMin? fromContext.to( qd.max ) : fromContext.excludeLimit( ).to( qd.max );
         return qd.includeMax ? toContext.createQuery( ) : toContext.excludeLimit( ).createQuery( );
     }
