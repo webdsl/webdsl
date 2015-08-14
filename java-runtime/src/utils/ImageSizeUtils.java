@@ -1,140 +1,146 @@
 package utils;
 
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.Transparency;
-import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-
-import javax.imageio.ImageIO;
 
 import org.hibernate.Session;
 
 public class ImageSizeUtils {
-    public static BufferedImage getScaledInstance(BufferedImage img, int targetWidth,
-            int targetHeight, Object hint, boolean higherQuality) {
-        int type = (img.getTransparency() == Transparency.OPAQUE) ? BufferedImage.TYPE_INT_RGB
-                : BufferedImage.TYPE_INT_ARGB;
-        BufferedImage ret = (BufferedImage) img;
-        int w, h;
-        if (higherQuality) {
-            w = img.getWidth();
-            h = img.getHeight();
-        } else {
-            w = targetWidth;
-            h = targetHeight;
-        }
 
-        do {
-            if (higherQuality && w > targetWidth) {
-                w /= 2;
-                if (w < targetWidth) {
-                    w = targetWidth;
-                }
-            }
-            if (higherQuality && h > targetHeight) {
-                h /= 2;
-                if (h < targetHeight) {
-                    h = targetHeight;
-                }
-            }
-            BufferedImage tmp = new BufferedImage(w, h, type);
-            Graphics2D g2 = tmp.createGraphics();
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, hint);
-            g2.drawImage(ret, 0, 0, w, h, null);
-            g2.dispose();
-            ret = tmp;
-        } while (w != targetWidth || h != targetHeight);
+	private final static double JPG_QUALITY = 0.85;
 
-        return ret;
-    }
+	public static void resizeImage(Session session, utils.File file, int width,
+			int height) {
+		try {
+			// session.refresh(file);
+			javaxt.io.Image img = new javaxt.io.Image(file.getContentStream());
+			if (width == 0) {
+				width = img.getWidth();
+			}
+			if (height == 0) {
+				height = img.getHeight();
+			}
+			if (width > img.getWidth()) {
+				width = img.getWidth();
+			}
+			if (height > img.getHeight()) {
+				height = img.getHeight();
+			}
+			int newWidth;
+			int newHeight;
+			if ((float) height / (float) img.getHeight() > (float) width
+					/ (float) img.getWidth()) {
+				float factor = (float) width / (float) img.getWidth();
+				newWidth = (int) (Math.round(factor * (float) img.getWidth()));
+				newHeight = (int) (Math.round(factor * (float) img.getHeight()));
+			} else {
+				float factor = (float) height / (float) img.getHeight();
+				newWidth = (int) (Math.round(factor * (float) img.getWidth()));
+				newHeight = (int) (Math.round(factor * (float) img.getHeight()));
+			}
 
-    public static void resizeImage(Session session, utils.File file, int width, int height) {
-        try {
-//            session.refresh(file);
-            BufferedImage img = ImageIO.read(file.getContentStream());
-            if(width == 0) {
-                width = img.getWidth();
-            }
-            if(height == 0) {
-                height = img.getHeight();
-            }
-            if(width > img.getWidth()) {
-                width = img.getWidth();
-            }
-            if(height > img.getHeight()) {
-                height = img.getHeight();
-            }
-            if((float)height/(float)img.getHeight() > (float)width/(float)img.getWidth()) {
-                float factor = (float)width/(float)img.getWidth();
-                int newWidth=(int)(Math.round( factor*(float)img.getWidth() ));
-                int newHeight=(int)(Math.round( factor*(float)img.getHeight() ));
-                img = getScaledInstance(img, newWidth, newHeight, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
-            } else {
-                float factor = (float)height/(float)img.getHeight();
-                int newWidth=(int)(Math.round( factor*(float)img.getWidth() ));
-                int newHeight=(int)(Math.round( factor*(float)img.getHeight() ));
-                img = getScaledInstance(img, newWidth, newHeight, RenderingHints.VALUE_INTERPOLATION_BILINEAR, true);
-            }
-            
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            if(file.getFileName().endsWith(".png")) {
-                ImageIO.write(img, "png", out);
-            } else {
-                ImageIO.write(img, "jpg", out);
-            }
-            file.setContentStream(new ByteArrayInputStream(out.toByteArray()));
-            if(!file.getFileName().endsWith(".png")) {
-                file.setContentType("image/jpeg");
-            }
-            session.flush();
-        } catch(Exception e) {
-            org.webdsl.logging.Logger.error("EXCEPTION",e);
-        }
-    }
-    
-    public static void cropImage(Session session, utils.File file, int x, int y, int width, int height) {
-        try {
-//            session.refresh(file);
-            BufferedImage img = ImageIO.read(file.getContentStream());
-            img = img.getSubimage(x, y, width, height);
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            if(file.getFileName().endsWith(".png")) {
-                ImageIO.write(img, "png", out);
-            } else {
-                ImageIO.write(img, "jpg", out);
-            }
-            file.setContentStream(new ByteArrayInputStream(out.toByteArray()));
-            if(!file.getFileName().endsWith(".png")) {
-                file.setContentType("image/jpeg");
-            }
-            session.flush();
-        } catch(Exception e) {
-            org.webdsl.logging.Logger.error("EXCEPTION",e);
-        }
-    }
-    
-    
-    public static int getWidth(Session session, utils.File file) {
-        try {
-//            session.refresh(file);
-            BufferedImage img = ImageIO.read(file.getContentStream());
-            return img.getWidth();
-        } catch(Exception e) {
-            org.webdsl.logging.Logger.error("EXCEPTION",e);
-            return 0;
-        }
-    }
+			img.resize(newWidth, newHeight, true);
+			img.setOutputQuality(JPG_QUALITY);
+			writeImageToFile(img, file);
+			session.flush();
+		} catch (Exception e) {
+			org.webdsl.logging.Logger.error("EXCEPTION", e);
+		}
+	}
 
-    public static int getHeight(Session session, utils.File file) {
-        try {
-//            session.refresh(file);
-            BufferedImage img = ImageIO.read(file.getContentStream());
-            return img.getHeight();
-        } catch(Exception e) {
-            org.webdsl.logging.Logger.error("EXCEPTION",e);
-            return 0;
-        }
-    }
+	private static void writeImageToFile(javaxt.io.Image img, utils.File file) {
+		javaxt.io.File xtFile = new javaxt.io.File(file.getFileName());
+		String extension = xtFile.getExtension();
+		try {
+			if (extension != "") {
+				file.setContentStream(new ByteArrayInputStream(img
+						.getByteArray(extension)));
+				file.setContentType(xtFile.getContentType());
+			} else {
+				file.setContentStream(new ByteArrayInputStream(img
+						.getByteArray()));
+				file.setContentType("image/jpeg");
+			}
+		} catch (Exception e) {
+			org.webdsl.logging.Logger.error("EXCEPTION", e);
+		}
+	}
+
+	public static void cropImage(Session session, utils.File file, int x,
+			int y, int width, int height) {
+		try {
+			// session.refresh(file);
+			javaxt.io.Image img = new javaxt.io.Image(file.getContentStream());
+			img.crop(x, y, width, height);
+			img.setOutputQuality(90);
+			writeImageToFile(img, file);
+			session.flush();
+		} catch (Exception e) {
+			org.webdsl.logging.Logger.error("EXCEPTION", e);
+		}
+	}
+
+	public static int getWidth(Session session, utils.File file) {
+		try {
+			// session.refresh(file);
+			javaxt.io.Image img = new javaxt.io.Image(file.getContentStream());
+			return img.getWidth();
+		} catch (Exception e) {
+			org.webdsl.logging.Logger.error("EXCEPTION", e);
+			return 0;
+		}
+	}
+
+	// private static List<Class<?>> loadedPluginClasses = new
+	// ArrayList<Class<?>>();
+	// public static void unloadPlugins(){
+	// IIORegistry registry = IIORegistry.getDefaultInstance();
+	// for (Class<?> cl : loadedPluginClasses) {
+	// Object spi = registry.getServiceProviderByClass(cl);
+	// if (spi != null) {
+	// registry.deregisterServiceProvider(spi);
+	// }
+	// }
+	// }
+	// static{
+	// ImageIO.scanForPlugins();
+	// String names[] = ImageIO.getReaderFormatNames();
+	// for (String name : names) {
+	// Iterator<ImageReader> readers = ImageIO.
+	// getImageReadersByFormatName(name);
+	// while (readers.hasNext()) {
+	// ImageReader reader = readers.next();
+	// if(reader.getClass().getPackage().getName().startsWith("com.twelvemonkeys.imageio.plugins")){
+	// loadedPluginClasses.add(reader.getClass());
+	// }
+	// System.out.println("***************************** reader: " + reader);
+	// }
+	// }
+	//
+	//
+	// names = ImageIO.getWriterFormatNames();
+	// for (String name : names) {
+	// Iterator<ImageWriter> writers = ImageIO.
+	// getImageWritersByFormatName(name);
+	// while (writers.hasNext()) {
+	// ImageWriter writer = writers.next();
+	// if(writer.getClass().getPackage().getName().startsWith("com.twelvemonkeys.imageio.plugins")){
+	// loadedPluginClasses.add(writer.getClass());
+	// }
+	// System.out.println("***************************** writer: " + writer);
+	// }
+	// }
+	//
+
+	// }
+
+	public static int getHeight(Session session, utils.File file) {
+		try {
+			javaxt.io.Image img = new javaxt.io.Image(file.getContentStream());
+			// session.refresh(file);
+			return img.getHeight();
+		} catch (Exception e) {
+			org.webdsl.logging.Logger.error("EXCEPTION", e);
+			return 0;
+		}
+	}
 }
