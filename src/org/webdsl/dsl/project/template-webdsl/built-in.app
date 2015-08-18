@@ -573,6 +573,25 @@ function handleValidationErrors( errors: [String] ): [String]{
   return result;
 }
 
+// section XML
+native class org.w3c.dom.Document as XMLDocument{
+	org.webdsl.xml.XMLUtil.getElementsByTagName as getElementsByTagName(String) : List<XMLNode>
+	org.webdsl.xml.XMLUtil.getElementsByXPath as getElementsByXPath(String) : List<XMLNode>
+}
+
+native class org.w3c.dom.Node as XMLNode{
+	org.webdsl.xml.XMLUtil.getElementsByTagName as getElementsByTagName(String) : List<XMLNode>
+	org.webdsl.xml.XMLUtil.getElementsByXPath as getElementsByXPath(String) : List<XMLNode>
+	javaxt.xml.DOM.getNodeValue as getVal() : String
+	org.webdsl.xml.XMLUtil.getText as getVal(String) : String
+	javaxt.xml.DOM.getAttributeValue as getAttrVal(String) : String
+	
+}
+
+type String{
+	javaxt.xml.DOM.createDocument as asXMLDocument() : XMLDocument
+}
+
 //  section JSON for services
 
 native class org.json.JSONObject as JSONObject{
