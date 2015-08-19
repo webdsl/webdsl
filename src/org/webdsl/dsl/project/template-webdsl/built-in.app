@@ -439,6 +439,7 @@ type Email{
 
 type URL{
   utils.URLType.isValid as isValid(): Bool
+  utils.URLType.download as download(): File
 }
 
 type File{
