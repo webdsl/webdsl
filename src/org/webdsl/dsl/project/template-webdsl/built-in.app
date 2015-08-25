@@ -447,12 +447,14 @@ type File{
   getContentType(): String
   setContentType( String )
   getFileName(): String
+  delete() : File
 }
 type Image{
   getContentAsString(): String
   getContentType(): String
   setContentType( String )
   getFileName(): String
+  delete() : File
 }
 
 // access to servlet context
@@ -1680,7 +1682,7 @@ function updateListRequest( request: String, list: [Entity], selectfrom: [Entity
   if( request == null ){ // nothing submitted
     return list;
   }
-  var elementids := request.split( ", " );
+  var elementids := request.split( "," );
   var options := List<Entity>();
   options.addAll( list );
   options.addAll( selectfrom );

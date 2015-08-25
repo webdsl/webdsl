@@ -129,6 +129,10 @@ import javax.persistence.Id;
       newF.setContentType(contentType);
       return newF;
   }
+  public File delete(){
+      HibernateUtil.getCurrentSession().delete(this);
+      return this;
+    }
   
   /* 
    * http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types
