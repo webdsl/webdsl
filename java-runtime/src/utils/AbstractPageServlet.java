@@ -388,11 +388,11 @@ public abstract class AbstractPageServlet{
     	// redirect in init action can be triggered with GET request, the render call in the line above will execute such inits
     	if( !isPostRequest() && isRedirected() ){
     		redirect();
-    		cache.invalidate(key); 
+    		if(cache != null){ cache.invalidate(key); } 
     	}
     	else if( download != null ){ //File.download() executed in page/template init block
     		download();
-    		cache.invalidate(key); // don't cache binary file response in this page response cache, can be cached on client with expires header
+    		if(cache != null){ cache.invalidate(key); } // don't cache binary file response in this page response cache, can be cached on client with expires header
     	}
     	else{
     		response.setContentType(getMimetype());
