@@ -467,7 +467,7 @@ public abstract class AbstractPageServlet{
     	if( ! isInForm() ){
     		ThreadLocalOut.peek().print("<span id=" + submitId + ">");
     	}
-    	if( ! inSubmittedForm && request.getParameter(submitId) != null && validationFormRerender ){
+    	if( ! inSubmittedForm && validationFormRerender && request != null && request.getParameter(submitId) != null ){
     		submittedFormId = submitId;
     		submitWrapSW = new java.io.StringWriter();
     		submitWrapOut = new java.io.PrintWriter(submitWrapSW);
@@ -475,7 +475,7 @@ public abstract class AbstractPageServlet{
     	}
     }
     public void submitWrapCloseHelper(){
-    	if( ! inSubmittedForm && submitWrapSW != null && validationFormRerender ){
+    	if( ! inSubmittedForm && validationFormRerender && submitWrapSW != null ){
     		ThreadLocalOut.pop();
     		submittedFormContent = submitWrapSW.toString();
     		submitWrapSW = null;
