@@ -170,8 +170,9 @@ public abstract class AbstractPageServlet{
             }
             //actionLink or ajax action used (request came through js runtime), and action failed
             else if( isActionLinkUsed() || isAjaxRuntimeRequest() ){
+              validationFormRerender = true;
               StringWriter s1 = renderPageOrTemplateContents();
-              response.getWriter().write("[{action:\"replaceall\", value:\""+ org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) +"\"}]");
+              response.getWriter().write("[{action:\"replace\", id:\"" + submittedFormId + "\", value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");
             }
             // 1 regular render without any action being executed
             // 2 regular action submit, and action failed
@@ -457,7 +458,33 @@ public abstract class AbstractPageServlet{
         return validationFormRerender;
     }
     public String submittedFormContent = null;
+    public String submittedFormId = null;
     
+    // helper methods that enable a submit without enclosing form to be ajax-refreshed when validation error occurs
+    protected StringWriter submitWrapSW;
+    protected PrintWriter submitWrapOut;
+    public void submitWrapOpenHelper(String submitId){
+    	if( ! isInForm() ){
+    		ThreadLocalOut.peek().print("<span id=" + submitId + ">");
+    	}
+    	if( ! inSubmittedForm && request.getParameter(submitId) != null && validationFormRerender ){
+    		submittedFormId = submitId;
+    		submitWrapSW = new java.io.StringWriter();
+    		submitWrapOut = new java.io.PrintWriter(submitWrapSW);
+    		ThreadLocalOut.push(submitWrapOut);
+    	}
+    }
+    public void submitWrapCloseHelper(){
+    	if( ! inSubmittedForm && submitWrapSW != null && validationFormRerender ){
+    		ThreadLocalOut.pop();
+    		submittedFormContent = submitWrapSW.toString();
+    		submitWrapSW = null;
+    	}
+    	if( ! isInForm() ){
+    		ThreadLocalOut.peek().print("</span>");
+    	}
+    }
+
 	private static String common_css_link_tag_suffix;
 	private static String fav_ico_link_tag_suffix;
 	private static String ajax_js_include_name;

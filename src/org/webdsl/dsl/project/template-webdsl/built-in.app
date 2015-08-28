@@ -507,6 +507,8 @@ native class AbstractPageServlet as PageServlet{
   enableDownloadInline()
   addReRenderPlaceholders( String )
   addBodyAttribute( String, String )
+  submitWrapOpenHelper( String )
+  submitWrapCloseHelper()
 }
 function getPage(): PageServlet{
   return PageServlet.getRequestedPage();
@@ -959,6 +961,7 @@ native class org.webdsl.lang.ReflectionProperty as ReflectionProperty{
 //validation wrapper for submit and submitlink
 
 template wrapsubmit( tname: String ) requires s( String ){
+  render{ getPage().submitWrapOpenHelper( tname ); }
   if( getValidationErrorsByName( tname ).length > 0 ){
     errorTemplateAction( getValidationErrorsByName( tname ) ){
       s( tname )
@@ -967,6 +970,7 @@ template wrapsubmit( tname: String ) requires s( String ){
   else{
     s( tname )
   }
+  render{ getPage().submitWrapCloseHelper(); }
 }
 
 //reused when elements are empty
