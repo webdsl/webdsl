@@ -461,7 +461,8 @@ type Image{
 
 native class AbstractDispatchServletHelper as DispatchServlet{
   getIncomingSuccessMessages(): [String]
-  clearIncomingSuccessMessages()
+  getOutgoingSuccessMessages(): [String]
+  clearSuccessMessages()
   getRequest(): HttpServletRequest
   static get(): DispatchServlet
   getBaseUrl(): String
@@ -3361,7 +3362,8 @@ template messages(){
   request var list: [String] := List<String>()
   render{
     list.addAll( getDispatchServlet().getIncomingSuccessMessages() );
-    getDispatchServlet().clearIncomingSuccessMessages();
+    list.addAll( getDispatchServlet().getOutgoingSuccessMessages() ); //in case there are new messages created within this request
+    getDispatchServlet().clearSuccessMessages();    
   }
   if( list.length > 0 ){
     templateSuccess( list )

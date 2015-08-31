@@ -130,8 +130,9 @@ public abstract class AbstractDispatchServletHelper{
     return incomingSuccessMessages;
   }
   
-  public void clearIncomingSuccessMessages() {
+  public void clearSuccessMessages() {
     incomingSuccessMessages.clear();
+    outgoingSuccessMessages.clear();
   }
 
   protected List<String> outgoingSuccessMessages = new java.util.LinkedList<String>();
@@ -139,7 +140,7 @@ public abstract class AbstractDispatchServletHelper{
   public List<String> getOutgoingSuccessMessages() {
     return outgoingSuccessMessages;
   }
-
+  
   public abstract void storeOutgoingMessagesInHttpSession();
   public abstract void retrieveIncomingMessagesFromHttpSession();
   
