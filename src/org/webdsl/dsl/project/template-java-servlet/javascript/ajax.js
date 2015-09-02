@@ -105,17 +105,29 @@ function newRequest()
 }
 
 function findEnclosingPlaceholder(thisobject){
-    current = thisobject;
-    result = null;
-    while(current != null && result == null) {
-      if (current.className && current.className.indexOf("webdsl-placeholder") != -1) {
-          result = current;
-      }
-      else{
-          current = current.parentNode;
-      }
+  current = thisobject;
+  result = null;
+  while(current != null && result == null) {
+    if (current.className && current.className.indexOf("webdsl-placeholder") != -1) {
+      result = current;
     }
-    return result;
+    else{
+      current = current.parentNode;
+    }
+  }
+  return result;
+}
+
+function findOuterEnclosingElement(thisobject, attrname, value){
+  current = thisobject;
+  result = null;
+  while(current != null && current.tagName != "HTML"){
+    if(current.getAttribute(attrname) == value){
+      result = current;
+    }
+    current = current.parentNode;
+  }
+  return result;
 }
 
 function findElementById(thisobject, id)
@@ -357,23 +369,31 @@ function replaceall(command) {
 function replace(command, thisobject)
 {
     var theNode;
+    
     if(command.id.type == "enclosing-placeholder"){
         theNode = findEnclosingPlaceholder(thisobject);
+    }
+    else if(command.id.submitid){
+        theNode = findOuterEnclosingElement(thisobject, "submitid", command.id.submitid);
+        command.id = "this";
     }
     else{
         theNode = findElementById(thisobject, command.id);
     }
-    if (command.id != "this")
-      theNode.innerHTML = command.value;
-    else //this has other semantics
+    
+    if (command.id != "this"){
+        theNode.innerHTML = command.value;
+    } 
+    else
     {
-      var newElem = document.createElement("tmp");
-      newElem.innerHTML = command.value;
-      theNode.parentNode.replaceChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
-      //note that this might break with no template based replacements
-      theNode = newElem.childNodes[0];
+        var newElem = document.createElement("tmp");
+        newElem.innerHTML = command.value;
+        var parent = theNode.parentNode;
+        var index = Array.prototype.indexOf.call(parent.children, theNode);
+        parent.replaceChild(newElem.childNodes[0], theNode);
+        theNode = parent.childNodes[index];
     }
-
+    
     ajax_post_process(theNode);
 }
 

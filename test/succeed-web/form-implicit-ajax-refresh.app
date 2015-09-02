@@ -11,6 +11,7 @@ page root(){
     submitlink action{}{ "save" }
   }
   submitlink action{ validate(false, "error-not-in-form"); }{ "save" }
+  submit action{ validate(false, "error-button-not-in-form"); }{ "save" }
 }
 
 test{
@@ -27,4 +28,10 @@ test{
   assert( i0.isEnabled() );
   assert( d.getPageSource().contains( "Not a valid number" ) );
   assert( d.getPageSource().contains( "error-not-in-form" ) );
+  
+  d.getSubmits()[ 2 ].click();
+  assert( i0.isEnabled() );
+  assert( d.getPageSource().contains( "Not a valid number" ) );
+  assert( d.getPageSource().contains( "error-not-in-form" ) );
+  assert( d.getPageSource().contains( "error-button-not-in-form" ) );
 }

@@ -172,7 +172,12 @@ public abstract class AbstractPageServlet{
             else if( isActionLinkUsed() || isAjaxRuntimeRequest() ){
               validationFormRerender = true;
               StringWriter s1 = renderPageOrTemplateContents();
-              response.getWriter().write("[{action:\"replace\", id:\"" + submittedFormId + "\", value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");
+              if(submittedFormId != null){
+                response.getWriter().write("[{action:\"replace\", id:\"" + submittedFormId + "\", value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");
+              }
+              else{
+            	response.getWriter().write("[{action:\"replace\", id:{submitid:'" + submittedSubmitId + "'}, value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");  
+              }
             }
             // 1 regular render without any action being executed
             // 2 regular action submit, and action failed
@@ -459,29 +464,26 @@ public abstract class AbstractPageServlet{
     }
     public String submittedFormContent = null;
     public String submittedFormId = null;
+    public String submittedSubmitId = null;
     
     // helper methods that enable a submit without enclosing form to be ajax-refreshed when validation error occurs
     protected StringWriter submitWrapSW;
     protected PrintWriter submitWrapOut;
     public void submitWrapOpenHelper(String submitId){
-    	if( ! isInForm() ){
-    		ThreadLocalOut.peek().print("<span id=" + submitId + ">");
-    	}
     	if( ! inSubmittedForm && validationFormRerender && request != null && request.getParameter(submitId) != null ){
-    		submittedFormId = submitId;
+    		submittedSubmitId = submitId;
     		submitWrapSW = new java.io.StringWriter();
     		submitWrapOut = new java.io.PrintWriter(submitWrapSW);
     		ThreadLocalOut.push(submitWrapOut);
+    		ThreadLocalOut.peek().print("<span submitid=" + submitId + ">");
     	}
     }
     public void submitWrapCloseHelper(){
     	if( ! inSubmittedForm && validationFormRerender && submitWrapSW != null ){
+    		ThreadLocalOut.peek().print("</span>");
     		ThreadLocalOut.pop();
     		submittedFormContent = submitWrapSW.toString();
     		submitWrapSW = null;
-    	}
-    	if( ! isInForm() ){
-    		ThreadLocalOut.peek().print("</span>");
     	}
     }
 
