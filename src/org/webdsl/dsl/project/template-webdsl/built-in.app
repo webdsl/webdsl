@@ -88,8 +88,8 @@ function internalUpdateSessionManagerTimeout(){
 }
 
 function internalCleanupSessionManagerEntities(){
-  var sessiontimeout := 10000; //minutes
-  var n: DateTime := now().addMinutes( -1 * sessiontimeout );
+  var sessiontimeout := 6; //months
+  var n: DateTime := now().addMonths( -1 * sessiontimeout );
   var ses := from SessionManager as sc where sc.lastUse is null or sc.lastUse < ~n limit 25; //use limit to avoid loading all obsolete entities in one transaction
   for( s: SessionManager in ses ){
     s.delete();
