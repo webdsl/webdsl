@@ -66,5 +66,9 @@ public class StringType {
         }
         return list;
     }
+    
+    public static Float similarity(String s1, String s2){
+    	return new Float(org.apache.commons.lang3.StringUtils.getJaroWinklerDistance(s1, s2));
+    }
 
 }
