@@ -143,8 +143,9 @@ public abstract class AbstractPageServlet{
         else {
           // regular render, or failed action render
           if( hasNotExecutedAction() || isNotValid() ){
-            //ajax replace performed during validation, assuming that handles all validation
-            if(isAjaxRuntimeRequest() && outstream.length() > 0){
+            // ajax replace performed during validation, assuming that handles all validation
+        	// all inputajax templates use rollback() to prevent making actual changes -> check for isRollback()
+            if(isAjaxRuntimeRequest() && outstream.length() > 0 && isRollback()){
               response.getWriter().write("[");
               response.getWriter().write(outstream);
               if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
