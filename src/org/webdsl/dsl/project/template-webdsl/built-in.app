@@ -511,12 +511,14 @@ native class AbstractPageServlet as PageServlet{
   addBodyAttribute( String, String )
   submitWrapOpenHelper( String )
   submitWrapCloseHelper()
+  actionHasAjaxPageUpdates: Bool
 }
 function getPage(): PageServlet{
   return PageServlet.getRequestedPage();
 }
 function replace( ph: String ){
-  getPage().addReRenderPlaceholders(ph);
+  getPage().addReRenderPlaceholders( ph );
+  getPage().actionHasAjaxPageUpdates := true;
 }
 
 native class utils.TemplateContext as TemplateContext{
