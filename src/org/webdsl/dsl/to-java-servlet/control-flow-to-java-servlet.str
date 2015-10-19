@@ -99,7 +99,7 @@ rules // iteration
                            ]| end
 
   control-flow-for(s|) :
-    For(x, srt, e1, fltr, elems, sep) -> result
+    For(x, srt, e1, fltr, elems, sep){anno*} -> result
     where <not(?TemplateVarArgSortInner(_))> srt
     with  bstm* := <s;concat-with-sublists> elems
         ; e2 := <expression-to-java-servlet> e1
@@ -121,14 +121,14 @@ rules // iteration
                             java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e_expr);
                             bstm_disable*
                             bstm_early*
-                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*)> bstm* |[
+                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*, anno*)> bstm* |[
                               bstm*
                             ]|
                           ]| end
 
   // template var arg
   control-flow-for(s|) :
-    For(x, TemplateVarArgSortInner(_), e1, fltr, elems, sep) -> result
+    For(x, TemplateVarArgSortInner(_), e1, fltr, elems, sep){anno*} -> result
     with  bstm* := <s;concat-with-sublists> elems
         ; e2 := <expression-to-java-servlet> e1
         ; srt := TemplateVarArgSort([])
@@ -140,7 +140,7 @@ rules // iteration
           then result :=  []
           else result :=  bstm* |[
                             t x_list = e2;
-                            ~*<control-flow-for-common(s | x_list, x, srt, t_inner, fltr, sep, [])> bstm* |[
+                            ~*<control-flow-for-common(s | x_list, x, srt, t_inner, fltr, sep, [], anno*)> bstm* |[
                               bstm*
                             ]|
                           ]| end
@@ -168,7 +168,7 @@ rules // iteration
       end
 
   control-flow-for(s|) :
-    fa@ForAll(x, srt, fltr, elems, sep) -> result
+    fa@ForAll(x, srt, fltr, elems, sep){anno*} -> result
     with  bstm*   := <s;concat-with-sublists> elems
         ; t       := <java-type> srt
         ; x_list := <newname> "list"
@@ -180,12 +180,12 @@ rules // iteration
           else result :=  bstm* |[
                             java.util.List<t> x_list = e_criteria.list();
                             bstm_early*
-                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*)> bstm*|[
+                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*, anno*)> bstm*|[
                               bstm*
                             ]|
                           ]| end
 
-  control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*) :
+  control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*, anno*) :
     bstm* ->
     bstm* |[
       inForLoop = true;
@@ -193,8 +193,9 @@ rules // iteration
       bstm_order*
       bstm_batch*
       int x_separatorindex = 0;
+      bstm_cachecontrolflow*
       ~*<control-flow-for-separator(s|sep, x_separatorindex)
-         ;wrap-in-for-loop(|x,t,expr|[ x_list ]|)>
+         ;wrap-in-for-loop(|x,t,expr|[ x_forcol ]|)>
         bstm* |[
           fallbackcounter += 1;
           if(org.webdsl.WebDSLEntity.class.isInstance(x)) {
@@ -220,6 +221,8 @@ rules // iteration
     with  bstm_order* := <for-filter-by-code(|x, srt, t, x_list)> fltr
         ; x_separatorindex := <newname> "separatorindex"
         ; x_ent := <newname> "temp"
+        ; x_forcol := <newname> "forcol"
+        ; bstm_cachecontrolflow* := <cache-control-flow(|expr|[ x_list ]|, x_forcol, java:type|[ java.util.List<t> ]|, anno*)>
 
   control-flow-for-separator(s|sep, x_separatorindex) :
     bstm* -> bstm*
@@ -239,28 +242,50 @@ rules // iteration
                               x_separatorindex++;
                           ]| end
 
+rules // control flow caching
+
+  cache-control-flow(|e1, x_var, t, anno*) =
+  	with( x_type := <java-type-to-java-name> t 
+  	    ; x_ident := <get-controlflownumber-from-anno> anno*)
+  ; !bstm* |[ 
+	  t x_var;
+	  if(RENDER_PHASE == phase || DATABIND_PHASE == phase){
+	    x_var = e1;
+	    if(DATABIND_PHASE == phase){
+	      getTemplatecalls().put("~x_ident" + forelementcounter, x_var);
+	    }
+	  }
+	  else{
+	    x_var = (x_type) getTemplatecalls().get("~x_ident" + forelementcounter);
+	  }
+    ]|
+
 rules // if
 
   element-to-java-servlet =
     control-flow-if(elements-to-java-servlet|)
 
   control-flow-if(s|) :
-    IfTempl(e, elems, elems2) -> result
+    IfTempl(e, elems, elems2){anno*} -> result
     with  bstm* := <s;concat-with-sublists> elems
         ; bstm2* := <s;concat-with-sublists> elems2
         ; e1 := <expression-to-java-servlet> e
+        ; x_if := <newname> "if"
         ; if <?([],[])> (bstm*,bstm2*)
           then result :=  []
-          else if <?[]> bstm2*
+          else bstm_cachecontrolflow* := <cache-control-flow(|e1, x_if, java:type|[ boolean ]|, anno*)>
+          	 ; if <?[]> bstm2*
                then result :=
-                 bstm |[
-                   if(e1){
+                 bstm* |[
+                   bstm_cachecontrolflow*
+                   if( x_if ){
                      bstm*
                    }
                  ]|
                else result :=
-                 bstm |[
-                   if(e1){
+                 bstm* |[
+                   bstm_cachecontrolflow*
+                   if( x_if ){
                      bstm*
                    }
                    else{
