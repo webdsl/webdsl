@@ -115,16 +115,16 @@ rules // iteration
         ; (bstm_early*, bstm_batch*) := <get-for-loop-prefetch(|e_HibSession, x_list, srt) <+ !([], [])> prefetch
         ; if <?[]> bstm*
           then result :=  []
-          else result :=  bstm* |[
-                            java.util.Collection<? extends reft> x_expr = e2; // e2 is executed before bstm_enable*, because e_expr may be a function call and the filter should not be applied to every fetch of type t in such a function, but only on the returned collection
-                            bstm_enable*
-                            java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e_expr);
-                            bstm_disable*
-                            bstm_early*
-                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*, anno*)> bstm* |[
-                              bstm*
-                            ]|
-                          ]| end
+          else bstm_initcode* := 
+          	     bstm* |[
+                   java.util.Collection<? extends reft> x_expr = e2; // e2 is executed before bstm_enable*, because e_expr may be a function call and the filter should not be applied to every fetch of type t in such a function, but only on the returned collection
+                   bstm_enable*
+                   java.util.ArrayList<t> x_list = new java.util.ArrayList<t>(e_expr);
+                   bstm_disable*
+                   bstm_early*
+                 ]|
+             ; result := <control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*, anno*, bstm_initcode*)> bstm* 
+          end
 
   // template var arg
   control-flow-for(s|) :
@@ -138,12 +138,12 @@ rules // iteration
         ; x_list := <newname> "list"
         ; if <?[]> bstm*
           then result :=  []
-          else result :=  bstm* |[
-                            t x_list = e2;
-                            ~*<control-flow-for-common(s | x_list, x, srt, t_inner, fltr, sep, [], anno*)> bstm* |[
-                              bstm*
-                            ]|
-                          ]| end
+          else bstm_initcode* := 
+          	     bstm* |[
+          	       t x_list = e2;
+          	     ]|
+          	 ; result := <control-flow-for-common(s | x_list, x, srt, t_inner, fltr, sep, [], anno*, bstm_initcode*)> bstm* 
+          end
 
   get-for-loop-prefetch(|e_LocalHibSession, x_list, srt) :
     prefetch{anno*} -> (bstm_early*, bstm_batch*)
@@ -177,21 +177,19 @@ rules // iteration
         ; (bstm_early*, bstm_batch*) := <get-for-all-loop-prefetch(|e_HibSession, x_list, srt) <+ !([], [])> prefetch
         ; if <?[]> bstm*
           then result :=  []
-          else result :=  bstm* |[
-                            java.util.List<t> x_list = e_criteria.list();
-                            bstm_early*
-                            ~*<control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*, anno*)> bstm*|[
-                              bstm*
-                            ]|
-                          ]| end
+          else bstm_initcode* := 
+          	     bstm* |[
+                   java.util.List<t> x_list = e_criteria.list();
+                   bstm_early*
+                 ]|
+             ; result := <control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*, anno*, bstm_initcode*)> bstm*
+          end
 
-  control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*, anno*) :
+  control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*, anno*, bstm_initcode*) :
     bstm* ->
     bstm* |[
       inForLoop = true;
       forLoopCounter++;
-      bstm_order*
-      bstm_batch*
       int x_separatorindex = 0;
       bstm_cachecontrolflow*
       ~*<control-flow-for-separator(s|sep, x_separatorindex)
@@ -222,7 +220,8 @@ rules // iteration
         ; x_separatorindex := <newname> "separatorindex"
         ; x_ent := <newname> "temp"
         ; x_forcol := <newname> "forcol"
-        ; bstm_cachecontrolflow* := <cache-control-flow(|expr|[ x_list ]|, x_forcol, java:type|[ java.util.List<t> ]|, anno*)>
+        ; bstm_initcf* := [ bstm_initcode*, bstm_order*, bstm_batch* ]
+        ; bstm_cachecontrolflow* := <cache-control-flow(|expr|[ x_list ]|, x_forcol, java:type|[ java.util.List<t> ]|, anno*, bstm_initcf*)>
 
   control-flow-for-separator(s|sep, x_separatorindex) :
     bstm* -> bstm*
@@ -244,20 +243,18 @@ rules // iteration
 
 rules // control flow caching
 
-  cache-control-flow(|e1, x_var, t, anno*) =
+  cache-control-flow(|e1, x_var, t, anno*, bstm_initcf*) =
   	with( x_type := <java-type-to-java-name> t 
   	    ; x_ident := <get-controlflownumber-from-anno> anno*)
   ; !bstm* |[ 
-	  t x_var;
-	  if(RENDER_PHASE == phase || DATABIND_PHASE == phase){
-	    x_var = e1;
-	    if(DATABIND_PHASE == phase){
+      t x_var = null;
+      if( RENDER_PHASE == phase || (x_var = (x_type) getTemplatecalls().get("~x_ident" + forelementcounter)) == null ){
+        bstm_initcf*
+        x_var = e1;
+	    if( RENDER_PHASE != phase ){  
 	      getTemplatecalls().put("~x_ident" + forelementcounter, x_var);
-	    }
-	  }
-	  else{
-	    x_var = (x_type) getTemplatecalls().get("~x_ident" + forelementcounter);
-	  }
+        }
+      }
     ]|
 
 rules // if
@@ -273,7 +270,7 @@ rules // if
         ; x_if := <newname> "if"
         ; if <?([],[])> (bstm*,bstm2*)
           then result :=  []
-          else bstm_cachecontrolflow* := <cache-control-flow(|e1, x_if, java:type|[ boolean ]|, anno*)>
+          else bstm_cachecontrolflow* := <cache-control-flow(|e1, x_if, java:type|[ Boolean ]|, anno*, [])>
           	 ; if <?[]> bstm2*
                then result :=
                  bstm* |[
