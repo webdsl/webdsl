@@ -450,6 +450,9 @@ type File{
   getFileName(): String
   delete() : File
 }
+type String{
+  utils.File.createFromString as asFile( String ): File
+}
 type Image{
   getContentAsString(): String
   getContentType(): String

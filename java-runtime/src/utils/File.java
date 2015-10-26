@@ -1,7 +1,9 @@
 package utils;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -68,6 +70,24 @@ import javax.persistence.Id;
             throws java.io.IOException
   {
     setContent( org.hibernate.Hibernate.createBlob( sourceStream ) );
+  }
+  
+  public void setContentFromString(String s) throws java.io.IOException{
+    setContentStream(new ByteArrayInputStream(s.getBytes(StandardCharsets.UTF_8)));
+  }
+  
+  public static File createFromString(String s, String fileName){
+	try{
+	  utils.File file = new utils.File();
+	  file.setContentFromString(s);
+	  file.setContentType("text/plain");
+	  file.setFileName(fileName);
+	  return file;
+	}
+	catch(java.io.IOException e){
+	  e.printStackTrace();
+	  return null;
+	}
   }
   
   public String getContentAsString(){
