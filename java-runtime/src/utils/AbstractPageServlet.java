@@ -193,7 +193,6 @@ public abstract class AbstractPageServlet{
             // actionLink or ajax action used and replace(placeholder) invoked
             if( isReRenderPlaceholders() ){
                 response.getWriter().write( "[" );
-                response.getWriter().write( outstream ); // other ajax updates, such as clear(ph)
                 templateservlet.validateInputs (null, args, new Environment(envGlobalAndSession), null);
                 ThreadLocalPage.get().clearTemplateContext();
                 renderDynamicFormWithOnlyDirtyData = true;
@@ -207,7 +206,13 @@ public abstract class AbstractPageServlet{
                             + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(reRenderPlaceholdersContent.get(ph))
                             + "\"}");
                 }
-                response.getWriter().write( replacements.toString() + "]" );
+                response.getWriter().write( replacements.toString() );
+                if( outstream.length() > 0 ){
+                	response.getWriter().write( "," + outstream.substring(0, outstream.length() - 1) + "]" ); // Other ajax updates, such as clear(ph). Done after ph rerendering to allow customization.
+                }
+                else{
+                	response.getWriter().write( "]" );
+                }
             }
             //hasExecutedAction() && isValid()
             else if( isAjaxRuntimeRequest() ){
