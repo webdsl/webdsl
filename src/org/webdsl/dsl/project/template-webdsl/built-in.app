@@ -3377,6 +3377,7 @@ template messages(){
 }
 
 //execute the given javascript when document is ready, _and_ after ajax replace
+//the passed node is either the document or the replacement node when using ajax
 template postProcess(jsAsString : String){
 	<script>
 		var post_process_function = function(node){ ~jsAsString };
@@ -3385,7 +3386,7 @@ template postProcess(jsAsString : String){
 			original_post_process_func(node);
 			post_process_function(node);
 		};
-		$(document).ready( post_process_function(document) );
+		$(document).ready( function(){ post_process_function(document) } );
 	</script>
 }
 
