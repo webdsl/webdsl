@@ -3376,6 +3376,19 @@ template messages(){
   }
 }
 
+//execute the given javascript when document is ready, _and_ after ajax replace
+template postProcess(jsAsString : String){
+	<script>
+		var post_process_function = function(node){ ~jsAsString };
+		var original_post_process_func = ajax_post_process; 
+		ajax_post_process = function(node){
+			original_post_process_func(node);
+			post_process_function(node);
+		};
+		$(document).ready( post_process_function(document) );
+	</script>
+}
+
 //page description
 
 template description(){
