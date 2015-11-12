@@ -3380,13 +3380,13 @@ template messages(){
 //the passed node is either the document or the replacement node when using ajax
 template postProcess(jsAsString : String){
 	<script>
-		var post_process_function = function(node){ ~jsAsString };
+		var post_process_function = function(n){ var node=(n&&n instanceof HTMLElement)?n:document; ~jsAsString };
 		var original_post_process_func = ajax_post_process; 
 		ajax_post_process = function(node){
 			original_post_process_func(node);
 			post_process_function(node);
 		};
-		$(document).ready( function(){ post_process_function(document) } );
+		$(document).ready( post_process_function );
 	</script>
 }
 
