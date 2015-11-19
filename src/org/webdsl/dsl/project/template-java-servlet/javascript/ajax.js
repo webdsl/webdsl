@@ -399,19 +399,24 @@ function replace(command, thisobject)
 
 function append(command, thisobject)
 {
-    var theNode = findElementById(thisobject, command.id);
-    if (command.id != "this")
-      theNode.innerHTML += command.value;
-    else //this has other semantics
-    {
-      var newElem = document.createElement("tmp");
-      newElem.innerHTML = command.value;
-      theNode.parentNode.appendChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
-      //note that this might break with no template based replacements
-      theNode = newElem.childNodes[0];
-    }
-
-    ajax_post_process(theNode);
+	if(command.value && command.value != ""){
+	    var theNode = findElementById(thisobject, command.id);
+	    if (command.id != "this") {
+	      var newElem = document.createElement("span");
+	      newElem.setAttribute("class", "appended");
+	      newElem.innerHTML = command.value;
+	      theNode.appendChild(newElem);
+	      theNode = newElem;
+	    } else //this has other semantics
+	    {
+	      var newElem = document.createElement("tmp");
+	      newElem.innerHTML = command.value;
+	      theNode.parentNode.appendChild(newElem.childNodes[0], theNode); //wrapper node "this" always available
+	      //note that this might break with no template based replacements
+	      theNode = newElem.childNodes[0];
+        }
+	    ajax_post_process(theNode);
+	}    
 }
 
 function clear(command, thisobject)
