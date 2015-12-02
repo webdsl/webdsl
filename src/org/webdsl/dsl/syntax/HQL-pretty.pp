@@ -114,6 +114,7 @@
    
    CountStar                                              -- KW["count"] KW["("] KW["*"] KW[")"],
    Count                                                  -- KW["count"] KW["("] _1 KW[")"],
+   Size                                                   -- KW["size"] KW["("] _1 KW[")"],
    Max                                                    -- KW["max"] KW["("] _1 KW[")"],
    Min                                                    -- KW["min"] KW["("] _1 KW[")"],
    Avg                                                    -- KW["avg"] KW["("] _1 KW[")"],
