@@ -223,8 +223,6 @@ function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
   req.open("POST", template, true); //chosen for always asynchronous (true), even for testing, to have tested system as close to real thing as possible, also synchronous/false doesn't seem to work with WebDriver currently. The downside is that tests with ajax calls need sleeps to wait for the response.
   req.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
   req.setRequestHeader("charset", "UTF-8");
-  //    http_request.setRequestHeader("Content-length", parameters.length);
-  req.setRequestHeader("Connection", "close");
 
   req.onreadystatechange = callback;
 
