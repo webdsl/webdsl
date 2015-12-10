@@ -21,6 +21,11 @@ public final class Encoders {
         md.update(templateContext.getBytes());
         //md.update(argsrep.getBytes()); // removed arguments from deterministic id, arguments can change between phases
 
+        org.webdsl.WebDSLEntity p = webdsl.generated.functions.principalAsEntity_.principalAsEntity_();
+        if(p != null){
+            md.update(p.getId().toString().getBytes());
+        }
+        
         // Create the digest from the message
         return new String(Hex.encodeHex(md.digest()));
     }
