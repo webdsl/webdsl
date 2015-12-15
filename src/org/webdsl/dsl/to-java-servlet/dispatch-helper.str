@@ -32,6 +32,7 @@ rules
       import utils.*;
       import pkgname.*;
       import org.webdsl.lang.Environment;
+      import org.webdsl.logging.Logger;
       import org.webdsl.WebDSLEntity;
       import pkgtname2.RequestLogEntry;
       import pkgtname2.SessionManager;
@@ -418,7 +419,8 @@ rules
             catch(Exception ex){
               org.webdsl.logging.Logger.error("Exception in dispatch servlet: "+ex.getMessage());
               org.webdsl.logging.Logger.error("EXCEPTION",ex);
-              showerrorpage=true;
+              response.setStatus(503);
+			  response.getWriter().write("<h3>503 Service Unavailable</h3>");
             }
 
             if(showerrorpage){
@@ -427,11 +429,17 @@ rules
    
                 // disable page cache when rendering pagenotfound page, otherwise it is placed under the wrong key in the cache because request url is still requested page
                 disablePageCache = true;
-   
-                if(!handlePage()){
-                  response.setStatus(404);
-                  response.getWriter().write("<h3>404 Not Found</h3>");
+                try{
+                  if(!handlePage()){
+                    response.setStatus(404);
+                    response.getWriter().write("<h3>404 Not Found</h3>");
+                  }
                 }
+                catch(Exception ex){
+				  org.webdsl.logging.Logger.error("couldn't render pagenotfound page", ex);
+					response.setStatus(404);
+					response.getWriter().write("<h3>404 Not Found</h3>");
+				}
               }
             } else if(showvalidationerror){
               if(parammap.get("__ajax_runtime_request__") == null){ // ajax runtime expects JSON, not regular page content
@@ -444,50 +452,61 @@ rules
           }
           
           private boolean disablePageCache = false;
-
-          private boolean handlePage() {
-            if(pc != null)
-            {
-              try
+          private int maxRetries = utils.BuildProperties.getTransactionRetries();
+          
+          private boolean handlePage() throws Exception{
+            int retries = 0;
+            while(retries <= maxRetries){
+              if(pc != null)
               {
-                PageServlet pageservlet = (PageServlet)pc.newInstance();
+                try
+                {
+                  PageServlet pageservlet = (PageServlet)pc.newInstance();
                 
-                if(disablePageCache){
-                  pageservlet.isPageCacheDisabled = true;
+                  if(disablePageCache){
+                    pageservlet.isPageCacheDisabled = true;
+                  }
+                
+                  //pageservlet.getIncomingSuccessMessages().addAll(messages);
+                  pageservlet.serve(request, response, parammap, parammapvalues, fileUploads);
+                  bstm_buildid*
                 }
-                
-                //pageservlet.getIncomingSuccessMessages().addAll(messages);
-                pageservlet.serve(request, response, parammap, parammapvalues, fileUploads);
-                bstm_buildid*
+                catch(IllegalAccessException iae)
+                {
+                  org.webdsl.logging.Logger.error("Problem in dispatch servlet page lookup: " + iae.getMessage());
+                  org.webdsl.logging.Logger.error("EXCEPTION",iae);
+                  return false;
+                }
+                catch(InstantiationException ie)
+                {
+                  org.webdsl.logging.Logger.error("Problem in dispatch servlet page lookup: " + ie.getMessage());
+                  org.webdsl.logging.Logger.error("EXCEPTION",ie);
+                  return false;
+                }
+                catch(MultipleValidationExceptions mve ){
+                  throw mve; //just rethrow so caller can handle validation exceptions
+                } 
+                catch (Exception re) {
+                  Logger.warn(re);
+				  retries++;
+				  if(re instanceof org.hibernate.StaleObjectStateException && retries <= maxRetries){
+				  	Logger.warn("retry request attempt "+retries);
+					continue;
+				  }
+				  else{
+				    throw re;
+				  }
+			    }
               }
-              catch(IllegalAccessException iae)
+              else
               {
-                org.webdsl.logging.Logger.error("Problem in dispatch servlet page lookup: " + iae.getMessage());
-                org.webdsl.logging.Logger.error("EXCEPTION",iae);
                 return false;
               }
-              catch(InstantiationException ie)
-              {
-                org.webdsl.logging.Logger.error("Problem in dispatch servlet page lookup: " + ie.getMessage());
-                org.webdsl.logging.Logger.error("EXCEPTION",ie);
-                return false;
-              }
-              catch(MultipleValidationExceptions mve ){
-                throw mve; //just rethrow so caller can handle validation exceptions
-              }
-              catch(RuntimeException re)
-              {
-                return false;
-              }
+              return true;
             }
-            else
-            {
-              return false;
-            }
-            return true;
+            return false; //after retries
           }
-
-       }
+        }
     ]|
     with  pkgname    := <TemplatePackage>
         ; pkgtname2   := <DomainPackage>

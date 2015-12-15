@@ -52,14 +52,15 @@ public abstract class AbstractPageServlet{
     	fav_ico_link_tag_suffix = "/favicon.ico?" + System.currentTimeMillis() + "\" rel=\"shortcut icon\" type=\"image/x-icon\" />";
     	ajax_js_include_name = "ajax.js?"+ System.currentTimeMillis();
     }
-    public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,List<utils.File>> fileUploads)
+    public void serve(HttpServletRequest request, HttpServletResponse httpServletResponse, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,List<utils.File>> fileUploads) throws Exception
     {
       initTemplateClass();
 
       this.startTime = System.currentTimeMillis();
       ThreadLocalPage.set(this);
       this.request=request;
-      this.response=response;
+      this.httpServletResponse = httpServletResponse;
+      this.response = new ResponseWrapper(httpServletResponse);
       this.parammap = parammap;
       this.parammapvalues = parammapvalues;
       this.fileUploads=fileUploads;
@@ -249,6 +250,7 @@ public abstract class AbstractPageServlet{
         if( isTransactionAborted() || isRollback() ){
           try{
               hibernateSession.getTransaction().rollback();
+              response.sendContent();
           }
           catch (org.hibernate.SessionException e){
             if(!e.getMessage().equals("Session is closed!")){ // closed session is not an issue when rolling back
@@ -273,6 +275,7 @@ public abstract class AbstractPageServlet{
             hibernateSession.getTransaction().commit();
             invalidatePageCacheIfNeeded();
           }
+          response.sendContent();
         }
         ThreadLocalOut.popChecked(out);
       }
@@ -292,7 +295,7 @@ public abstract class AbstractPageServlet{
         org.webdsl.logging.Logger.error("exception occured while handling request URL [ "+url+ " ]. Transaction is rolled back.");
         org.webdsl.logging.Logger.error("exception message: "+e.getMessage(), e);
         hibernateSession.getTransaction().rollback();
-        throw new RuntimeException("serve page request failed, requested URL: "+url);
+        throw e;
 
       }
       finally{
@@ -947,7 +950,8 @@ public abstract class AbstractPageServlet{
     }
 
     protected HttpServletRequest request;
-    protected HttpServletResponse response;
+    protected ResponseWrapper response;
+    protected HttpServletResponse httpServletResponse;
     protected Object[] args;
 
 //    public void setHibSession(Session s) {
@@ -962,7 +966,7 @@ public abstract class AbstractPageServlet{
         return request;
     }
 
-    public HttpServletResponse getResponse() {
+    public ResponseWrapper getResponse() {
         return response;
     }
 

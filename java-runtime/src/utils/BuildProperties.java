@@ -26,6 +26,11 @@ public class BuildProperties {
     	return numcachedpages;
     }
     
+    protected static int transactionRetries = 3;
+    public static int getTransactionRetries(){
+    	return transactionRetries;
+    }
+    
     protected static String appUrlForRenderWithoutRequest;
     public static String getAppUrlForRenderWithoutRequest(){
         return appUrlForRenderWithoutRequest;
@@ -50,6 +55,14 @@ public class BuildProperties {
             }
             catch(NumberFormatException e){
             	org.webdsl.logging.Logger.info("numcachedpages not specified, using: "+numcachedpages);
+            }
+            String retries = props.getProperty("webdsl.transactionretries");
+            try{
+            	transactionRetries = Integer.parseInt(retries);	
+            	org.webdsl.logging.Logger.info("transactionretries: "+retries);
+            }
+            catch(NumberFormatException e){
+            	org.webdsl.logging.Logger.info("transactionretries not specified, using: "+transactionRetries);
             }
             setAppUrlForRenderWithoutRequest();            
             

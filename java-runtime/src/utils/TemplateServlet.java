@@ -60,7 +60,7 @@ public abstract class TemplateServlet {
     }
     protected org.hibernate.Session hibSession;
     protected HttpServletRequest request;
-    protected HttpServletResponse response;
+    protected utils.ResponseWrapper response;
     protected boolean initialized = false;
     protected utils.TemplateCall templateArg;
     protected Map<String,String> attrs = null;
