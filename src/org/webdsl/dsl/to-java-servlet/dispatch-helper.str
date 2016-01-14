@@ -52,12 +52,14 @@ rules
           public void loadSessionManager(org.hibernate.Session hses){
             loadSessionManager(hses, null);
           }
-          public void loadSessionManager(org.hibernate.Session hses, String[] joins) {
-            String basicCookieInfo = "WEBDSLSESSIONID=" + utils.UUIDUserType.persistUUIDString(sessionId) + "; HttpOnly; path=/";
-            String setCookie = "SET-COOKIE";
-  
+          private boolean isNewSessionManager;
+          public void loadSessionManager(org.hibernate.Session hses, String[] joins) {  
             /*if(joins == null || joins.length == 0) {*/
-            sessionManager = (SessionManager)hses.get(SessionManager.class, sessionId); //from org.hibernate.Session documentation: you should not use load() to determine if an instance exists (use get() instead)
+            if(sessionManager == null){
+            	if(sessionId != null){
+            		sessionManager = (SessionManager)hses.get(SessionManager.class, sessionId); //from org.hibernate.Session documentation: you should not use load() to determine if an instance exists (use get() instead)
+            	}
+            }
             /*} else {
               List<SessionManager> results = utils.QueryOptimization.addJoinsIfOptimizationEnabled(hses.createCriteria(SessionManager.class), joins)
                 .add( org.hibernate.criterion.Restrictions.idEq(sessionId) )
@@ -68,24 +70,36 @@ rules
             }*/
             if(sessionManager == null){
               ~*<![];if-debug(!bstm*|[  org.webdsl.logging.Logger.info("session entity could not be loaded, creating new");  ]|)>
+              isNewSessionManager = true;
               sessionManager = new SessionManager();
+              sessionId = java.util.UUID.randomUUID(); //generate a new sessionId, not using the one supplied in cookie (prevents session fixation)
               sessionManager.setId(sessionId);
               sessionManager.setLastUseNoEventsOrValidation(new java.util.Date());
-              sessionManager.setVersion(1); // mark as persisted
-              sessionManager.setChanged();
-              hses.save(sessionManager);
-              // new SessionManager means new Cookie
-              response.setHeader(setCookie, basicCookieInfo);
             }
-         
-            if(sessionManager.getStayLoggedIn() != null && sessionManager.getStayLoggedIn()){
-                Date expdate = utils.DateType.addMonths(new Date(), 6);
-                DateFormat df = new SimpleDateFormat("dd MMM yyyy kk:mm:ss z");
-                df.setTimeZone(TimeZone.getTimeZone("GMT"));
-                   response.setHeader(setCookie, basicCookieInfo+ "; expires=" + df.format(expdate));
-            }
+          }
+          public void setCookie(org.hibernate.Session hses){
+            String basicCookieInfo = "WEBDSLSESSIONID=" + utils.UUIDUserType.persistUUIDString(sessionId) + "; HttpOnly; path=/";
+            String setCookie = "SET-COOKIE";
+                      org.webdsl.logging.Logger.info("SET-COOKIE - isNew:" + isNewSessionManager + " Session has changes: " + sessionHasChanges() + " session manager addr:" +sessionManager );
             //internalUpdateSessionManagerTimeout is defined in WebDSL code (built-in.app)
-            webdsl.generated.functions.internalUpdateSessionManagerTimeout_.internalUpdateSessionManagerTimeout_();
+            boolean lastUsedUpdated = webdsl.generated.functions.internalUpdateSessionManagerTimeout_.internalUpdateSessionManagerTimeout_();
+          	
+          	if( isNewSessionManager && sessionHasChanges() ){
+          	  //only persist session manager and send initial cookie when session data has changed
+          	  sessionManager.setVersion(1); // mark as persisted
+          	  sessionManager.setChanged();
+          	  hses.save(sessionManager);
+          	  // new SessionManager means new Cookie
+          	  response.setHeader(setCookie, basicCookieInfo);
+          	}
+          	if(lastUsedUpdated){
+          		if(sessionManager.getStayLoggedIn() != null && sessionManager.getStayLoggedIn()){
+	                Date expdate = utils.DateType.addMonths(new Date(), 6);
+	                DateFormat df = new SimpleDateFormat("dd MMM yyyy kk:mm:ss z");
+	                df.setTimeZone(TimeZone.getTimeZone("GMT"));
+	                   response.setHeader(setCookie, basicCookieInfo+ "; expires=" + df.format(expdate));
+	            }
+          	}
           }
           public void storeOutgoingMessagesInHttpSession(){
             if(sessionManager.getMessages().size() > 0){
@@ -183,6 +197,7 @@ rules
 
             if(request.getCookies() != null) {
               for(Cookie c : request.getCookies()){
+              	
                 if("WEBDSLSESSIONID".equals(c.getName())){
                   try{
                     sessionId = utils.UUIDUserType.retrieveUUID(c.getValue());
@@ -192,9 +207,6 @@ rules
                   }
                 }
               }
-            }
-            if(sessionId == null) {
-                sessionId = java.util.UUID.randomUUID();
             }
 
             this.request=request;

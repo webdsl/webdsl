@@ -77,14 +77,16 @@ function rollbackAndStartNewTransaction(){
 
 invoke internalCleanupSessionManagerEntities() every 10 minutes
 
-function internalUpdateSessionManagerTimeout(){
+function internalUpdateSessionManagerTimeout() : Bool{
   var n: DateTime := now().addMinutes( -30 ); // update lastUse after 30 minutes to avoid unnecessary db writes, also sets minimum timeout to 30 minutes
   var man := getSessionManager();
   if(   man.lastUse == null
      || man.lastUse.before( n )
   ){
     man.lastUse := now();
+    return true;
   }
+  return false;
 }
 
 function internalCleanupSessionManagerEntities(){

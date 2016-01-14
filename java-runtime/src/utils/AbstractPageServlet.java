@@ -265,11 +265,11 @@ public abstract class AbstractPageServlet{
           if(!this.isAjaxRuntimeRequest()){
             ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(utils.HibernateUtil.getCurrentSession());
           }
-
           if(isReadOnly || readOnlyRequestStats){ // either page has read-only modifier, or no writes have been detected
             hibernateSession.getTransaction().rollback();
           }
           else{
+        	ThreadLocalServlet.get().setCookie(hibernateSession);
        	    hibernateSession.flush();
         	validateEntities();
             hibernateSession.getTransaction().commit();
