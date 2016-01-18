@@ -129,6 +129,7 @@ native class webdsl.generated.search.IndexManager as IndexManager{
   static clearAutoCompleteIndex( String )
   static clearSpellCheckIndex( String )
   static reindex( Entity )
+  static reindex( List<Entity> )
   static removeFromIndex( Entity )
   static reindex()
 }
