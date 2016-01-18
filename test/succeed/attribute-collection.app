@@ -176,19 +176,19 @@ application root
     assert(source.contains("style=\"s-form\""));
 
     assert(source.contains("foo=\"f-downloadlink\""));
-    assert(source.contains("class=\"downloadlink c-downloadlink\""));
+    assert(source.contains("class=\"c-downloadlink downloadlink\""));
     assert(source.contains("style=\"s-downloadlink\""));
 
     assert(source.contains("foo=\"f-outputimage\""));
-    assert(source.contains("class=\"outputimage c-outputimage\""));
+    assert(source.contains("class=\"c-outputimage outputimage\""));
     assert(source.contains("style=\"s-outputimage\""));
 
     assert(source.contains("foo=\"f-submit\""));
-    assert(source.contains("class=\"button c-submit\""));
+    assert(source.contains("class=\"c-submit button\""));
     assert(source.contains("style=\"s-submit\""));
 
     assert(source.contains("foo=\"f-submitajax\""));
-    assert(source.contains("class=\"button c-submitajax\""));
+    assert(source.contains("class=\"c-submitajax button\""));
     assert(source.contains("style=\"s-submitajax\""));
 
     assert(source.contains("foo=\"f-submitlink\""));
@@ -240,11 +240,11 @@ application root
     assert(source.contains("style=\"s-listitem\""));
 
     assert(source.contains("foo=\"f-navurl\""));
-    assert(source.contains("class=\"navigate c-navurl\""));
+    assert(source.contains("class=\"c-navurl navigate\""));
     assert(source.contains("style=\"s-navurl\""));
     
     assert(source.contains("foo=\"f-nav\""));
-    assert(source.contains("class=\"navigate c-nav\""));
+    assert(source.contains("class=\"c-nav navigate\""));
     assert(source.contains("style=\"s-nav\""));
 
     assert(source.contains("foo=\"f-navbuttonurl\""));
@@ -268,7 +268,7 @@ application root
     assert(source.split("classtest").length == 18);
     assert(source.split("styletest").length == 18);
     assert(source.split("bar=\"q\"").length == 18);
-    assert(source.contains("class=\"rc oc navigate c-nav classtest\""));
+    assert(source.contains("class=\"rc oc c-nav classtest navigate\""));
   }
 
   
@@ -299,7 +299,7 @@ application root
     assert(source.split(" bar=\"bar\"").length == 4);
     assert(source.split(" baz=\"baz\"").length == 4);
     assert(source.split(" style=\"os included-style includer-style\"").length == 4);
-    assert(source.contains(" class=\"navigate oc included-class includer-class\""));
+    assert(source.contains(" class=\"oc included-class includer-class navigate\""));
   }
   
   entity TestEntity{}
