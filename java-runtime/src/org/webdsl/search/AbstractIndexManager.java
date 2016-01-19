@@ -43,10 +43,6 @@ public abstract class AbstractIndexManager {
 	protected static long lastFacetReaderRenewal;
 
 	static {
-		// show the location the JVM makes of indexdir, relative location is in
-		// working directory, which varies depending on deployment type/platform
-		org.webdsl.logging.Logger.info("Absolute path of indexdir: "
-				+ new File(indexDir()).getAbsolutePath());
 		// keep track of last renewal of facet readers
 		lastFacetReaderRenewal = 0;
 	}
@@ -246,8 +242,9 @@ public abstract class AbstractIndexManager {
 		return getFullTextSession().getSearchFactory();
 	}
 
+	protected static String indexdir = "";
 	public static String indexDir() {
-		return "";
+		return indexdir;
 	}// to be overridden in subclass
 
 	public static String indexDirAutoComplete(Class<?> entityClass, String field) {
