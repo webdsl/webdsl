@@ -39,7 +39,7 @@ application root
     log(source);
     assert(source.contains("blub=\"c\""));
     assert(source.contains("foo=\"f\""));
-    assert(source.contains("class=\"a d\""));
+    assert(/class=\"((a|d)\s?){2}\"/.find(source));
     assert(source.contains("style=\"b e\""));
   }
 
@@ -50,7 +50,7 @@ application root
   test{
     var source := rendertemplate(htmlElement());
     log(source);
-    assert(source.contains("class=\"a rc oc\""));
+    assert(/class=\"((a|rc|oc)\s?){3}\"/.find(source));
     assert(source.contains("style=\"b rs os\""));
     assert(source.contains("blub=\"c\""));
     assert(source.contains("bar=\"bar\""));
@@ -65,7 +65,7 @@ application root
   test{
     var source := rendertemplate(callTemplate());
     log(source);
-    assert(source.contains("class=\"rc oc a rc oc d\""));
+    assert(/class=\"((rc|oc|a|rc|oc|d)\s?){6}\"/.find(source));
     assert(source.contains("style=\"rs os b rs os e\""));
     assert(source.contains("blub=\"c\""));
     assert(source.contains("bar=\"bar\""));
@@ -176,19 +176,19 @@ application root
     assert(source.contains("style=\"s-form\""));
 
     assert(source.contains("foo=\"f-downloadlink\""));
-    assert(source.contains("class=\"c-downloadlink downloadlink\""));
+    assert(/class=\"((c-downloadlink|downloadlink)\s?){2}\"/.find(source));
     assert(source.contains("style=\"s-downloadlink\""));
 
     assert(source.contains("foo=\"f-outputimage\""));
-    assert(source.contains("class=\"c-outputimage outputimage\""));
+    assert(/class=\"((c-outputimage|outputimage)\s?){2}\"/.find(source));
     assert(source.contains("style=\"s-outputimage\""));
 
     assert(source.contains("foo=\"f-submit\""));
-    assert(source.contains("class=\"c-submit button\""));
+    assert(/class=\"((c-submit|button)\s?){2}\"/.find(source));
     assert(source.contains("style=\"s-submit\""));
 
     assert(source.contains("foo=\"f-submitajax\""));
-    assert(source.contains("class=\"c-submitajax button\""));
+    assert(/class=\"((c-submitajax|button)\s?){2}\"/.find(source));
     assert(source.contains("style=\"s-submitajax\""));
 
     assert(source.contains("foo=\"f-submitlink\""));
@@ -204,15 +204,15 @@ application root
     assert(source.contains("style=\"s-captcha\""));
     
     assert(source.contains("foo=\"f-sec1\""));
-    assert(source.contains("class=\"section section1 c-sec1\""));
+    assert(/class=\"((section|section1|c-sec1)\s?){3}\"/.find(source));
     assert(source.contains("style=\"s-sec1\""));
     
     assert(source.contains("foo=\"f-sec2\""));
-    assert(source.contains("class=\"section section2 c-sec2\""));
+    assert(/class=\"((section|section2|c-sec2)\s?){3}\"/.find(source));
     assert(source.contains("style=\"s-sec2\""));
     
     assert(source.contains("foo=\"f-header\""));
-    assert(source.contains("class=\"header section2 c-header\""));
+    assert(/class=\"((header|section2|c-header)\s?){3}\"/.find(source));
     assert(source.contains("style=\"s-header\""));
     
     assert(source.contains("foo=\"f-image\""));
@@ -232,19 +232,19 @@ application root
     assert(source.contains("style=\"s-script\""));
 
     assert(source.contains("foo=\"f-list\""));
-    assert(source.contains("class=\"block c-list\""));
+    assert(/class=\"((block|c-list)\s?){2}\"/.find(source));
     assert(source.contains("style=\"s-list\""));
 
     assert(source.contains("foo=\"f-listitem\""));
-    assert(source.contains("class=\"block c-listitem\""));
+    assert(/class=\"((block|c-listitem)\s?){2}\"/.find(source));
     assert(source.contains("style=\"s-listitem\""));
 
     assert(source.contains("foo=\"f-navurl\""));
-    assert(source.contains("class=\"c-navurl navigate\""));
+    assert(/class=\"((c-navurl|navigate)\s?){2}\"/.find(source));
     assert(source.contains("style=\"s-navurl\""));
     
     assert(source.contains("foo=\"f-nav\""));
-    assert(source.contains("class=\"c-nav navigate\""));
+    assert(/class=\"((c-nav|navigate)\s?){2}\"/.find(source));
     assert(source.contains("style=\"s-nav\""));
 
     assert(source.contains("foo=\"f-navbuttonurl\""));
@@ -268,7 +268,7 @@ application root
     assert(source.split("classtest").length == 18);
     assert(source.split("styletest").length == 18);
     assert(source.split("bar=\"q\"").length == 18);
-    assert(source.contains("class=\"rc oc c-nav classtest navigate\""));
+    assert(/class=\"((rc|oc|c-nav|classtest|navigate)\s?){5}\"/.find(source));
   }
 
   
@@ -299,7 +299,7 @@ application root
     assert(source.split(" bar=\"bar\"").length == 4);
     assert(source.split(" baz=\"baz\"").length == 4);
     assert(source.split(" style=\"os included-style includer-style\"").length == 4);
-    assert(source.contains(" class=\"oc included-class includer-class navigate\""));
+    assert(/class=\"((oc|included-class|includer-class|navigate)\s?){3}\"/.find(source));
   }
   
   entity TestEntity{}
@@ -321,9 +321,9 @@ application root
   test{
     var source := rendertemplate(testInputSet());
     log(source);
-    assert(source.contains("class=\"checkbox-set customclass\""));
+    assert(/class=\"((checkbox-set|customclass)\s?){2}\"/.find(source));
     assert(source.split("checkbox-set-element").length == 4);
-    assert(source.contains("class=\"attrSelectClassTest attrSelectAddedClass attrSelectAddedClass attrSelectAddedClass attrSelectAddedClass attrSelectAddedClass rc\""));
+    assert(/class=\"((attrSelectClassTest|attrSelectAddedClass|attrSelectAddedClass|attrSelectAddedClass|attrSelectAddedClass|attrSelectAddedClass|rc)\s?){7}\"/.find(source));
   }
 
 
