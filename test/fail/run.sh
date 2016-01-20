@@ -1,9 +1,11 @@
 #!/bin/bash
 
 FILE=$1
-bash /usr/local/bin/webdsl cleanall > /dev/null 2> /dev/null
-bash /usr/local/bin/webdsl test $FILE 2>&1 | cat > $FILE.out
-cat $FILE.out
+WEBDSL=${2:-bash /usr/local/bin/webdsl}
+
+$WEBDSL clean > /dev/null 2> /dev/null
+$WEBDSL test $FILE 2>&1 | cat > $FILE.out
+#cat $FILE.out
 
 echo "checking"
 exec 3<&0
