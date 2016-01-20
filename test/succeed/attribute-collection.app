@@ -51,7 +51,7 @@ application root
     var source := rendertemplate(htmlElement());
     log(source);
     assert(/class=\"((a|rc|oc)\s?){3}\"/.find(source));
-    assert(source.contains("style=\"b rs os\""));
+    assert(/style=\"((b|rs|os)\s?){3}\"/.find(source));
     assert(source.contains("blub=\"c\""));
     assert(source.contains("bar=\"bar\""));
     assert(source.contains("baz=\"baz\""));
@@ -66,7 +66,7 @@ application root
     var source := rendertemplate(callTemplate());
     log(source);
     assert(/class=\"((rc|oc|a|rc|oc|d)\s?){6}\"/.find(source));
-    assert(source.contains("style=\"rs os b rs os e\""));
+    assert(/style=\"((rs|os|b|rs|os|e)\s?){6}\"/.find(source));
     assert(source.contains("blub=\"c\""));
     assert(source.contains("bar=\"bar\""));
     assert(source.contains("baz=\"baz\""));
@@ -87,7 +87,7 @@ application root
     var source := rendertemplate(htmlElementSelection());
     log(source);
     assert(source.contains("class=\"a\""));
-    assert(source.contains("style=\"b rs os\""));
+    assert(/style=\"((b|rs|os)\s?){3}\"/.find(source));
     assert(source.contains("blub=\"c\""));
     assert(source.contains("bar=\"bar\""));
     assert(source.contains("baz=\"baz\""));
