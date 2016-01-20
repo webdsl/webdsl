@@ -2,9 +2,10 @@
 
 FILE=$1
 WEBDSL=${2:-bash /usr/local/bin/webdsl}
+TESTARG=${3:-test}
 
 $WEBDSL clean > /dev/null 2> /dev/null
-$WEBDSL test $FILE 2>&1 | cat > $FILE.out
+$WEBDSL $TESTARG $FILE 2>&1 | cat > $FILE.out
 #cat $FILE.out
 
 echo "checking"
