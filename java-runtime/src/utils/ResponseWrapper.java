@@ -29,6 +29,7 @@ public class ResponseWrapper{
 	}
 
 	public void sendRedirect(String s) throws IOException{
+		ThreadLocalServlet.get().setCookie(ThreadLocalPage.get().hibernateSession);
 		response.sendRedirect(s);
 	}
 

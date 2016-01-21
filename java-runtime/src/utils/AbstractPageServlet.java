@@ -189,7 +189,7 @@ public abstract class AbstractPageServlet{
               renderOrInitAction();
             }
           }
-          // succesful action, always redirect, no render
+          // successful action, always redirect, no render
           else {
             // actionLink or ajax action used and replace(placeholder) invoked
             if( isReRenderPlaceholders() ){
@@ -1099,7 +1099,7 @@ public abstract class AbstractPageServlet{
     }
     // perform the actual redirect
     public void redirect(){
-      try { response.sendRedirect(this.getRedirectUrl()); }
+      try {  response.sendRedirect(this.getRedirectUrl()); }
       catch (IOException ioe) { org.webdsl.logging.Logger.error("redirect failed", ioe); }
     }
 
