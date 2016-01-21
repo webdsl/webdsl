@@ -19,13 +19,13 @@ application test
   test {
     var d : WebDriver := getFirefoxDriver();
 
-    d.get(navigate(root())+"?logsql");
+    d.get(navigate(root())+"?logsql&nocache");
     assert(d.getPageSource().contains("Access to SQL logs was denied."));
     
     var button : WebElement := d.findElement(SelectBy.className("button"));
     button.click();
     
-    d.get(navigate(root())+"?logsql");
+    d.get(navigate(root())+"?logsql&nocache");
     assert(d.getPageSource().contains("The three queries that took the most time:"));
   }
   
