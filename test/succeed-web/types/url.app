@@ -63,7 +63,7 @@ function commonTest(d:WebDriver){
   inputDefinedCheck(d,"abc://1337.net","abc://1337.net</a>");
   inputDefinedCheck(d,"http://例子.测试","http://例子.测试</a>");
   inputDefinedCheck(d,"http://142.42.1.1:8080/","http://142.42.1.1:8080/</a>");
-  inputDefinedCheck(d,"https://www.example.com/foo/?bar=baz&inga=42&quux","https://www.example.com/foo/?bar=baz&inga=42&quux</a>");
+  inputDefinedCheck(d,"https://www.example.com/foo/?bar=baz&inga=42&quux","https://www.example.com/foo/?bar=baz&amp;inga=42&amp;quux</a>");
   
   //trigger validation error for too long value
   //defined input
