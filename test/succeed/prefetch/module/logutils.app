@@ -1,7 +1,12 @@
 module logutils
 
 native class org.hibernate.Session as Session {
+  getTransaction() : Transaction
   clear()
+}
+
+native class org.hibernate.Transaction as Transaction{
+	isActive() : Bool
 }
 
 native class org.hibernate.SessionFactory as SessionFactory {
@@ -71,7 +76,9 @@ function closeLog() {
 }
 
 function clearSession() {
-  HibernateUtilConfigured.getSessionFactory().getCurrentSession().clear();
+  if(HibernateUtilConfigured.getSessionFactory().getCurrentSession().getTransaction().isActive()){
+    HibernateUtilConfigured.getSessionFactory().getCurrentSession().clear();
+  }
 }
 
 function assertLog(name : String, sql : Int, ent : Int, dup : Int, col : Int) {
