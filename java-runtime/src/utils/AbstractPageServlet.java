@@ -88,6 +88,7 @@ public abstract class AbstractPageServlet{
       if(parammap.get("nocache") != null){
     	this.isPageCacheDisabled = true;
       }
+      initRequestVars();
       hibernateSession = utils.HibernateUtil.getCurrentSession();
       hibernateSession.beginTransaction();
       if(isReadOnly){
@@ -106,7 +107,6 @@ public abstract class AbstractPageServlet{
         ThreadLocalServlet.get().retrieveIncomingMessagesFromHttpSession();
 
         initVarsAndArgs();
-        initRequestVars();
 
         if(isActionSubmit()) {
 

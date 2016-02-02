@@ -12,12 +12,14 @@ page root(){
 entity Test{
   s: String
 }
-
+entity Submission{}
 
 request var s : String
+request var testSet := Set<Submission>()
 
 function check(){
   log(s);
+  testSet.add(Submission{});
 }
 
 function afterTransactionBegin(){
