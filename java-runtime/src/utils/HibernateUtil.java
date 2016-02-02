@@ -7,6 +7,7 @@ import org.hibernate.EmptyInterceptor;
 import org.hibernate.HibernateException;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
 import org.hibernate.event.FlushEntityEvent;
 import org.hibernate.event.LoadEvent;
 import org.hibernate.event.LoadEventListener;
@@ -17,6 +18,11 @@ import org.hibernate.event.def.DefaultSaveOrUpdateEventListener;
 import org.hibernate.type.Type;
 import org.webdsl.WebDSLEntity;
 import org.webdsl.logging.Logger;
+
+import webdsl.generated.functions.afterTransactionBegin_;
+import webdsl.generated.functions.afterTransactionCompletionCommitted_;
+import webdsl.generated.functions.afterTransactionCompletionRolledBack_;
+import webdsl.generated.functions.beforeTransactionCompletion_;
 
 public class HibernateUtil {
 
@@ -175,6 +181,21 @@ public class HibernateUtil {
             state[index] = value;
           }
         }
+        
+    	public void afterTransactionBegin(Transaction tx){
+    		afterTransactionBegin_.afterTransactionBegin_();
+    	}
+    	public void afterTransactionCompletion(Transaction tx) {
+    		if(tx.wasCommitted()){
+    			afterTransactionCompletionCommitted_.afterTransactionCompletionCommitted_();
+    		}
+    		else if(tx.wasRolledBack()){
+    			afterTransactionCompletionRolledBack_.afterTransactionCompletionRolledBack_();
+    		}
+    	}
+    	public void beforeTransactionCompletion(Transaction tx){
+    		beforeTransactionCompletion_.beforeTransactionCompletion_();
+    	}
       }
 
 
