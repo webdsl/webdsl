@@ -166,6 +166,12 @@ public class HibernateUtil {
           return true;
         }
         
+        public void onDelete(Object entity, Serializable id, Object[] state, String[] propertyNames, Type[] types){
+          if(org.hibernate.Hibernate.isInitialized(entity) && entity instanceof WebDSLEntity){
+            shouldTryCleanPageCaches();
+          }
+        }
+        
         private void shouldTryCleanPageCaches(){        	
         	AbstractPageServlet thepage = ThreadLocalPage.get();
             if(thepage != null){
