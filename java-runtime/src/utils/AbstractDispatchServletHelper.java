@@ -21,6 +21,7 @@ public abstract class AbstractDispatchServletHelper{
   public abstract WebDSLEntity getSessionManager();
   public abstract void setSessionHasChanges();
   public abstract boolean sessionHasChanges();
+  public abstract void reloadSessionManager(org.hibernate.Session h);
   public abstract void loadSessionManager(org.hibernate.Session h);
   public abstract void loadSessionManager(org.hibernate.Session h, String[] joins);
   public abstract void setCookie(org.hibernate.Session h);

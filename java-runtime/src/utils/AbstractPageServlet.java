@@ -937,8 +937,7 @@ public abstract class AbstractPageServlet{
          * the session is bound to the thread behind the scenes, but scoped to a transaction, just like in a JTA environment.
          */
         openNewTransactionThroughGetCurrentSession();
-
-        ThreadLocalServlet.get().loadSessionManager(hibernateSession);
+        ThreadLocalServlet.get().reloadSessionManager(hibernateSession);
         initVarsAndArgs();
         hibernateCacheCleared = true;
     }
