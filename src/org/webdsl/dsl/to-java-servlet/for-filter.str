@@ -36,15 +36,18 @@ rules
 
   for-filter-by-code-order-by(|x, srt, t, x_list) :
     Filter(wherecl,ordertype#([exp]),limit) -> bstm* |[
+      
+      bstm2*
+      
       java.util.Collections.sort(x_list, new java.util.Comparator<t>() {
         public int compare(t o1, t o2) {
-          if(e1 == null && e2 == null){
+          if( e1 == null && e2 == null ){
             return 0;
           } 
-          else if(e1 == null){
+          else if( e1 == null ){
             return 1;
           }
-          else if(e2 == null){
+          else if( e2 == null ){
             return -1;
           }
           else{
@@ -53,11 +56,18 @@ rules
         }
       });
     ]|
-    with  e1 := <alltd(\Var(y){anno*} -> Var("o1"){anno*} where <?x> y\);expression-to-java-servlet> exp
-        ; e2 := <alltd(\Var(y){anno*} -> Var("o2"){anno*} where <?x> y\);expression-to-java-servlet> exp
+    with  exp1 := <alltd(\ varY@Var(y) -> NameChange(varY,y1) where( <not(?x)> y; y1 := <newname> y) \)> exp //local variables used within, but defined outside innerclass should be final
+		; bstm2* := <collect({\ NameChange(varY@Var(y),y1) -> java|[ final t y1 = y; ]| where t := <get-type-anno;java-type> varY  \})> exp1
+		; exp2 := <alltd({\ NameChange(Var(y3){anno*},y1) -> Var(y1){anno*} \})> exp1
+      	; e1 := <alltd(\Var(y){anno*} -> Var("o1"){anno*} where <?x> y\);expression-to-java-servlet> exp2
+        ; e2 := <alltd(\Var(y){anno*} -> Var("o2"){anno*} where <?x> y\);expression-to-java-servlet> exp2
         ; if <?"OrderDescending"> ordertype
           then stm := java|[ return e2.compareTo(e1); ]|
           else stm := java|[ return e1.compareTo(e2); ]| end
+
+signature constructors
+	NameChange : Term * Term -> Term 
+rules
 
   for-filter-by-code-limit(|x, t, x_list) :
     f@Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[

@@ -3,21 +3,21 @@ application exampleapp
 page root(){}
   
 template show(){
-  var substract100 := true
-  
+  var num100 := Tag{ num := 100 }
   for( t: Tag in (from Tag order by num) ){ //this is hql in brackets 
     output( t.num )
   } separated-by{ "-" }
   
-  for( t in (from Tag) order by t.converted(substract100)){
+  for( t in (from Tag) order by t.sub(num100)){
   	output( t.num )
   } separated-by{ "," }
 }
 
+
 entity Tag{
   num : Int
-  function converted(sub100 : Bool) : Int{
-  	return if(sub100) num-100 else num;
+  function sub(sub : Tag) : Int{
+  	return num-sub.num;
   }
 }
   
