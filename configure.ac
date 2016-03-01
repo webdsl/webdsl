@@ -11,29 +11,13 @@ test "x$prefix" = xNONE && prefix=$ac_default_prefix
 
 ### DEPENDENCIES ##################################
 
-XT_SETUP
-#XT_USE_BOOTSTRAP_XT_PACKAGES
-
-# comment to make this a stable release
-XT_PRE_RELEASE
-
-XT_USE_XT_PACKAGES
-
-## makes the autoconf and svn revision numbers visible through primitives, see stratego sources
-XT_TERM_DEFINE
-
-AC_PROG_CC
 AC_PROG_INSTALL
-PKG_PROG_PKG_CONFIG
-
-AC_DISABLE_STATIC
-AC_PROG_LIBTOOL
 
 AC_CHECK_PROG([bash], [bash], [`type -p bash`], [/bin/bash])
 
-WEBDSLC=java
-
-AC_SUBST(WEBDSLC)
+AM_CONDITIONAL(TEST_MACOSX, [test $(uname -s) = "Darwin"])
+AM_CONDITIONAL(TEST_LINUX, [test $(uname -s) = "Linux"])
+AM_CONDITIONAL(TEST_WINDOWS, [test $OS = "Windows_NT"])
 
 ### OUTPUT ########################################
 
@@ -46,7 +30,6 @@ src/org/webdsl/dsl/project/webdsl
 src/org/webdsl/dsl/project/webdsl-eclipseplugin
 src/org/webdsl/dsl/project/webdsl-plugins
 src/org/webdsl/dsl/project/Makefile
-webdsls.pc
 test/run
 test/run-test-fail-servlet.sh
 test/run-test-fail.sh

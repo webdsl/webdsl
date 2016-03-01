@@ -1,6 +1,7 @@
-include $(top_srcdir)/Makefile.xt
-include $(wildcard *.dep)
-include $(wildcard org/webdsl/dsl/*/*.dep)
+prefix=@prefix@
+datarootdir=@datarootdir@
+pkgdatadir=@datadir@/@PACKAGE@
+sdfdatadir=@datadir@/sdf/@PACKAGE@
 
 ### distribution
 
@@ -24,8 +25,8 @@ FULLCLEANFILES = \
     $(wildcard org/webdsl/dsl/*/*/*.def) \
     $(wildcard org/webdsl/dsl/*/*.pp.af) \
     $(wildcard org/webdsl/dsl/*/*.rtg) \
-	$(wildcard org/webdsl/dsl/*/*.tbl)\ 
-	$(wildcard org/webdsl/dsl/*/*/*.tbl)
+    $(wildcard org/webdsl/dsl/*/*.tbl) \
+    $(wildcard org/webdsl/dsl/*/*/*.tbl)
 
 # "make clean" leaves syntax intact; use fullclean/distclean
 
@@ -161,8 +162,39 @@ STRINCLUDES = -I .\
 
 SDF2RTG_FLAGS = --main `basename $*` --ignore-missing-cons
 
+if TEST_LINUX
+NATIVEPATH=`pwd`/share/strategoxt/linux/
+endif
+if TEST_MACOSX
+NATIVEPATH=`pwd`/share/strategoxt/macosx/
+endif
+
+NATIVEPATHOPTION=-Xnativepath $(NATIVEPATH)
+STRTOOL=java -Xss8m -cp $(STRATEGOXT_JAR) run
+GENSDFMIX=$(STRTOOL) org.strategoxt.tools.main-gen-sdf-mix $(NATIVEPATHOPTION)
+PACKSDF=$(STRTOOL) org.strategoxt.tools.main-pack-sdf
+SDF2TABLE=$(NATIVEPATH)/sdf2table
+SDF2RTG=$(STRTOOL) org.strategoxt.tools.main-sdf2rtg $(NATIVEPATHOPTION)
+RTG2SIG=$(STRTOOL) org.strategoxt.tools.main-rtg2sig
+PARSEPPTABLE=$(STRTOOL) org.strategoxt.tools.main-parse-pp-table
+
 Mix%.sdf : %.def
-	gen-sdf-mix -i $< --main `basename $*` --name Mix`basename $*` -o $@
+	$(GENSDFMIX) -i $< --main `basename $*` --name Mix`basename $*` -o $@
+
+%.def : %.sdf
+	$(PACKSDF) -i $< -o $@ -I share/strategoxt/stratego-front/sdf/
+
+%.tbl : %.def
+	$(SDF2TABLE) -m `basename $*` -i $< -o $@
+	
+%.rtg : %.def
+	$(SDF2RTG) --main `basename $*` --ignore-missing-cons -i $< -o $@
+	
+%.str : %.rtg
+	$(RTG2SIG) --module `basename $*` -i $< -o $@
+	
+%.pp.af : %.pp
+	$(PARSEPPTABLE) -i $< -o $@
 
 SCFLAGS = --main $*-main	
 

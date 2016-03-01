@@ -32,13 +32,13 @@ TESTS = testnewproject.sh
 COMPILE_JARS = template-java-servlet/lib/webdsl-support.jar template-java-servlet/lib/webdsl-built-ins.jar 
 
 # Note:
-#   $(filter-out template-java-servlet/lib/webdsl-support.jar,$(WEBDSL_TEMPLATES)) \ 
+#   $(filter-out template-java-servlet/lib/webdsl-support.jar,$(WEBDSL_TEMPLATES)) \
 #	  template-java-servlet/lib/webdsl-support.jar \
 # is not the same as
 #   $(WEBDSL_TEMPLATES)
 # the latter does not trigger the template-java-servlet/lib/webdsl-support.jar target if it was not build before
 nobase_dist_pkgdata_DATA = \
-  $(filter-out template-java-servlet/lib/webdsl-support.jar,$(WEBDSL_TEMPLATES)) \ 
+  $(filter-out template-java-servlet/lib/webdsl-support.jar,$(WEBDSL_TEMPLATES)) \
   template-java-servlet/lib/webdsl-support.jar \
   webdsl-build.xml \
   webdsl-build-command.xml \
