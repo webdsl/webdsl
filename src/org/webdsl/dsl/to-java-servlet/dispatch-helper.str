@@ -85,26 +85,36 @@ rules
             }
           }
           public void setCookie(org.hibernate.Session hses){
-            String basicCookieInfo = "WEBDSLSESSIONID=" + utils.UUIDUserType.persistUUIDString(sessionId) + "; HttpOnly; path=/";
-            String setCookie = "SET-COOKIE";
             //internalUpdateSessionManagerTimeout is defined in WebDSL code (built-in.app)
-            boolean lastUsedUpdated = webdsl.generated.functions.internalUpdateSessionManagerTimeout_.internalUpdateSessionManagerTimeout_();
+            boolean sendCookie = false;
           	
-          	if( isNewSessionManager && ( sessionHasChanges() || !getOutgoingSuccessMessages().isEmpty()) ){
-          	  //only persist session manager and send initial cookie when session data has changed
-          	  sessionManager.setVersion(1); // mark as persisted
-          	  sessionManager.setChanged();
-          	  hses.save(sessionManager);
-          	  // new SessionManager means new Cookie
-          	  response.setHeader(setCookie, basicCookieInfo);
+          	if( isNewSessionManager ){
+          	  if(( sessionHasChanges() || !getOutgoingSuccessMessages().isEmpty()) ){
+	          	  //only persist session manager and send initial cookie when session data has changed
+	          	  sessionManager.setVersion(1); // mark as persisted
+	          	  sessionManager.setChanged();
+	          	  hses.save(sessionManager);
+	          	  // new SessionManager means new Cookie
+	          	  // response.setHeader(setCookie, basicCookieInfo);
+	          	  webdsl.generated.functions.internalUpdateSessionManagerTimeout_.internalUpdateSessionManagerTimeout_();
+	          	  sendCookie = true;
+          	  }
+          	} else {
+          		sendCookie = webdsl.generated.functions.internalUpdateSessionManagerTimeout_.internalUpdateSessionManagerTimeout_();
           	}
-          	if(lastUsedUpdated){
+          	
+          	
+          	
+          	if(sendCookie){
+          		String basicCookieInfo = "WEBDSLSESSIONID=" + utils.UUIDUserType.persistUUIDString(sessionId) + "; HttpOnly; path=/";
+            	String setCookie = "SET-COOKIE";
           		if(sessionManager.getStayLoggedIn() != null && sessionManager.getStayLoggedIn()){
 	                Date expdate = utils.DateType.addMonths(new Date(), 6);
 	                DateFormat df = new SimpleDateFormat("dd MMM yyyy kk:mm:ss z");
 	                df.setTimeZone(TimeZone.getTimeZone("GMT"));
-	                   response.setHeader(setCookie, basicCookieInfo+ "; expires=" + df.format(expdate));
+	                basicCookieInfo += "; expires=" + df.format(expdate);
 	            }
+	            response.setHeader(setCookie, basicCookieInfo); 
           	}
           }
           public void storeOutgoingMessagesInHttpSession(){

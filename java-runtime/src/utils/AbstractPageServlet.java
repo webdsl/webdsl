@@ -35,7 +35,6 @@ public abstract class AbstractPageServlet{
     protected abstract void redirectHttpHttps();
     protected abstract boolean isActionSubmit();
     protected abstract String[] getUsedSessionEntityJoins();
-    protected abstract void storeSessionEntities();
     protected TemplateServlet templateservlet = null;
     protected abstract org.webdsl.WebDSLEntity getRequestLogEntry();
     protected abstract void addPrincipalToRequestLog(org.webdsl.WebDSLEntity rle);
@@ -260,16 +259,15 @@ public abstract class AbstractPageServlet{
         }
         else {
           ThreadLocalServlet.get().storeOutgoingMessagesInHttpSession();
-          storeSessionEntities();
           addPrincipalToRequestLog(rle);
           if(!this.isAjaxRuntimeRequest()){
             ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(utils.HibernateUtil.getCurrentSession());
           }
+          ThreadLocalServlet.get().setCookie(hibernateSession);
           if(isReadOnly || readOnlyRequestStats){ // either page has read-only modifier, or no writes have been detected
             hibernateSession.getTransaction().rollback();
           }
           else{
-        	ThreadLocalServlet.get().setCookie(hibernateSession);
        	    hibernateSession.flush();
         	validateEntities();
             hibernateSession.getTransaction().commit();
