@@ -273,6 +273,9 @@ public abstract class AbstractPageServlet{
             hibernateSession.getTransaction().commit();
             invalidatePageCacheIfNeeded();
           }
+          if(exceptionInHibernateInterceptor != null){
+          	throw exceptionInHibernateInterceptor;
+          }
           response.sendContent();
         }
         ThreadLocalOut.popChecked(out);
@@ -292,7 +295,9 @@ public abstract class AbstractPageServlet{
         String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
         org.webdsl.logging.Logger.error("exception occured while handling request URL [ "+url+ " ]. Transaction is rolled back.");
         org.webdsl.logging.Logger.error("exception message: "+e.getMessage(), e);
-        hibernateSession.getTransaction().rollback();
+        if(hibernateSession.isOpen()){
+          hibernateSession.getTransaction().rollback();
+        }
         throw e;
 
       }
@@ -1584,4 +1589,10 @@ public abstract class AbstractPageServlet{
     		  }
     	  }
       }
+      
+      // Hibernate interceptor hooks (such as beforeTransactionCompletion) catch Throwable but then only log the error, e.g. when db transaction conflict occurs
+      // this causes the problem that a page might be rendered with data that was not actually committed
+      // workaround: store the exception in this variable and explicitly rethrow before sending page content to output stream
+      public Exception exceptionInHibernateInterceptor = null;
+      
 }

@@ -187,23 +187,38 @@ public class HibernateUtil {
             state[index] = value;
           }
         }
-        
-    	public void afterTransactionBegin(Transaction tx){
-    		afterTransactionBegin_.afterTransactionBegin_();
-    	}
-    	public void afterTransactionCompletion(Transaction tx) {
-    		if(tx.wasCommitted()){
-    			afterTransactionCompletionCommitted_.afterTransactionCompletionCommitted_();
-    		}
-    		else if(tx.wasRolledBack()){
-    			afterTransactionCompletionRolledBack_.afterTransactionCompletionRolledBack_();
-    		}
-    	}
-    	public void beforeTransactionCompletion(Transaction tx){
-    		beforeTransactionCompletion_.beforeTransactionCompletion_();
-    	}
-      }
 
+		public void afterTransactionBegin(Transaction tx) {
+			try {
+				afterTransactionBegin_.afterTransactionBegin_();
+			}
+			catch (Exception e) {
+				ThreadLocalPage.get().exceptionInHibernateInterceptor = e;
+			}
+		}
 
+		public void afterTransactionCompletion(Transaction tx) {
+			try {
+				if (tx.wasCommitted()) {
+					afterTransactionCompletionCommitted_.afterTransactionCompletionCommitted_();
+				}
+				else if (tx.wasRolledBack()) {
+					afterTransactionCompletionRolledBack_.afterTransactionCompletionRolledBack_();
+				}
+			}
+			catch (Exception e) {
+				ThreadLocalPage.get().exceptionInHibernateInterceptor = e;
+			}
+		}
+
+		public void beforeTransactionCompletion(Transaction tx) {
+			try {
+				beforeTransactionCompletion_.beforeTransactionCompletion_();
+			}
+			catch (Exception e) {
+				ThreadLocalPage.get().exceptionInHibernateInterceptor = e;
+			}
+		}
+	}
 
 }
