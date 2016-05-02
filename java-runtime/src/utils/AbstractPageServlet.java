@@ -544,7 +544,7 @@ public abstract class AbstractPageServlet{
             }
         }
         for(Map.Entry<String,String> headEntry : customHeadNoDuplicates.entrySet()) {
-            sout.println("<!-- " + headEntry.getKey() + " -->");
+//            sout.println("<!-- " + headEntry.getKey() + " -->");
             sout.println(headEntry.getValue());
         }
         for(String headEntry : customHeads) {
@@ -908,7 +908,8 @@ public abstract class AbstractPageServlet{
     }
 
     public void addCustomHead(String header) {
-        customHeads.add(header);
+//        customHeads.add(header);
+    	addCustomHead(header, header);
     }
 
     public void addCustomHead(String key, String header) {
