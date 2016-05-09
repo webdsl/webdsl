@@ -7,6 +7,12 @@ public class Warning {
         return null;
     }
 
+	public static void errorWithSmallStackTrace(String error, int length, int offset) {
+		org.webdsl.logging.Logger.error(error);
+		printSmallStackTrace(length, offset);
+		throw new RuntimeException(error);
+	}
+
     public static void printSmallStackTrace(Exception e, int length){
     	StringBuilder sb = new StringBuilder(2048);
     	sb.append(e.getClass().getCanonicalName());
