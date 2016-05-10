@@ -69,11 +69,23 @@ section datamodel
     x.clear();
     assert(x.length == 0);
   }
-  test listAddAllSub{
+  test listAddAllList{
     var y := [SubUser{}];
     var x := List<User>();
     x.addAll(y);
     assert(x.length == 1);
+  }
+  test listAddAllSet{
+    var list := [User{}].addAll({SubUser{}});
+    assert(list.length == 2);
+  }
+  test setAddAllList{
+    var set := {User{}}.addAll([SubUser{}]);
+    assert(set.length == 2);
+  }
+  test setAddAllSet{
+    var set := {User{}}.addAll({SubUser{}});
+    assert(set.length == 2);
   }
   test listToSet{
     var us := SubUser{};

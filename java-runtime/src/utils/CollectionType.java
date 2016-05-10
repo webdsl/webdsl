@@ -8,24 +8,9 @@ import java.util.Set;
 
 public class CollectionType {
 
-	public static <T, S extends T> List<T> addAll(List<T> list, List<S> toAdd) {
-		list.addAll(toAdd);
-		return list;
-	}
-
-	public static <T, S extends T> List<T> addAll(List<T> list, Set<S> toAdd) {
-		list.addAll(toAdd);
-		return list;
-	}
-
-	public static <T, S extends T> Set<T> addAll(Set<T> list, List<S> toAdd) {
-		list.addAll(toAdd);
-		return list;
-	}
-
-	public static <T, S extends T> Set<T> addAll(Set<T> list, Set<S> toAdd) {
-		list.addAll(toAdd);
-		return list;
+	public static <T, COLL extends Collection<T>, S extends T> COLL addAll(COLL collection, Collection<S> toAdd){
+		collection.addAll(toAdd);
+		return collection;
 	}
 
 	// utility method to create a list with elements in a single expression
