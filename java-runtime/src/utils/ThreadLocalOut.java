@@ -30,12 +30,11 @@ public class ThreadLocalOut {
         return get().pop();
     }
 
-    public static void popChecked(PrintWriter pw){
-        if(pw != pop()){
-            Warning.warn("wrong output PrintWriter popped");
-            Warning.printSmallStackTrace(1,1);
-        }
-    }
+	public static void popChecked(PrintWriter pw) {
+		if (pw != pop()) {
+			popChecked(pw);
+		}
+	}
 
 }
 

@@ -303,9 +303,8 @@ public abstract class TemplateServlet {
     }
  
     public void printTemplateCallException(RuntimeException ex, String errormessage){
-    	if(ex instanceof NullPointerException || ex instanceof IndexOutOfBoundsException){  // ignore the template for these cases
-    	  	org.webdsl.logging.Logger.error("Problem occurred in template call: "+errormessage);
-        	utils.Warning.printSmallStackTrace(ex, 5);  // print first few lines of stack trace to indicate location, should be removed when location is always available for original webdsl line of code
+    	if(ex instanceof NullPointerException || ex instanceof IndexOutOfBoundsException){
+    	  	org.webdsl.logging.Logger.warn("Skipping (" + ex.getMessage() + "): "+errormessage);
     	}
     	else{
     		throw ex;

@@ -790,7 +790,6 @@ public abstract class AbstractPageServlet{
     public void leaveTemplateContext() {
         templateContext.leaveTemplateContext();
     }
-    //verifies that the correct context was popped
     public void leaveTemplateContextChecked(String s) {
         templateContext.leaveTemplateContextChecked(s);
     }

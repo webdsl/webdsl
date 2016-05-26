@@ -19,12 +19,11 @@ public class TemplateContext {
 		sb.delete(sb.length()-s1.length(), sb.length());
 	}
 
-	//verifies that the correct context was popped
-	public void leaveTemplateContextChecked(String s) { 
+	public void leaveTemplateContextChecked(String s) {
 		String s1 = templateContext.pop();
-		sb.delete(sb.length()-s1.length(), sb.length());
-		if(!s.equals(s1)){
-			utils.Warning.warn("wrong templateContext popped, found: "+s1+" expected: "+s);
+		sb.delete(sb.length() - s1.length(), sb.length());
+		if (!s.equals(s1)) {
+			leaveTemplateContextChecked(s);
 		}
 	}
 
