@@ -3,7 +3,14 @@ application test
   define page root() {
     placeholder one{
       bla("dfsf", one)
-    }  
+    }
+    placeholder <span> two{
+      bla("dfsf", two)
+    }
+    
+    placeholder three bla("dfsf", three)
+    placeholder <span> four bla("dfsf", four)    
+    
   }
   
   define ajax bla(s:String, ph: Placeholder){
