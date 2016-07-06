@@ -1,5 +1,5 @@
 //#6 Variable name 'a' is already defined in this context
-//#2 Placeholder name 'a' is already defined in this context
+//#4 Placeholder name 'a' is already defined in this context
 //#8 For loop variable name 'a' is already defined in this context
 //#1 List comprehension variable name 'a' is already defined in this context
 //#1 Formal argument name 's' is already defined in this context
@@ -20,7 +20,9 @@ application shadowing
     }
     
     placeholder a { } // Placeholder
+    placeholder <span> a { } // Placeholder
     placeholder a foo() // PlaceholderWithAjaxCall
+    placeholder <span> a foo() // PlaceholderWithAjaxCall
     
     for(a:TestEnt){} // ForAll
     for(a:TestEnt in [TestEnt{}]){} // For

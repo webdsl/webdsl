@@ -1,4 +1,4 @@
-//#29 Variable name 'id' is not allowed
+//#31 Variable name 'id' is not allowed
 
 application test
 
@@ -24,6 +24,8 @@ page root(){
   }
   
   placeholder id{} // Placeholder
+  placeholder <span> id{} // Placeholder
+  placeholder <span> id foo() // PlaceholderWithAjaxCall
   placeholder id foo() // PlaceholderWithAjaxCall
   
   for( id: TestEnt ){} // ForAll
