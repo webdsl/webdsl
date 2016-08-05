@@ -45,6 +45,7 @@ public abstract class AbstractPageServlet{
     protected static Pattern isMarkupLangMimeType= Pattern.compile("html|xml$");
     protected static Pattern baseURLPattern= Pattern.compile("^\\w{0,6}://[^/]+");
     public boolean isReadOnly = false;
+    public boolean isWebService(){ return false; }
 
     static{
     	common_css_link_tag_suffix = "/stylesheets/common_.css?" + System.currentTimeMillis() +"\" rel=\"stylesheet\" type=\"text/css\" />";
@@ -358,6 +359,9 @@ public abstract class AbstractPageServlet{
     	String s = "";
     	Cache<String, String> cache = null;
     	AbstractDispatchServletHelper servlet = ThreadLocalServlet.get();
+    	if(isWebService()){
+    		setMimetype("application/json");
+    	}
     	if( // not using page cache if:
     		this.isPageCacheDisabled // ?nocache added to URL
     		|| this.isPostRequest() // post parameters are not included in cache key
