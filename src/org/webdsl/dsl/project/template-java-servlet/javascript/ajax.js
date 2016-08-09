@@ -320,35 +320,37 @@ function clientExecute(jsoncode, thisobject)
   for(i = 0; i < data.length ; i++)
   {
     command = data[i];
-
-    if (command.action == "replace")
-      replace(command, thisobject);
-    else if (command.action == "append")
-      append(command, thisobject);
-    else if (command.action == "clear")
-      clear(command, thisobject);
-    else if (command.action == "visibility")
-      changevisibility(command, thisobject);
-    else if (command.action == "relocate")
-      relocate(command);
-    else if (command.action == "restyle")
-      restyle(command, thisobject);
-    else if (command.action == "refresh")
-      location.reload(true);
-    //used for displaying validation messages
-    else if (command.action == "replaceall") {
-      replaceall(command);
+    try{
+      if (command.action == "replace")
+        replace(command, thisobject);
+      else if (command.action == "append")
+        append(command, thisobject);
+      else if (command.action == "clear")
+        clear(command, thisobject);
+      else if (command.action == "visibility")
+        changevisibility(command, thisobject);
+      else if (command.action == "relocate")
+        relocate(command);
+      else if (command.action == "restyle")
+        restyle(command, thisobject);
+      else if (command.action == "refresh")
+        location.reload(true);
+      //used for displaying validation messages
+      else if (command.action == "replaceall") {
+        replaceall(command);
+      }
+      else if (command.action == "runscript") {
+        eval(command.value);
+      }
+      else if (command.action == "logsql") {
+        appendLogSql(command);
+      }
+      else if (command.action != undefined) //last command might equal {}
+        if(show_webdsl_debug){ alert("unknown client command: "+command.action); }
     }
-    else if (command.action == "runscript") {
-      eval(command.value);
+    catch(error){
+      console.log(error);
     }
-    else if (command.action == "logsql") {
-      appendLogSql(command);
-    }
-    //other actions
-
-    else if (command.action != undefined) //last command might equal {}
-      if(show_webdsl_debug){ alert("unknown client command: "+command.action); }
   }
 }
 
