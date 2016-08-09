@@ -45,7 +45,6 @@ public abstract class AbstractPageServlet{
     protected static Pattern isMarkupLangMimeType= Pattern.compile("html|xml$");
     protected static Pattern baseURLPattern= Pattern.compile("^\\w{0,6}://[^/]+");
     public boolean isReadOnly = false;
-    public boolean isWebService(){ return false; }
 
     static{
     	common_css_link_tag_suffix = "/stylesheets/common_.css?" + System.currentTimeMillis() +"\" rel=\"stylesheet\" type=\"text/css\" />";
@@ -312,7 +311,7 @@ public abstract class AbstractPageServlet{
     
     // LoadingCache is thread-safe
     public static boolean pageCacheEnabled = utils.BuildProperties.getNumCachedPages() > 0;
-    public static Cache<String, String> cacheAnonymousPages =
+    public static Cache<String, CacheResult> cacheAnonymousPages =
     		CacheBuilder.newBuilder()
     		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
     public boolean invalidateAllPageCache = false;
@@ -327,7 +326,7 @@ public abstract class AbstractPageServlet{
     	shouldTryCleanPageCaches = true;
     }
 
-    public static Cache<String, String> cacheUserSpecificPages =
+    public static Cache<String, CacheResult> cacheUserSpecificPages =
     		CacheBuilder.newBuilder()
     		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
     public boolean invalidateUserSpecificPageCache = false;
@@ -357,11 +356,8 @@ public abstract class AbstractPageServlet{
     public void renderOrInitAction() throws IOException{
     	String key = request.getRequestURL().toString();
     	String s = "";
-    	Cache<String, String> cache = null;
+    	Cache<String, CacheResult> cache = null;
     	AbstractDispatchServletHelper servlet = ThreadLocalServlet.get();
-    	if(isWebService()){
-    		setMimetype("application/json");
-    	}
     	if( // not using page cache if:
     		this.isPageCacheDisabled // ?nocache added to URL
     		|| this.isPostRequest() // post parameters are not included in cache key
@@ -389,20 +385,25 @@ public abstract class AbstractPageServlet{
     		}
     		try{
     			pageCacheWasUsed = true;
-    			s = cache.get(key,
-    			new Callable<String>(){
-    				public String call(){
+    			CacheResult result = cache.get(key,
+    			new Callable<CacheResult>(){
+    				public CacheResult call(){
     					// System.out.println("key not found");
     					pageCacheWasUsed = false;
     					StringWriter renderedContent = renderPageOrTemplateContents();
+    					CacheResult result = new CacheResult();
     					if(!mimetypeChanged){
-    						return renderResponse(renderedContent);
+    						result.body = renderResponse(renderedContent);
     					}
     					else{
-    						return renderedContent.toString();
+    						result.body = renderedContent.toString();
     					}
+    					result.mimetype = getMimetype();
+    					return result;
     				}
     			});
+    			s = result.body;
+    			setMimetype(result.mimetype);
     		}
     		catch(java.util.concurrent.ExecutionException e){
     			e.printStackTrace();
