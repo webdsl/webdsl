@@ -134,6 +134,8 @@
    TemplateVarDecl                    -- H[KW["var"] _1 KW[":"] _2],
    If                                 -- V[H[KW["if"] KW["("] _1 KW[")"]] _2 KW["else"] _3],
    IfNoElse                           -- H[KW["if"] KW["("] _1 KW[")"]] _2,
+   IfWithElseIf                       -- V[H[KW["if"] KW["("] _1 KW[")"]] _2 _3 KW["else"] _4],
+   ElseIf                             -- V[H[KW["else if"] KW["("] _1 KW[")"]] _2],
 
    Case                               -- V[V is=2[ H[KW["case"] KW["("] _1 KW[")"] KW["{"]] _2] KW["}"]],
    Case.2:iter-star                   -- _1,
