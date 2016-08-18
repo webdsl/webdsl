@@ -23,23 +23,34 @@ rules
 rules // generic check entity function traversal
 
   constraint-error-data =
-      where(get-entity-def)
+      where(get-entity-def <+ get-extend-entity-def)
     ; transform-entity-body(check-entity-functions)
   
-rules // extend function
+rules // extend and cached function
   
   check-entity-functions(|entityname):
     decls -> <fail>
     with <filter(check-entity-function(|entityname))> decls
        ; sigs := <filter(is-function-cons; extract-function-sig)> decls
        ; efuncs := <filter(?ExtendFunction(_))> decls
-       ; <filter(match-extend-function-to-entity-function(|entityname))> efuncs 
+       ; <filter(match-extend-function-to-entity-function(|entityname))> efuncs
+       ; cachedFuns := <filter(has-anno(?SimpleAnno("cache")))> decls
+       ; <filter(is-cachable-function)> cachedFuns
          
   match-extend-function-to-entity-function(|entityname):
     ExtendFunction(f) -> <add-error(|["Extend function with signature ",prettysig," in ",entityname," extends a non-existing function."])>
     where sig@(name,argtypes) := <extract-function-sig> f
         ; <not(CheckFunctionSignature)> (SimpleSort(<capitalize-string> entityname),name,argtypes)
         ; prettysig := <pp-func-sig> sig 
+          
+  is-cachable-function():
+  	f@Function(_, fargs, _, _) -> <fail>
+  	where <not(?[])> fargs
+  	    ; <add-error(|["Only functions without arguments can be cached. Remove the cached keyword, or changed the function to not have arguments."])> f
+  is-cachable-function():
+  	f@Function(_, _, srt, _) -> <fail>
+  	where <(?SimpleSort("Void"))> srt
+  	    ; <add-error(|["Only functions that have a return type can be cached. Remove the cached keyword, or changed the function to return a result."])> f 
      
 rules // built-in function signature check
   

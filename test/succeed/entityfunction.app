@@ -3,7 +3,8 @@ application test
   entity SubUser:User{}
   entity Publication{}
   entity User{
-    name :: String
+    name : String
+    cnt  : Int (default = 0)
     function test(a:Int, b:Int, u:User) : Bool
     {
       u.name == this.name;
@@ -24,6 +25,10 @@ application test
       test(45,65,User{});
     }
     
+    cached function testCache() : Int{
+    	cnt := cnt + 1;
+    	return cnt;
+    }
             
     function add(pubs : List<Publication>) {
       for(pub : Publication in pubs) {
@@ -44,6 +49,10 @@ application test
     assert(u.test(4,8,su)== false);
     assert(test(4,8,u) == true);
     assert(test(4,8,su)== false);
+    
+    assert(u.testCache() == 1);
+    assert(u.testCache() == 1);
+    
   }
 
   

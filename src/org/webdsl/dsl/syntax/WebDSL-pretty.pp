@@ -115,6 +115,7 @@
    Function.3:iter-star-sep           -- H hs=0[_1 KW[","]],
    StaticEntityFunction               -- V[ H[KW["static"] KW["function"] _1 KW["("] _2 KW[")"] _3] _4 ],
    ReturnType                         -- KW[":"] _1,
+   CachedFunction                     -- KW["cached"] _1,
    ExtendFunction                     -- KW["extend"] _1,
    Block                              -- V  [V is=2 [KW["{"] _1] KW["}"]],
    Block.1:iter-star                  -- _1,

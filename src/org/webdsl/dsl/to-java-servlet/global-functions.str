@@ -67,6 +67,7 @@ rules
           bstm*
       }
     ]|
+    where <has-no-anno(|SimpleAnno("cache"))>function 
     with  {| InFunction:
               rules( InFunction := <id> )
             ; if SimpleSort("Void") := s
@@ -85,3 +86,35 @@ rules
       then webdsl-function-to-java-servlet-function(|[])
       else webdsl-function-to-java-servlet-function(|[mod |[ static ]| ])
       end
+
+
+  webdsl-function-to-java-servlet-function(|mod*):
+    function@Function(x, args, s, Block(stm*)) -> 
+    class-body-dec* |[
+      public mod* t x#$Cached#_()  { 
+      	  bstm_prefetch*
+          bstm*
+      }
+      
+      @Transient boolean x#$IsSet;
+      @Transient t x#$Cache;
+      public mod* t x#_() {
+        if(!x#$IsSet){
+          x#$Cache = x#$Cached#_();
+          x#$IsSet = true;
+        }
+        return x#$Cache;
+      }
+      
+    ]|
+    where <has-anno(SimpleAnno("cache"))> function
+    with  {| InFunction:
+              rules( InFunction := <id> )
+            ; if SimpleSort("Void") := s
+              then  t      := Void()
+              else  t      := <java-type> s end
+            ; bstm_prefetchthis* := <(get-prefetch-for-this; (is-at-arguments < get-batch-fetches-single-this + get-batch-fetches-single-simple-this)) <+ ![]> stm*
+            ; bstm_prefetchargs* := <filter(formal-arguments-to-query-optimizations(|stm*))> args
+            ; bstm_prefetch* := <if-optimization-enabled> bstm* |[ bstm_prefetchthis* bstm_prefetchargs* ]|
+            ; bstm*  := <statements-to-java-servlet> stm*
+            |}
