@@ -599,6 +599,9 @@ public abstract class AbstractPageServlet{
 
       this.isServingAsAjaxResponse = true;
       templateservlet.render(null, args, Environment.createNewLocalEnvironment(envGlobalAndSession), null); // new clean environment with only the global templates, and global/session vars
+      
+      //The ajax response may trigger a flush of uncommitted changes, which should invalidate the page cache
+      invalidatePageCacheIfNeeded();
 
       ThreadLocalPage.set(ps);
     }
