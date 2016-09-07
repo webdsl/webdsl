@@ -44,6 +44,7 @@ public abstract class AbstractPageServlet{
     public Session hibernateSession = null;
     protected static Pattern isMarkupLangMimeType= Pattern.compile("html|xml$");
     protected static Pattern baseURLPattern= Pattern.compile("^\\w{0,6}://[^/]+");
+    protected AbstractPageServlet pageCacheController = this;
     public boolean isReadOnly = false;
 
     static{
@@ -318,11 +319,17 @@ public abstract class AbstractPageServlet{
     protected boolean shouldTryCleanPageCaches = false;
     public String invalidateAllPageCacheMessage;
     public void invalidateAllPageCache(String entityname){
+    	pageCacheController.invalidateAllPageCacheInternal(entityname);
+    }
+    private void invalidateAllPageCacheInternal(String entityname){
     	invalidateAllPageCache = true;
     	String propertySetterTrace = Warning.getStackTraceLineAtIndex(4);
     	invalidateAllPageCacheMessage = entityname + " - " + propertySetterTrace;
     }
     public void shouldTryCleanPageCaches(){
+  	  pageCacheController.shouldTryCleanPageCachesInternal();
+    }
+    private void shouldTryCleanPageCachesInternal(){
     	shouldTryCleanPageCaches = true;
     }
 
@@ -331,7 +338,11 @@ public abstract class AbstractPageServlet{
     		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
     public boolean invalidateUserSpecificPageCache = false;
     public String invalidateUserSpecificPageCacheMessage;
+    
     public void invalidateUserSpecificPageCache(String entityname){
+    	pageCacheController.invalidateUserSpecificPageCacheInternal(entityname);
+    }
+    private void invalidateUserSpecificPageCacheInternal(String entityname){
     	invalidateUserSpecificPageCache = true;
     	String propertySetterTrace = Warning.getStackTraceLineAtIndex(4);
     	invalidateUserSpecificPageCacheMessage = entityname + " - " + propertySetterTrace;
@@ -591,7 +602,11 @@ public abstract class AbstractPageServlet{
     protected abstract void initializeBasics(AbstractPageServlet ps, Object[] args);
     public boolean isServingAsAjaxResponse = false;
     public void serveAsAjaxResponse(AbstractPageServlet ps, Object[] args, TemplateCall templateArg)
-    { //use passed PageServlet ps here, since this is the context for this type of response
+    { 
+      //inherit pageCacheController
+      pageCacheController = ps.pageCacheController;
+  
+      //use passed PageServlet ps here, since this is the context for this type of response
       initializeBasics(ps, args);
 
       ThreadLocalPage.set(this);
@@ -599,9 +614,6 @@ public abstract class AbstractPageServlet{
 
       this.isServingAsAjaxResponse = true;
       templateservlet.render(null, args, Environment.createNewLocalEnvironment(envGlobalAndSession), null); // new clean environment with only the global templates, and global/session vars
-      
-      //The ajax response may trigger a flush of uncommitted changes, which should invalidate the page cache
-      invalidatePageCacheIfNeeded();
 
       ThreadLocalPage.set(ps);
     }
