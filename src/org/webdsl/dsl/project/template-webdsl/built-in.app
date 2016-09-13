@@ -1177,7 +1177,7 @@ template datepickerinput( d: ref Date, dateformat: String, tname: String, option
       s := d.format( "yyyy-MM-dd'T'HH:mm:ss" );
     }
   }
-
+  includeJS( IncludePaths.jQueryJS() )
   includeJS( IncludePaths.timepickerJS() )
   includeCSS( IncludePaths.timepickerCSS() )
 
@@ -1200,9 +1200,8 @@ template datepickerinput( d: ref Date, dateformat: String, tname: String, option
     all attributes
   />
 
-  //uses setTimeout which seems to give better results when used in combination with webdsl ajax
   <script>
-    document.getElementsByName("~tname").flatpickr({allowInput: true, time_24hr: true, ~options});
+    $("input:not(.flatpickr-input)[name=~tname]").flatpickr({allowInput: true, time_24hr: true, ~options});
   </script>
 
   databind{
@@ -1211,7 +1210,6 @@ template datepickerinput( d: ref Date, dateformat: String, tname: String, option
         d := null;
       }
       else{
-      	log("parsing date: " + req + " in format:" + dateformat);
         var newdate := req.parseDateTime( dateformat );
         if( newdate != null ){
           d := newdate;
