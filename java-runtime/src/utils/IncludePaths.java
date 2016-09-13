@@ -13,8 +13,8 @@ public class IncludePaths {
 	private static final String JQUERYUI_CSS_LOCAL = "jquery-ui-1.10.4.min.css";
 	private static final String JQUERYUI_CSS_CDN = "//ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/themes/smoothness/jquery-ui.css";
 	
-	private static final String JQUERYUI_TIMEPICKER_JS_LOCAL = "jquery-ui-timepicker-addon.js";
-	private static final String JQUERYUI_TIMEPICKER_CSS_LOCAL = "jquery-ui-timepicker-addon.css";
+	private static final String JQUERYUI_TIMEPICKER_JS_LOCAL = "flatpickr.min.js";
+	private static final String JQUERYUI_TIMEPICKER_CSS_LOCAL = "flatpickr.min.css";
 	
 	private static String jQueryJSPath = JQUERY_JS_LOCAL;
 	
