@@ -13,16 +13,18 @@ public class IncludePaths {
 	private static final String JQUERYUI_CSS_LOCAL = "jquery-ui-1.10.4.min.css";
 	private static final String JQUERYUI_CSS_CDN = "//ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/themes/smoothness/jquery-ui.css";
 	
-	private static final String JQUERYUI_TIMEPICKER_JS_LOCAL = "flatpickr.min.js";
-	private static final String JQUERYUI_TIMEPICKER_CSS_LOCAL = "flatpickr.min.css";
+	private static final String MOMENT_JS_LOCAL = "moment.min.js";
+	private static final String FLATPICKR_JS_LOCAL = "flatpickr.min.js";
+	private static final String FLATPICKR_CSS_LOCAL = "flatpickr.min.css";
 	
 	private static String jQueryJSPath = JQUERY_JS_LOCAL;
 	
 	private static String jQueryUIJSPath = JQUERYUI_JS_LOCAL;
 	private static String jQueryUICSSPath = JQUERYUI_CSS_LOCAL;
 	
-	private static String timepickerJSPath = JQUERYUI_TIMEPICKER_JS_LOCAL;
-	private static String timepickerCSSPath = JQUERYUI_TIMEPICKER_CSS_LOCAL;
+	private static String momentJSPath = MOMENT_JS_LOCAL;
+	private static String timepickerJSPath = FLATPICKR_JS_LOCAL;
+	private static String timepickerCSSPath = FLATPICKR_CSS_LOCAL;
 	
 	static{
 		initialize();
@@ -36,6 +38,9 @@ public class IncludePaths {
 	}
 	public static String jQueryUICSS(){
 		return jQueryUICSSPath;
+	}
+	public static String momentJS(){
+		return momentJSPath;
 	}
 	public static String timepickerJS(){
 		return timepickerJSPath;

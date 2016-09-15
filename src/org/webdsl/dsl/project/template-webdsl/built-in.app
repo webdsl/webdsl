@@ -50,6 +50,7 @@ native class utils.IncludePaths as IncludePaths{
   static jQueryJS(): String
   static jQueryUIJS(): String
   static jQueryUICSS(): String
+  static momentJS() : String
   static timepickerJS(): String
   static timepickerCSS(): String
 }
@@ -1040,6 +1041,10 @@ function javaToJsDate(d : Date) : String{
 	return "new Date(" + d.getYear() + ", " + d.getMonth() + ", " + d.getDay() + ", " + d.format("HH") + ", " + d.getMinute() + ", " + d.getSecond() + ")";
 }
 
+function convertJavaDateFormatToMomentJS( f: String ): String{
+  return f.replace("d", "D").replace( "E", "d" ).replace( "u", "E" ).replace( "Y", "g" ).replace( "y", "Y" );
+}
+
 template input( d: ref DateTime ){
   input( d, now().addYears( -30 ), now().addYears( 50 ) )[ all attributes ]{ elements }
 }
@@ -1166,22 +1171,30 @@ template dateinputgeneric( d: ref Date, dateformat: String, options: String ){
     errors := handleValidationErrors( errors );
   }
 }
+template datepickerIncludes(){
+  includeJS( IncludePaths.jQueryJS() )
+  includeJS( IncludePaths.momentJS() )
+  includeJS( IncludePaths.timepickerJS() )
+  includeCSS( IncludePaths.timepickerCSS() )
+}
 
 template datepickerinput( d: ref Date, dateformat: String, tname: String, options: String ){
   var s: String
+  var momentJSFormat := convertJavaDateFormatToMomentJS(dateformat)
+  var req := getRequestParameter( tname )
+  var onOpen := "onOpen: function(dateObj, dateStr, instance){ if(dateStr == ''){ instance.jumpToDate( new Date() ); } }"
   init{
     if( d == null ){
       s := "";
     }
     else{
-      s := d.format( "yyyy-MM-dd'T'HH:mm:ss" );
+      s := d.format( dateformat );
+    }
+    if(req != null){
+    	s := req;
     }
   }
-  includeJS( IncludePaths.jQueryJS() )
-  includeJS( IncludePaths.timepickerJS() )
-  includeCSS( IncludePaths.timepickerCSS() )
-
-  var req := getRequestParameter( tname )
+  datepickerIncludes
 
   <input
     if( getPage().inLabelContext() ){
@@ -1190,18 +1203,13 @@ template datepickerinput( d: ref Date, dateformat: String, tname: String, option
     class = "flatpickr"
     name = tname
     type = "text"
-    if( req != null ){
-      value = req
-    }
-    else{
-      value = s
-    }
+    value = s
     inputDate attributes
     all attributes
   />
 
   <script>
-    $("input:not(.flatpickr-input)[name=~tname]").flatpickr({allowInput: true, time_24hr: true, ~options});
+    $("input:not(.flatpickr-input)[name=~tname]").flatpickr({~onOpen, allowInput: true, parseDate:function(str){ return moment(str, "~(momentJSFormat))").toDate(); }, time_24hr: true, ~options});
   </script>
 
   databind{
