@@ -78,7 +78,9 @@ section datamodel
     navigate(test2(0,"",u1)){"test2"}
     navigate(test3(0,u1,"")){"test3"}
     navigate(test4(0,u1,"",0.0)){"test4"}
-        navigate(root()){"root"}
+    navigate(root()){"root"}
+    navigate(with-dash()){"test5"}
+    navigate with-dash(){"test6"}
   }
   
   entity User {
@@ -116,4 +118,8 @@ section datamodel
   
   define override page pagenotfound(){
    "PAGE NOT FOUND :/"
+  }
+
+  page with-dash(){
+  	
   }
