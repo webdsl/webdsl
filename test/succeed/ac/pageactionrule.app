@@ -23,6 +23,10 @@ section principal
     }
     rule page root(){true}
     rule template main(){true}
+    
+    rule page with-dash(){
+      true
+    }
 
   
 section somesection  
@@ -57,3 +61,6 @@ section somesection
       }
     }
    }
+   
+  page with-dash(){
+  }
