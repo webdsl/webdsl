@@ -69,41 +69,50 @@ rules
           protected boolean isActionSubmit(){
             return (ThreadLocalServlet.get().isPostRequest && parammap.get("~<post-without-action-param-name>") == null)|| parammap.get("~<action-call-with-get-param-name>") != null;
           }
+          
+          protected String absoluteLocationCache = null;
 
           public String getAbsoluteLocation() {
-            ~*<if-test> bstm*|[
-              String contextPath = ThreadLocalServlet.getContextPath();
-              if(contextPath.equals("")){ //root app
-                return "http://localhost:" + utils.TestAll.SERVLET_PORT;
-              }
-              else{
-                return "http://localhost:" + utils.TestAll.SERVLET_PORT + contextPath;
-              }
-            ]|
-            ~*<if-not-test> bstm*|[
-              if(request == null){
-                //constructing url outside a request, may happen for example when rendering page/templ in recurring task
-                String url = BuildProperties.getAppUrlForRenderWithoutRequest();
-                if(url == null){
-                  org.webdsl.logging.Logger.warn("Property 'appurlforrenderwithoutrequest' is not set in application.ini. This property is used to construct links that are rendered outside a page request. Using 'http://localhost' for now.");
-                  url= "http://localhost";
+            if(absoluteLocationCache == null){
+              String proto = getXForwardedProto();
+              ~*<if-test> bstm*|[
+                if(proto == null){
+                  proto = "http";
                 }
-                return url;
-              }
-
-              String contextPath = ThreadLocalServlet.getContextPath();
-
-              Matcher m = baseURLPattern.matcher(request.getRequestURL().toString());
-              m.find();
-              if(contextPath.equals("")){ //root app
-                return m.group(0);
-
-              }
-              else{
-                return m.group(0) + contextPath;
-
-              }
-            ]|
+                String contextPath = ThreadLocalServlet.getContextPath();
+                if(contextPath.equals("")){ //root app
+                  absoluteLocationCache = proto + "://localhost:" + utils.TestAll.SERVLET_PORT;
+                }
+                else{
+                  absoluteLocationCache = proto + "://localhost:" + utils.TestAll.SERVLET_PORT + contextPath;
+                }
+              ]|
+              ~*<if-not-test> bstm*|[
+                if(request == null){
+                  //constructing url outside a request, may happen for example when rendering page/templ in recurring task
+                  absoluteLocationCache = BuildProperties.getAppUrlForRenderWithoutRequest();
+                  if(absoluteLocationCache == null){
+                    org.webdsl.logging.Logger.warn("Property 'appurlforrenderwithoutrequest' is not set in application.ini. This property is used to construct links that are rendered outside a page request. Using 'http://localhost' for now.");
+                    absoluteLocationCache = "http://localhost";
+                  }
+                }
+                else{
+                  String contextPath = ThreadLocalServlet.getContextPath();
+                  Matcher m = baseURLPattern.matcher(request.getRequestURL().toString());
+                  m.find();
+                  if(proto == null){
+                    proto = m.group(1);
+                  }
+                  if(contextPath.equals("")){ //root app
+                    absoluteLocationCache = proto + m.group(2);
+                  }
+                  else{
+                    absoluteLocationCache = proto + m.group(2) + contextPath;
+                  }
+                }
+              ]|
+            }
+            return absoluteLocationCache;
           }
 
           //QueuedEmail is generated from WebDSL, not available when compiling AbstractPageServlet

@@ -43,7 +43,7 @@ public abstract class AbstractPageServlet{
     protected PegDownProcessor pegDownProcessorNoHardWraps = null;
     public Session hibernateSession = null;
     protected static Pattern isMarkupLangMimeType= Pattern.compile("html|xml$");
-    protected static Pattern baseURLPattern= Pattern.compile("^\\w{0,6}://[^/]+");
+    protected static Pattern baseURLPattern= Pattern.compile("(^\\w{0,6})(://[^/]+)");
     protected AbstractPageServlet pageCacheController = this;
     public boolean isReadOnly = false;
 
@@ -799,6 +799,10 @@ public abstract class AbstractPageServlet{
     }
 
     public abstract String getAbsoluteLocation();
+    
+    public String getXForwardedProto() {
+        return request.getHeader("x-forwarded-proto");
+    }
 
     protected TemplateContext templateContext = new TemplateContext();
     public String getTemplateContextString() {
