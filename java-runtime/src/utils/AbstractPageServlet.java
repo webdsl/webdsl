@@ -46,6 +46,7 @@ public abstract class AbstractPageServlet{
     protected static Pattern baseURLPattern= Pattern.compile("(^\\w{0,6})(://[^/]+)");
     protected AbstractPageServlet pageCacheController = this;
     public boolean isReadOnly = false;
+    public boolean isWebService(){ return false; }
 
     static{
     	common_css_link_tag_suffix = "/stylesheets/common_.css?" + System.currentTimeMillis() +"\" rel=\"stylesheet\" type=\"text/css\" />";
@@ -161,7 +162,7 @@ public abstract class AbstractPageServlet{
               response.getWriter().write("{}]");
             }
             // action called but no action found
-            else if( isValid() && isActionSubmit() ){
+            else if( !isWebService() && isValid() && isActionSubmit() ){
               org.webdsl.logging.Logger.error("Error: server received POST request but was unable to dispatch to a proper action");
               response.getWriter().write("404 \n Error: server received POST request but was unable to dispatch to a proper action");
             }
