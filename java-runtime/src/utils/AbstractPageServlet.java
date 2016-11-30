@@ -800,10 +800,14 @@ public abstract class AbstractPageServlet{
     }
 
     public abstract String getAbsoluteLocation();
-    
-    public String getXForwardedProto() {
-        return request.getHeader("x-forwarded-proto");
-    }
+
+	public String getXForwardedProto() {
+		if (request == null) {
+			return null;
+		} else {
+			return request.getHeader("x-forwarded-proto");
+		}
+	}
 
     protected TemplateContext templateContext = new TemplateContext();
     public String getTemplateContextString() {
