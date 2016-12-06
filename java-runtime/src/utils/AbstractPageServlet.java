@@ -44,7 +44,7 @@ public abstract class AbstractPageServlet{
     public Session hibernateSession = null;
     protected static Pattern isMarkupLangMimeType= Pattern.compile("html|xml$");
     protected static Pattern baseURLPattern= Pattern.compile("(^\\w{0,6})(://[^/]+)");
-    protected AbstractPageServlet pageCacheController = this;
+    protected AbstractPageServlet commandingPage = this;
     public boolean isReadOnly = false;
     public boolean isWebService(){ return false; }
 
@@ -266,7 +266,7 @@ public abstract class AbstractPageServlet{
             ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(utils.HibernateUtil.getCurrentSession());
           }
           ThreadLocalServlet.get().setCookie(hibernateSession);
-          if(isReadOnly || readOnlyRequestStats){ // either page has read-only modifier, or no writes have been detected
+          if(isReadOnly || !hasWrites){ // either page has read-only modifier, or no writes have been detected
             hibernateSession.getTransaction().rollback();
           }
           else{
@@ -320,7 +320,7 @@ public abstract class AbstractPageServlet{
     protected boolean shouldTryCleanPageCaches = false;
     public String invalidateAllPageCacheMessage;
     public void invalidateAllPageCache(String entityname){
-    	pageCacheController.invalidateAllPageCacheInternal(entityname);
+    	commandingPage.invalidateAllPageCacheInternal(entityname);
     }
     private void invalidateAllPageCacheInternal(String entityname){
     	invalidateAllPageCache = true;
@@ -328,7 +328,7 @@ public abstract class AbstractPageServlet{
     	invalidateAllPageCacheMessage = entityname + " - " + propertySetterTrace;
     }
     public void shouldTryCleanPageCaches(){
-  	  pageCacheController.shouldTryCleanPageCachesInternal();
+  	  commandingPage.shouldTryCleanPageCachesInternal();
     }
     private void shouldTryCleanPageCachesInternal(){
     	shouldTryCleanPageCaches = true;
@@ -341,7 +341,7 @@ public abstract class AbstractPageServlet{
     public String invalidateUserSpecificPageCacheMessage;
     
     public void invalidateUserSpecificPageCache(String entityname){
-    	pageCacheController.invalidateUserSpecificPageCacheInternal(entityname);
+    	commandingPage.invalidateUserSpecificPageCacheInternal(entityname);
     }
     private void invalidateUserSpecificPageCacheInternal(String entityname){
     	invalidateUserSpecificPageCache = true;
@@ -604,8 +604,8 @@ public abstract class AbstractPageServlet{
     public boolean isServingAsAjaxResponse = false;
     public void serveAsAjaxResponse(AbstractPageServlet ps, Object[] args, TemplateCall templateArg)
     { 
-      //inherit pageCacheController
-      pageCacheController = ps.pageCacheController;
+      //inherit commandingPage
+      commandingPage = ps.commandingPage;
   
       //use passed PageServlet ps here, since this is the context for this type of response
       initializeBasics(ps, args);
@@ -1588,11 +1588,15 @@ public abstract class AbstractPageServlet{
       protected abstract void increaseStatActionUpdate();
 
       // register whether entity changes were made, see isChanged property of entities
-      public boolean readOnlyRequestStats = true;
+      protected boolean hasWrites = false;
+      
+      public void setHasWrites(boolean b){
+    	  commandingPage.hasWrites = b;
+      }
 
       protected void updatePageRequestStatistics(){
     	  if(hasNotExecutedAction()){
-    		  if(readOnlyRequestStats || isRollback()){
+    		  if(!hasWrites || isRollback()){
     			  if(pageCacheWasUsed){
     				  increaseStatReadOnlyFromCache();
     			  }
@@ -1609,7 +1613,7 @@ public abstract class AbstractPageServlet{
     			  increaseStatActionFail();
     		  }
     		  else{
-    			  if(readOnlyRequestStats || isRollback()){
+    			  if(!hasWrites || isRollback()){
     				  increaseStatActionReadOnly();
     			  }
     			  else{
