@@ -60,7 +60,7 @@ strategies
       
       public x_class delete(){
         validateDelete();
-        setChanged();
+        setChanged("delete()");
         e_HibSession.delete(this);
         return this;
       }
@@ -392,7 +392,7 @@ strategies
       }
       public org.webdsl.WebDSLEntity setVersion(Integer v) {
         this._version = v;
-        setChanged(); // call after setting version, because it checks whether version > 0 to recognize persisted objects
+        setChanged(v == 1 ? "save()" : "version"); // call after setting version, because it checks whether version > 0 to recognize persisted objects
         return this;
       }
       @Transient boolean versionWasIncreased = false;
@@ -400,7 +400,7 @@ strategies
         if(!versionWasIncreased){
           _version++;
           versionWasIncreased = true;
-          setChanged();
+          setChanged("version");
         }
       }
     ]|
@@ -411,7 +411,7 @@ strategies
       @Transient
       protected boolean isChanged = false;
       public boolean isChanged(){return isChanged;}
-      public void setChanged(){
+      public void setChanged(String prop){
           // If this entity is marked as saved (version > 0) then there will be writes, thus enable flush mode.
           // This also covers cascaded save (transient entity saved by being referred from other persisted entity),
           // because adding the transient entity will call the setChanged on the side of the persisted entity
@@ -430,19 +430,19 @@ strategies
 	            ~*<if <?"SessionManager" <+ ?"SessionMessage" <+ ?"QueuedEmail"> x_Class then ![] end> bstm*|[
 	              ~*<if if-session-ent then !bstm*|[ // if session entity changed, only clear user-specific page cache
 	                if(!thepage.invalidateUserSpecificPageCache && !thepage.invalidateAllPageCache){
-	                    thepage.invalidateUserSpecificPageCache("~x_Class");
+	                    thepage.invalidateUserSpecificPageCache("~x_Class" + "." + prop);
 	                }
 	              ]|
 	              else !bstm*|[ // application entity changed, clear all page caches
 	                if(!thepage.invalidateAllPageCache){
-	                    thepage.invalidateAllPageCache("~x_Class");
+	                    thepage.invalidateAllPageCache("~x_Class" + "." + prop);
 	                }
 	              ]|
 	              end> []
 	            ]|
             }
 	        if(thepage != null && thepage.isReadOnly){ // page has read-only modifier but apparently there is an attempt to edit, log warning
-              org.webdsl.logging.Logger.warn("page or ajax template is forced to be read-only, but a persisted entity property is attempted to be updated in "+"~x_Class");
+              org.webdsl.logging.Logger.warn("page or ajax template is forced to be read-only, but a persisted entity property is attempted to be updated in " + "~x_Class" + "." + prop);
               utils.Warning.printSmallStackTrace(5);
             } else {
 	          	// always set flush mode back to AUTO here, this is required for the manual flush control optimization, see FastAutoFlushEventListener in java-runtime/src/utils/HibernateUtil.java
@@ -616,7 +616,7 @@ strategies
         ; mod7*  := <fetch-elem(\ SimpleAnno("cache") -> [anno |[ @org.hibernate.annotations.Cache(usage = org.hibernate.annotations.CacheConcurrencyStrategy.READ_WRITE) ]|] \) <+ ![]> annos
         ; if <fetch(?SimpleAnno("transient"))> annos
 		  then bstm_setchanged* := []
-		  else bstm_setchanged* := java:bstm*|[ setChanged(); ]| end
+		  else bstm_setchanged* := java:bstm*|[ setChanged("~x"); ]| end
         ; (bstm_lazygetter*, bstm_lazysetter*, bstm_lazyinit*) := <handle-lazy-one-to-one-inverse(|x, annos) <+ !([], bstm*|[ t olditem = _#x; _#x = newitem; ]|, <property-to-isuninitialized> prop)> s
         ; if <?[]> bstm_lazygetter*
           then mod8* := []; mod6* := tmp_mod6*
@@ -1058,7 +1058,7 @@ rules // special methods
         ; cbdslist  := <list-mutation-methods(|x_Class) <+ ![]> prop
         ; if <fetch(?SimpleAnno("transient"))> annos
 		  then bstm_setchanged* := []
-		  else bstm_setchanged* := java:bstm*|[ setChanged(); ]| end
+		  else bstm_setchanged* := java:bstm*|[ setChanged("~x"); ]| end
 
   property-to-special-getters(|x_Class) :
     DerivedProperty(x_prop, k, s@GenericSort(coll, [y_srt@SimpleSort(y)]), annos, expr) ->
@@ -1170,7 +1170,7 @@ rules //associations
         ; t_col       := <java-type> s
         ; if <fetch(?SimpleAnno("transient"))> annos
 		  then bstm_setchanged* := []
-		  else bstm_setchanged* := java:bstm*|[ setChanged(); ]| end
+		  else bstm_setchanged* := java:bstm*|[ setChanged("~x_prop"); ]| end
 
   list-mutation-methods(|x_Class) :
     prop@Property(x_prop, k, s@GenericSort("List", [srt_y@SimpleSort(y)]), annos) ->

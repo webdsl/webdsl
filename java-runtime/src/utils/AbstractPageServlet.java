@@ -324,8 +324,7 @@ public abstract class AbstractPageServlet{
     }
     private void invalidateAllPageCacheInternal(String entityname){
     	invalidateAllPageCache = true;
-    	String propertySetterTrace = Warning.getStackTraceLineAtIndex(4);
-    	invalidateAllPageCacheMessage = entityname + " - " + propertySetterTrace;
+    	invalidateAllPageCacheMessage = entityname;
     }
     public void shouldTryCleanPageCaches(){
   	  commandingPage.shouldTryCleanPageCachesInternal();
