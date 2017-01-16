@@ -16,10 +16,10 @@ section datamodel
       var u22:User := User{name := "charlie" self := u2};
       var u33:User := User{name := "dave" self := u3};
       this.childrenset := {u1,u2};
-      this.children := [fr.self for (fr : User in [u11,u22,u33])];
+      this.children := [fr.self | fr : User in [u11,u22,u33]];
     }
     function test2(){
-      this.children := [fr for (fr : User in this.children)];
+      this.children := [fr | fr : User in this.children];
     }    
   }
   var u:User := User{name := "bob" };

@@ -25,7 +25,7 @@ section datamodel
       var u22:User := User{name := "charlie" self := u2};
       var u33:User := User{name := "dave" self := u3};
       u.childrenset := {u1,u2};
-      u.children := [fr.self for (fr : User in [u11,u22,u33])];
+      u.children := [fr.self | fr : User in [u11,u22,u33]];
     }
 
     if(u1 in u.children)
