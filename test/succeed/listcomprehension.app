@@ -83,3 +83,10 @@ section datamodel
   	var testobj := Lab{ coll := [Lab{order:=1},Lab{order:=2}] };
   	assert(rendertemplate(classify(testobj)) == "12");
   }
+  
+  
+test implicittype{
+  assert([x | x in [1,2,3]] == [1,2,3]);
+  assert([y.id | y in [Lab{},Lab{}]].length == 2);
+  assert([x.parseInt() | x in ["1","2"] where x == "1"] == [1]);
+}
