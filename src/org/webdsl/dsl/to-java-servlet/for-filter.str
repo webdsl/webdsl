@@ -16,12 +16,12 @@ rules
         ; bstm_order* := <skip-orderby <+ for-filter-by-code-order-by(|x, srt, t, x_list)> fltr
         ; bstm_limit* := <skip-limit <+ for-filter-by-code-limit(|x, t, x_list)> fltr
 
-  skip-where   = (?Filter(True(),_,_) <+ ?None()); ![]
-  skip-orderby = (?Filter(_,OrderAscending(Null()),_) <+ ?None()); ![]
-  skip-limit   = (?Filter(_,_,Limit(Int("-1"), Int("0"))) <+ ?None()); ![]
+  skip-where   = (?Filter(True(), _, _) <+ ?None()); ![]
+  skip-orderby = (?Filter(_, NoOrder(), _) <+ ?None()); ![]
+  skip-limit   = (?Filter(_, _, Limit(Int("-1"),Int("0"))) <+ ?None()); ![]
 
   for-filter-by-code-where(|x, t, x_list) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
+    Filter(wherecl, _, _) -> bstm* |[
       int x_rm = 0;
       ~*<wrap-in-for-loop(|x_i,x,t,expr|[ x_list ]|)> bstm*|[
         if(!e2) {
@@ -35,42 +35,59 @@ rules
         ; x_rm := <newname> "removedcount"
 
   for-filter-by-code-order-by(|x, srt, t, x_list) :
-    Filter(wherecl,ordertype#([exp]),limit) -> bstm* |[
-      
-      bstm2*
-      
+    Filter(wherecl, orderby*, limit) -> bstm* |[
+      bstm1*  // local variables used within, but defined outside innerclass have to be final
       java.util.Collections.sort(x_list, new java.util.Comparator<t>() {
         public int compare(t o1, t o2) {
-          if( e1 == null && e2 == null ){
-            return 0;
-          } 
-          else if( e1 == null ){
-            return 1;
-          }
-          else if( e2 == null ){
-            return -1;
-          }
-          else{
-            stm
-          }
+          bstm2*
         }
       });
     ]|
-    with  exp1 := <alltd(\ varY@Var(y) -> NameChange(varY,y1) where( <not(?x)> y; y1 := <newname> y) \)> exp //local variables used within, but defined outside innerclass should be final
-		; bstm2* := <collect({\ NameChange(varY@Var(y),y1) -> java|[ final t y1 = y; ]| where t := <get-type-anno;java-type> varY  \})> exp1
-		; exp2 := <alltd({\ NameChange(Var(y3){anno*},y1) -> Var(y1){anno*} \})> exp1
-      	; e1 := <alltd(\Var(y){anno*} -> Var("o1"){anno*} where <?x> y\);expression-to-java-servlet> exp2
-        ; e2 := <alltd(\Var(y){anno*} -> Var("o2"){anno*} where <?x> y\);expression-to-java-servlet> exp2
+    with  (orderby1*, bstm1*) := <map(for-filter-by-code-order-by-vars(|x)); unzip; (id, concat)> orderby*
+        ; bstm2* := <foldr( for-filter-by-code-order-by-fold(|x) | bstm*|[ return 0; ]| )> orderby1*
+
+  for-filter-by-code-order-by-vars(|x) :
+    ordertype#([exp]) -> (ordertype#([exp2]), bstm*)
+    with  exp1 := <alltd(\ varY@Var(y) -> NameChange(varY,y1) where( <not(?x)> y; y1 := <newname> y) \)> exp
+        ; bstm* := <collect({\ NameChange(varY@Var(y),y1) -> java|[ final t y1 = y; ]| where t := <get-type-anno;java-type> varY  \})> exp1
+        ; exp2 := <alltd({\ NameChange(Var(y3){anno*},y1) -> Var(y1){anno*} \})> exp1
+
+  for-filter-by-code-order-by-fold(|x) :
+    (ordertype#([exp]), bstm_wrapped*) -> bstm* |[
+      int x_result;
+      if( e1 == null && e2 == null ){
+        x_result = 0;
+      }
+      else if( e1 == null ){
+        x_result = 1;
+      }
+      else if( e2 == null ){
+        x_result = -1;
+      }
+      else{
+        x_result = e_result;
+      }
+      if(x_result == 0){
+        bstm_wrapped*
+      }
+      else {
+        return x_result;
+      }
+    ]|
+    with  x_result := <newname> "res"
+        ; e1 := <alltd(\Var(y){anno*} -> Var("o1"){anno*} where <?x> y\);expression-to-java-servlet> exp
+        ; e2 := <alltd(\Var(y){anno*} -> Var("o2"){anno*} where <?x> y\);expression-to-java-servlet> exp
         ; if <?"OrderDescending"> ordertype
-          then stm := java|[ return e2.compareTo(e1); ]|
-          else stm := java|[ return e1.compareTo(e2); ]| end
+          then e_result := java|[ e2.compareTo(e1) ]|
+          else e_result := java|[ e1.compareTo(e2) ]| end
 
 signature constructors
-	NameChange : Term * Term -> Term 
+  NameChange : Term * Term -> Term 
+
 rules
 
   for-filter-by-code-limit(|x, t, x_list) :
-    f@Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
+    f@Filter(_, _, Limit(limit,offset)) -> bstm* |[
       int x_lim = e1;
       int x_off = e2;
       int x_rm = 0;
@@ -86,7 +103,7 @@ rules
         ; x_rm := <newname> "removedcount"
 
   for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
+    Filter(_, _, Limit(limit,offset)) -> bstm* |[
       if(x_i >= x_off){
         ~*<for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i)>
       }
@@ -98,12 +115,12 @@ rules
     where not(<?Int("0")> offset)
 
   for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) ->
+    Filter(_, _, Limit(limit,offset)) ->
     <for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i)>
     where <?Int("0")> offset
 
   for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> bstm* |[
+    Filter(_, _, Limit(limit,offset)) -> bstm* |[
       if(x_lim <= 0) {
         x_list.remove(x_i - x_rm);
         x_rm++;
@@ -113,5 +130,5 @@ rules
     where not(<?Int("-1")> limit)
 
   for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i) :
-    Filter(wherecl,ordertype#([exp]),Limit(limit,offset)) -> []
+    Filter(_, _, Limit(limit,offset)) -> []
     where <?Int("-1")> limit
