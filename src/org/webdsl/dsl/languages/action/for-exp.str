@@ -16,7 +16,7 @@ signature
 rules
 
   rename-action :
-    fe@ForExp(oe1, x, srt, ie1, f1){anno*} -> ForExp(oe2, y, srt2, ie2, f2){anno1*}
+    fe@ForExp(oe1, x, srt, ie1, f1, gb1){anno*} -> ForExp(oe2, y, srt2, ie2, f2, gb2){anno1*}
     with  anno1* := <put-closure-in-anno> anno*
         ; ie2 := <rename-all> ie1
         ; {| Rename
@@ -28,6 +28,7 @@ rules
           ; rules(VarDecl : y -> fe)
           ; oe2 := <rename-all> oe1
           ; f2 := <rename-all> f1
+          ; gb2 := <rename-all> gb1
           |}
 
   rename-action :
@@ -82,15 +83,17 @@ rules
   eq-type-of-action :
     AndForExp(fe) -> SimpleSort("Bool")
     where GenericSort(_, [SimpleSort("Bool")]) := <type-of> fe
-    
+
   eq-type-of-action :
     OrForExp(fe) -> SimpleSort("Bool")
     where GenericSort(_, [SimpleSort("Bool")]) := <type-of> fe
-    
+
   eq-type-of-action :
-    ForExp(oe, x, s, ie, _) -> t
+    ForExp(oe, x, s, ie, _, gb) -> t
     where toe := <type-of> oe //type added by rename rule above
-        ; t := GenericSort("List", [toe])
+        ; if <?None()> gb
+          then t := GenericSort("List", [toe])
+          else t := GenericSort("List",[GenericSort("List", [toe])]) end
 
 rules
 
@@ -102,7 +105,7 @@ rules
     OrForExp(fe) -> <add-error(|["Or-for-expression should contain a collection of Bool type"])>
     where not(SimpleSort("Bool") := <type-of>)
 
-  constraint-error-action : ForExp(_, _, srt, col, _)      -> <forexp-constraint-error(|srt,col)>
+  constraint-error-action : ForExp(_, _, srt, col, _, _)      -> <forexp-constraint-error(|srt,col)>
 
   forexp-constraint-error(|srt,col) :
     fe -> <add-error(|["collection in for-expression does not contain declared type ",<pp-type> srt])>
@@ -111,38 +114,52 @@ rules
 rules
 
   desugar-action :
-    fe@ForExp(oe, x, s, ie, fltr){anno*} -> <rename> ThisCall($fun, arg*)
-    with  $fun := <toplevel-rename> "listCompr"
+    fe@ForExp(e_mapto, x, s, e_collection, fltr, gb){anno*} -> <rename> ThisCall(x_fun, arg*)
+    with  x_fun := <toplevel-rename> "listCompr"
         ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,fe)
         ; farg2* := <map(\ Arg(x, srt{srtanno*}){anno*} -> Arg(x, srt{<remove-all(?IsPropertyType())>srtanno*}){anno*} \)> farg*
-        ; srt2 := <type-of> ie
-        ; GenericSort(_, [srt]) := srt2
-        ; srt3 := <type-of> oe
-        ; e3 := ie                                                 // alias
-        ; e4 := oe                                                 // alias
-        ; srt4 := GenericSort("List", [srt3])  
-        ; e5 := |[ List<srt3>() ]|           
-        ; if <?FieldAccess(Var("this"),_)> e3 
-          then e7 := True() 
-          else e7 := <add-not-null-checks> NotEq(Var("thecollection"),Null()) 
+        ; srt_collection := <type-of> e_collection
+        ; GenericSort(_, [srt]) := srt_collection
+        ; srt_mapto := <type-of> e_mapto
+        ; if <?FieldAccess(Var("this"),_)> e_collection
+          then e_nullcheck := True() 
+          else e_nullcheck := <add-not-null-checks> NotEq(Var("thecollection"),Null())
           end
-        ; stat := <add-immutable-anno> stat|[ var thecollection := e3; ]| // The immutable anno on the vardecl is used by the query analysis, so `thecollection` becomes a synonym for `e3`
+        ; stat_colvar := <add-immutable-anno> stat|[ var thecollection := e_collection; ]| // The immutable anno on the vardecl is used by the query analysis, so `thecollection` becomes a synonym for `e_collection`
+        ; if <?None()> gb
+          then srt_result := GenericSort("List", [srt_mapto])
+             ; e_emptyresultlist := |[ List<srt_mapto>() ]|
+             ; stat_add* :=  stat*|[ res.add(e_mapto); ]|
+             ; stat_init* := []
+          else srt_result := GenericSort("List",[GenericSort("List", [srt_mapto])])
+             ; e_emptyresultlist := |[ List<List<srt_mapto>>() ]|
+             ; e_groupby := <?GroupBy(<id>)> gb
+             ; srt_groupby := <type-of> e_groupby
+             ; stat_init* := stat*|[ var groups: [srt_groupby] := List<srt_groupby>(); ]|
+             ; stat_add* :=  stat*|[ var name := e_groupby;
+                                     if( !(name in groups) ){
+                                       groups.add( name );
+                                       res.add( List<srt_mapto>() );
+                                     }
+                                     res[ groups.indexOf( name ) ].add( e_mapto ); ]|
+          end
         ; def := def|[
-            function $fun (farg2*) : srt4 {
-              var tmplist_internal_ : srt4;
-              tmplist_internal_ := e5;
-              stat
-              if(e7) {
-                for(x : srt in thecollection fltr) {
-                  tmplist_internal_.add(e4);
+            function x_fun (farg2*): srt_result {
+              var res : srt_result;
+              res := e_emptyresultlist;
+              stat_colvar
+              stat_init*
+              if( e_nullcheck ){
+                for( x : srt in thecollection fltr ){
+                  stat_add*
                 }
               } else {}
-              return tmplist_internal_;
+              return res;
             }
           ]|
         ; <rename-this-var;emit-webdsl-code> def{anno*}
-        
-  keep-position-anno = ?ForExp(_,_,_,_,_)  
+
+  keep-position-anno = ?ForExp(_, _, _, _, _, _)
 
   desugar-action :
     AndForExp(e){anno*} -> <rename> ThisCall(x_fun, arg*)
@@ -160,7 +177,7 @@ rules
             }
           ]|
         ; <rename-this-var;emit-webdsl-code> def{anno*}
-          
+
   keep-position-anno = ?AndForExp(_)  
 
   desugar-action :
@@ -179,7 +196,7 @@ rules
             }
           ]|
         ; <rename-this-var;emit-webdsl-code> def{anno*}
-          
+
   keep-position-anno = ?OrForExp(_)  
 
 rules

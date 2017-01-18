@@ -158,9 +158,6 @@
    Limit                              -- KW["limit"] _1 KW["offset"] _2,
 
 
-   ForExp                             -- H[KW["["] _1 KW["|"] _2 KW[":"] _3 KW["in"] _4 _5 KW["]"]],
-   AndForExp                          -- KW["And"] _1,
-   OrForExp                           -- KW["Or"] _1,
    Rules                              -- V  [H  [KW["rules"]] _1],
    Rules.1:iter-star                  -- _1,
    Equation                           -- H[_1 KW["="] _2],
@@ -1057,7 +1054,8 @@
    ForAllStmtNoFilter                                     -- V is=2[H hs=1[KW["for"] KW["("] _1 KW[":"] _2 KW[")"]] _3],
    ForCountStmt                                           -- V is=2[H hs=1[KW["for"] KW["("] _1 KW[":"] KW["Int"] KW["from"] _2 KW["to"] _3 KW[")"]] _4],
    WhileStmt                                   			  -- V is=2[H hs=1[KW["while"] KW["("] _1 KW[")"]] _2],
-   ForExp                                                 -- H hs=1[KW["["] _1 KW["|"] _2 KW[":"] _3 KW["in"] _4 _5 KW["]"]],
+   ForExp                                                 -- H hs=1[KW["["] _1 KW["|"] _2 KW[":"] _3 KW["in"] _4 _5 _6 KW["]"]],
+   GroupBy                                                -- H hs=1[KW["group by"] _1],
    AndForExp                                              -- H hs=1[KW["And"] _1],
    OrForExp                                               -- H hs=1[KW["Or"] _1],
    For                                                    -- H hs=1[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"] KW["{"] _5 KW["}"] _6],
