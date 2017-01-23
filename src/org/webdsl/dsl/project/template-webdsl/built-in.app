@@ -590,18 +590,23 @@ function handleValidationErrors( errors: [String] ): [String]{
 }
 
 // section XML
-native class org.w3c.dom.Document as XMLDocument{
-	org.webdsl.xml.XMLUtil.getElementsByTagName as getElementsByTagName(String) : List<XMLNode>
-	org.webdsl.xml.XMLUtil.getElementsByXPath as getElementsByXPath(String) : List<XMLNode>
+native class org.w3c.dom.Document as XMLDocument : XMLNode{
+  org.webdsl.xml.XMLUtil.getElementsByTagName as getElementsByTagName(String) : List<XMLNode>
+  org.webdsl.xml.XMLUtil.getElementsByXPath as getElementsByXPath(String) : List<XMLNode>
+  org.webdsl.xml.XMLUtil.getNodesByXPath as getNodesByXPath(String) : List<XMLNode>
+  org.webdsl.xml.XMLUtil.asString as asString() : String
 }
 
 native class org.w3c.dom.Node as XMLNode{
-	org.webdsl.xml.XMLUtil.getElementsByTagName as getElementsByTagName(String) : List<XMLNode>
-	org.webdsl.xml.XMLUtil.getElementsByXPath as getElementsByXPath(String) : List<XMLNode>
-	javaxt.xml.DOM.getNodeValue as getVal() : String
-	org.webdsl.xml.XMLUtil.getText as getVal(String) : String
-	javaxt.xml.DOM.getAttributeValue as getAttrVal(String) : String
-	
+  org.webdsl.xml.XMLUtil.getElementsByTagName as getElementsByTagName(String) : List<XMLNode>
+  org.webdsl.xml.XMLUtil.getElementsByXPath as getElementsByXPath(String) : List<XMLNode>
+  javaxt.xml.DOM.getNodeValue as getVal() : String
+  org.webdsl.xml.XMLUtil.getText as getVal(String) : String
+  javaxt.xml.DOM.getAttributeValue as getAttrVal(String) : String
+  org.webdsl.xml.XMLUtil.getChildren as getChildren() : List<XMLNode>
+  org.webdsl.xml.XMLUtil.getAttributes as getAttributes() : List<XMLNode>
+  getNodeName() : String 
+  org.webdsl.xml.XMLUtil.setValue as setValue(String)
 }
 
 type String{
