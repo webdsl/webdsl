@@ -54,8 +54,7 @@ rules
     with  bstm* := <elements-to-java-servlet> elem*
         ; bstm_attr := <remove-all(?PropertyAssignment("name",_)); to-html-attrs-include-collection(|"submit")> passign*
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
-        ; e_origident := <action-id-encoding> (<get-actionnumber> tc, args)
-        ; e_ident := <submit-name-override> (e_origident, passign*)
+        ; e_ident := <action-id-java-expression(|args, passign*)> tc
         ; bstm_testsubmitselect* := <test-submit-selection-helper>
         ; if <fetch(?TemplateCallPropertyNoLoadingFeedback)> passign*
           then x_showloadingfeedback := "false"
@@ -81,13 +80,19 @@ rules
   action-args-to-java-exp-list(|args,fargcalled) =
     <handle-ref-arg> (fargcalled,args)
 
+  action-id-java-expression(|args, passign*) :
+    tc -> e_ident
+    with  actionident := <get-actionnumber> tc
+        ; e_origident := <action-id-encoding> (actionident, args)
+        ; e_ident := <submit-name-override> (e_origident, passign*)
+
   /**
    * this doesn't allow downloads, use special downloadlink (see types/file.str)
    *
    * consists of a not displayed <button> with the action and a visible <a> link, so that browsers treat it like regular submit when pressing 'enter' in the form
    */
   render-phase-submitelem :
-    tc@SubmitLinkElem(call@ActionCall(name, args),passign*,elem*) ->
+    tc@SubmitLinkElem(call@ActionCall(name, args), passign*, elem*) ->
     bstm* |[
       //This button will act as submit button on enter-key. Should have dimensions for safari/IE
       out.print("<button style=\"position: absolute; left: -9999px; width: 1px; height: 1px;\" ");
@@ -116,8 +121,7 @@ rules
     with  bstm* := <elements-to-java-servlet> elem*
         ; bstm_attr := <remove-all(?PropertyAssignment("name",_)); to-html-attrs-include-collection(|"submitlink")> passign*
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
-        ; e_origident := <action-id-encoding> (<get-actionnumber> tc, args)
-        ; e_ident := <submit-name-override> (e_origident, passign*)
+        ; e_ident := <action-id-java-expression(|args, passign*)> tc
         ; bstm_testsubmitselect* := <test-submit-selection-helper>
         ; if <fetch(?TemplateCallPropertyNoLoadingFeedback)> passign*
           then x_showloadingfeedback := "false"
@@ -131,18 +135,17 @@ rules
          end
 
   action-phase-submitelem :
-    tc@SubmitElem(e1,passign*,elem*) -> <handle-actions-to-java-servlet-submit(|actionident,e1,passign*,elem*)>
-    with actionident := <get-actionnumber> tc
+    tc@SubmitElem(call, passign*, elem*) -> <handle-actions-to-java-servlet-submit(|call, passign*, elem*)>
+
   action-phase-submitelem :
-    tc@SubmitLinkElem(e1,passign*,elem*) -> <handle-actions-to-java-servlet-submit(|actionident,e1,passign*,elem*)>
-    with actionident := <get-actionnumber> tc
-  handle-actions-to-java-servlet-submit(|actionident, e1, passign*, elem*):
-    _ -> result
-    with  x_action := <?ActionCall(name,args);!name> e1
-        ; <get-anno(?ActionFargAnno(fargcalled))> e1
+    tc@SubmitLinkElem(call, passign*, elem*) -> <handle-actions-to-java-servlet-submit(|call, passign*, elem*)>
+
+  handle-actions-to-java-servlet-submit(|call, passign*, elem*):
+    tc -> result
+    with  <?ActionCall(x_action, args)> call
+        ; <get-anno(?ActionFargAnno(fargcalled))> call
         ; e* := <action-args-to-java-exp-list(|args,fargcalled)>
-        ; e_origident := <action-id-encoding> (actionident, args)
-        ; e_ident := <submit-name-override> (e_origident, passign*)
+        ; e_ident := <action-id-java-expression(|args, passign*)> tc
         ; e_ajaxmodifier := <fetch-ajax-property-as-java-boolean> passign*
         ; if <fetch(TemplateCallPropertyIgnoreValidation)> passign*
           then bstm_disableval* := java:bstm*|[ temp.disableValidation(); ]|
@@ -150,28 +153,27 @@ rules
         ; result :=
             bstm*|[
               ident = e_ident;
-              if(threadLocalPageCached.getParammap().get(ident)!=null )
+              if(threadLocalPageCached.getParammap().get(ident) != null)
               {
                 if(isAjaxSubmitRequired(e_ajaxmodifier)){
                   threadLocalPageCached.enableAjaxActionExecuted();
                 }
-                ~<generate-submit-action-run-invoke(| x_action, e*)>
+                ~<generate-submit-action-run-invoke(|x_action, e*)>
               }
             ]|
 
   //in first traversal, for input data binding, already register which action is executed, in order to know about ignore-validation
   //we need handle-actions traversal as well to get the right arguments for the action, which may depend on input data binding
   databind-phase-submitelem :
-    tc@SubmitElem(e1,passign*,elem*) -> <handle-actions-input-to-java-servlet-submit(|actionident,e1,passign*)>
-    with actionident := <get-actionnumber> tc
+    tc@SubmitElem(call, passign*, elem*) -> <handle-actions-input-to-java-servlet-submit(|call, passign*)>
+
   databind-phase-submitelem :
-    tc@SubmitLinkElem(e1,passign*,elem*) -> <handle-actions-input-to-java-servlet-submit(|actionident,e1,passign*)>
-    with actionident := <get-actionnumber> tc
-  handle-actions-input-to-java-servlet-submit(|actionident, e1, passign*):
-    _ -> result
-    with  x_action := <?ActionCall(name,args);!name> e1
-        ; e_origident := <action-id-encoding> (actionident, args)
-        ; e_ident := <submit-name-override> (e_origident, passign*)
+    tc@SubmitLinkElem(call, passign*, elem*) -> <handle-actions-input-to-java-servlet-submit(|call, passign*)>
+
+  handle-actions-input-to-java-servlet-submit(|call, passign*):
+    tc -> result
+    with  <?ActionCall(x_action, args)> call
+        ; e_ident := <action-id-java-expression(|args, passign*)> tc
         ; if <fetch(TemplateCallPropertyIgnoreValidation)> passign*
           then bstm_disableval* := java:bstm*|[ temp.disableValidation(); ]|
           else bstm_disableval* := [] end
@@ -180,6 +182,6 @@ rules
               ident = e_ident;
               if(threadLocalPageCached.getParammap().get(ident)!=null )
               {
-                  ~<generate-submit-action-databind-phase(| x_action)>
+                  ~<generate-submit-action-databind-phase(|x_action)>
               }
             ]|
