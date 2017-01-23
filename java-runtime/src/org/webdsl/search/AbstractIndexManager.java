@@ -397,9 +397,9 @@ public abstract class AbstractIndexManager {
 					.createIndexer(c)
 					.progressMonitor(
 							new org.webdsl.search.IndexProgressMonitor(2000,
-									entityName)).batchSizeToLoadObjects(10)
-					.threadsToLoadObjects(4).threadsForSubsequentFetching(8)
-					.threadsForIndexWriter(3).purgeAllOnStart(true)
+									entityName)).batchSizeToLoadObjects(15)
+					.threadsToLoadObjects(1).threadsForSubsequentFetching(2)
+					.threadsForIndexWriter(1).purgeAllOnStart(true)
 					.startAndWait();
 		} catch (Exception ex) {
 			org.webdsl.logging.Logger.error(
