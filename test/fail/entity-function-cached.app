@@ -1,5 +1,5 @@
-//#2 Only functions that have a return type can be cached. Remove the cached keyword, or changed the function to return a result.
-//#2 Only functions without arguments can be cached. Remove the cached keyword, or changed the function to not have arguments.
+//#3 Only functions that have a return type can be cached. Remove the cached keyword, or changed the function to return a result.
+//#3 Only functions without arguments can be cached. Remove the cached keyword, or changed the function to not have arguments.
 
 application test
 
@@ -27,3 +27,8 @@ application test
     var u:User := User{};
     output(u.name)
    }
+
+  cached function gt1(i : Int) : Bool {
+    return true;
+  }
+  cached function gt2(){}

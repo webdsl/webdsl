@@ -52,17 +52,22 @@ application test
     
     assert(u.testCache() == 1);
     assert(u.testCache() == 1);
-    
+
+    assert(testCacheGlobal() == 1);
+    assert(testCacheGlobal() == 1);
   }
 
-  
-  
-    function test(a:Int, b:Int, u:User) : Bool
-    {
-      
-      return a<b;
-    }
-    function test(a:Int, b:Int, u:SubUser) : Bool
-    {
-      return a>b;
-    }
+
+  function test(a:Int, b:Int, u:User) : Bool {
+    return a<b;
+  }
+  function test(a:Int, b:Int, u:SubUser) : Bool {
+    return a>b;
+  }
+
+  request var cnt := 0
+
+  cached function testCacheGlobal() : Int {
+    cnt := cnt + 1;
+    return cnt;
+  }
