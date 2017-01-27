@@ -1,0 +1,44 @@
+module org/webdsl/dsl/languages/action/case-statement
+
+rules
+
+  constraint-error-action :
+    s@CaseStmt(e*, alt*) -> <fail>
+    where t* := <map(type-of)> e*
+        ; <filter(constraint-error-case-alt(|t*))> alt*
+
+  constraint-error-case-alt(|t*) :
+    CaseStmtAlt(e*, _) -> <constraint-error-case-alt-exp(|t*, e*)>
+
+  constraint-error-case-alt-exp(|t1*, e*) :
+    node -> <add-error(|[ "case alternative with type '"
+                      , <map(pp-type); separate-by(|", "); concat-strings> t2*
+                      , "' should be compatible with type in case expression '"
+                      , <map(pp-type); separate-by(|", "); concat-strings> t1*
+                      , "'"])>
+    where t2* := <map(type-of)> e*
+        ; not(<zip(type-compatible)>(t1*,t2*))
+
+rules
+
+  desugar-in-define-context :  // after desugaring, this rule calls rename on the whole define. Otherwise the var is seen as global var.
+    CaseStmt(e*, alt*) -> stat|[ { stat* stat } ]|
+    with   (x*, stat*) := <map(case-stmt-vardecl); unzip> e*
+         ; stat := <case-to-if(|x*)> alt*
+
+  case-stmt-vardecl :
+    e -> (x, <add-immutable-anno> stat|[ var x : srt := e; ]|)  // The immutable anno on the vardecl is used by the query analysis, so `x` becomes a synonym for `e`
+    with  srt := <type-of; strip-ref-sort> e  // strip ref sort to simplify, this var is only used for comparison
+        ; x := <toplevel-rename> "caseval"
+
+  case-to-if(|x*) :
+    [] -> stat|[ { } ]|
+
+  case-to-if(|x*) :
+    [ CaseStmtAlt(e*, Block(stat1*)), alt* ] -> stat|[ if(e) { stat1* } else { stat2 } ]|
+    with  stat2 := <case-to-if(|x*)> alt*
+        ; e := <  zip( \ (x, e) -> |[ x == e ]| \ )
+                ; foldr( \ (e1,e2) -> |[ e1 && e2 ]| \ | |[ true ]| )> (x*, e*)
+
+  case-to-if(|x*) :
+    [ CaseStmtDefault(Block(stat1*)), alt* ] -> stat|[ { stat1* } ]|

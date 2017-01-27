@@ -1,0 +1,35 @@
+module org/webdsl/dsl/languages/ui/case-template
+
+rules
+
+  constraint-error-ui :
+    TemplateCase(e*, talt*) -> <fail>
+    where t* := <map(type-of)> e*
+        ; <filter(constraint-error-template-case-alt(|t*))> talt*
+
+  constraint-error-template-case-alt(|t1*) :
+    TemplateCaseAlt(e*, elem*) -> <constraint-error-case-alt-exp(|t1*, e*)>
+
+rules
+
+  desugar-in-define-context: //after desugaring, this rule calls rename on the whole define. Otherwise the var is seen as global var.
+    TemplateCase(e*, talt*) -> elem|[ dummy(){ elem* elem0 } ]|
+    with  (x*, elem*) := <map(template-case-vardecl); unzip> e*
+        ; elem0 := <template-case-to-if(|x*)> talt*
+
+  template-case-vardecl :
+    e -> (x, <add-immutable-anno> elem|[ var x : srt := e ]|) // The immutable anno on the vardecl is used by the query analysis, so `x` becomes a synonym for `e`
+    with  srt := <type-of; strip-ref-sort> e //strip ref sort to simplify, this var is only used for comparison
+        ; x := <toplevel-rename> "caseval"
+
+  template-case-to-if(|x*) :
+    [] -> elem|[ dummy(){ } ]|
+
+  template-case-to-if(|x*) :
+    [ TemplateCaseAlt(e*, elem1*), talt* ] -> elem|[ if(e) { elem1* } else { elem2 } ]|
+    with  elem2 := <template-case-to-if(|x*)> talt*
+        ; e := <  zip( \ (x, e) -> |[ x == e ]| \ )
+                ; foldr( \ (e1,e2) -> |[ e1 && e2 ]| \ | |[ true ]| )> (x*, e*)
+
+  template-case-to-if(|x*) :
+    [ TemplateCaseAltDefault(elem1*), talt* ] -> elem|[ dummy(){ elem1* } ]|

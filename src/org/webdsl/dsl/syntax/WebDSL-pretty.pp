@@ -139,11 +139,11 @@
    IfWithElseIf                       -- V[H[KW["if"] KW["("] _1 KW[")"]] _2 _3 KW["else"] _4],
    ElseIf                             -- V[H[KW["else if"] KW["("] _1 KW[")"]] _2],
 
-   Case                               -- V[V is=2[ H[KW["case"] KW["("] _1 KW[")"] KW["{"]] _2] KW["}"]],
-   Case.2:iter-star                   -- _1,
-   CaseAlt                            -- _1 _2,
-   CaseDefault                        -- KW["default"] _1,
-
+   CaseStmt                           -- V is=2[ H[KW["case"] KW["("] _1 KW[")"] KW["{"]] _2 KW["}"]],
+   CaseStmt.1:iter-star-sep           -- H [_1 KW[","]],
+   CaseStmtAlt                        -- V [ H[_1] _2],
+   CaseStmtAlt.1:iter-star-sep        -- H [_1 KW[","]],
+   CaseStmtDefault                    -- V [ H[KW["default"]] _1],
 
    Filter                             -- KW["where"] _1 KW["order"] KW["by"] _2 _3,
    FilterNoOrderByNoLimit             -- KW["where"] _1,
@@ -986,14 +986,11 @@
    TemplateWith.1:iter-star                               -- _1,
    TemplateBody                                           -- KW["{"] V is=2[_1 KW["}"]],
    TemplateBody.1:iter-star                               -- _1,
-   TemplateCase                                           -- KW["case"] KW["("] _1 KW[")"] KW["{"] _2 KW["}"],
-   TemplateCase.1:iter-star-sep				  -- _1 KW[","],
-   TemplateCase.2:iter-star                               -- _1,
-   TemplateCaseAlt                                        -- _1 KW["{"] _2 KW["}"],
-   TemplateCaseAlt.1:iter-star-sep			  -- _1 KW[","],
-   TemplateCaseAlt.2:iter-star                            -- _1,
-   TemplateCaseAltDefault                                 -- KW["default"] KW["{"] _1 KW["}"],
-   TemplateCaseAltDefault.1:iter-star                     -- _1,
+   TemplateCase                                           --  V is=2[ H[KW["case"] KW["("] _1 KW[")"] KW["{"]] _2] KW["}"],
+   TemplateCase.1:iter-star-sep                           -- _1 KW[","],
+   TemplateCaseAlt                                        -- V [ H[_1 KW["{"]] _2] KW["}"],
+   TemplateCaseAlt.1:iter-star-sep                        -- _1 KW[","],
+   TemplateCaseAltDefault                                 -- V [ H[KW["default"] KW["{"]] _1] KW["}"],
 
    NoSpan                                                 -- KW["no-span"],
 
