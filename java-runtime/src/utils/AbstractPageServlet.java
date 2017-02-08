@@ -16,16 +16,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.hibernate.Session;
-import org.pegdown.Extensions;
-import org.pegdown.PegDownProcessor;
 import org.webdsl.WebDSLEntity;
 import org.webdsl.lang.Environment;
-import org.webdsl.tools.WikiFormatter;
 import org.webdsl.logging.Logger;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.LoadingCache;
 
 public abstract class AbstractPageServlet{
 
@@ -39,8 +35,6 @@ public abstract class AbstractPageServlet{
     protected abstract org.webdsl.WebDSLEntity getRequestLogEntry();
     protected abstract void addPrincipalToRequestLog(org.webdsl.WebDSLEntity rle);
     protected abstract void addLogSqlToSessionMessages();
-    protected PegDownProcessor pegDownProcessor = null;
-    protected PegDownProcessor pegDownProcessorNoHardWraps = null;
     public Session hibernateSession = null;
     protected static Pattern isMarkupLangMimeType= Pattern.compile("html|xml$");
     protected static Pattern baseURLPattern= Pattern.compile("(^\\w{0,6})(://[^/]+)");
@@ -174,7 +168,7 @@ public abstract class AbstractPageServlet{
             //actionLink or ajax action used (request came through js runtime), and action failed
             else if( isActionLinkUsed() || isAjaxRuntimeRequest() ){
               validationFormRerender = true;
-              StringWriter s1 = renderPageOrTemplateContents();
+              renderPageOrTemplateContents();
               if(submittedFormId != null){
                 response.getWriter().write("[{action:\"replace\", id:\"" + submittedFormId + "\", value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");
               }
@@ -1564,20 +1558,6 @@ public abstract class AbstractPageServlet{
               requestScopedVariables.put(key, val);
     	  }
       }
-
-      public PegDownProcessor getPegDownProcessor(){
-    	  if (pegDownProcessor == null)
-    	    pegDownProcessor = new PegDownProcessor( Extensions.ALL, WikiFormatter.PARSE_TIMEOUT_MS );
-
-    	  return pegDownProcessor;
-      }
-      public PegDownProcessor getPegDownProcessorNoHardWraps(){
-    	  if (pegDownProcessorNoHardWraps == null)
-    		  pegDownProcessorNoHardWraps = new PegDownProcessor( Extensions.ALL & ~Extensions.HARDWRAPS , WikiFormatter.PARSE_TIMEOUT_MS );
-
-      	  return pegDownProcessorNoHardWraps;
-      }
-
       // statistics to be shown in log
       protected abstract void increaseStatReadOnly();
       protected abstract void increaseStatReadOnlyFromCache();
