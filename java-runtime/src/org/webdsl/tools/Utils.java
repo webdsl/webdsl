@@ -70,6 +70,14 @@ public final class Utils {
         }
     }
 
+    public static boolean instanceOf(WebDSLEntity o, String s){
+        if(o == null) {
+            return false;
+        } else {
+            return o.instanceOf(s);
+        }
+    }
+
     public static String encodeIdList(Collection<?> c){
         String res = "";
         for(Object obj: c) {
