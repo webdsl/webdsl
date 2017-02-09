@@ -49,6 +49,7 @@ public final class WikiFormatter {
 		
 		MutableDataSet defaultOptions = new MutableDataSet( PegdownOptionsAdapter.flexmarkOptions(Extensions.ALL & ~Extensions.HARDWRAPS & ~Extensions.ANCHORLINKS) );
 		defaultOptions.set(WikiLinkExtension.LINK_PREFIX, "");
+		defaultOptions.set(HtmlRenderer.FENCED_CODE_LANGUAGE_CLASS_PREFIX, "line-numbers language-");
 		optionsNoHardWraps = new MutableDataSet( defaultOptions );
 		optionsHardWraps = new MutableDataSet( defaultOptions );
 		optionsHardWraps.set(HtmlRenderer.SOFT_BREAK, "<br/>");
