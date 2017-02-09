@@ -1,0 +1,66 @@
+module org/webdsl/dsl/languages/ui/typecase-template
+
+rules
+
+  register-templatevardecl-for-rename :
+    t@TemplateTypeCase(e1, x1, alt1*){anno*} -> TemplateTypeCase(e2, x3, alt2*){anno*}
+    with  e2 := <rename-all> e1
+        ; srt1 := <type-of; strip-immutable-anno> e2
+        ; x2 := <newname-webdsl> x1
+        ; (x3, srt2) := <vardecl-rename-common> (t, x2, srt1)
+        ; <add-new-template-elements-during-rename> elem|[ var x3 : srt2 ]|  // var used to store the result of the expr being switched on
+        ; alt2* := <map(try(template-type-case-add-var-and-rename(|x1, e2)))> alt1*
+
+  template-type-case-add-var-and-rename(|x, e) :
+    t@TemplateTypeCaseAlt(srt, elem1*){anno*} -> TemplateTypeCaseAlt(srt, elem2*){TypeCaseAddVarsOnce(), anno*}
+    where has-no-anno(|TypeCaseAddVarsOnce())
+    with  elem2* := <type-case-add-var-and-rename-template(|x, e, srt, elem1*)> t
+
+  template-type-case-add-var-and-rename(|x, e) :
+    t@TemplateTypeCaseDefault(elem1*){anno*} -> TemplateTypeCaseDefault(elem2*){TypeCaseAddVarsOnce(), anno*}
+    where has-no-anno(|TypeCaseAddVarsOnce())
+    with  srt := <type-of; strip-immutable-anno> e
+        ; elem2* := <type-case-add-var-and-rename-template(|x, e, srt, elem1*)> t
+
+  type-case-add-var-and-rename-template(|x1, e, srt1, elem1*) :
+    t -> [elem | elem2*]
+    with  x2 := <newname-webdsl> x1
+        ; (x3, srt2) := <vardecl-rename-common> (t, x2, srt1)
+        ; <add-new-template-elements-during-rename> elem|[ var x3 : srt2 ]|  // var used to store expr, cast to the matched type
+        ; elem := elem|[ allphases{ x3 := e as srt2; } ]|
+        ; elem2* := <alltd(\Var(tmp) -> Var(x3) where x1 := tmp\)> elem1*
+
+rules
+
+  constraint-error-ui :
+    TemplateTypeCase(e, _, alt*) -> <fail>
+    where t := <type-of> e
+        ; <filter(constraint-error-typecase-alt(|t))> alt*
+        ; <constraint-error-typecase-order> alt*
+
+  constraint-error-typecase-alt(|t1) :
+    TemplateTypeCaseAlt(t2, _) -> <constraint-error-typecase-alt-message(|t1, t2)>
+    where not(<type-compatible>(t1,t2))
+
+  constraint-error-typecase-order :
+    [ c1@TemplateTypeCaseAlt(t1, _), c2@TemplateTypeCaseAlt(t2, _) | tail ] -> <constraint-error-typecase-order-message(|t1, t2)> c2
+    where <type-compatible>(t1,t2); <subtype-of> (t2, t1)
+       <+ <constraint-error-typecase-order> [ c2 | tail ]
+
+rules
+
+  desugar-in-define-context :
+    TemplateTypeCase(e, x, alt*){anno*} -> elem|[ dummy{ allphases{ x := e as srt; } elem2* } ]|
+    with  srt := <type-of; strip-ref-sort> e
+        ; elem2* := <typecase-to-if(|x)> alt*
+
+  typecase-to-if(|x) :
+    [] -> []
+
+  typecase-to-if(|x) :
+    [ TemplateTypeCaseAlt(srt, elem1*), alt* ] -> elem*|[ if(e){ elem1* } else{ elem2* } ]|
+    with  elem2* := <typecase-to-if(|x)> alt*
+        ; e := |[ x is a srt ]|
+
+  typecase-to-if(|x) :
+    [ TemplateTypeCaseDefault(elem1*), alt* ] -> elem1*

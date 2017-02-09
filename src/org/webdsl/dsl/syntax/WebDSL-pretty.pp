@@ -145,6 +145,10 @@
    CaseStmtAlt.1:iter-star-sep        -- H [_1 KW[","]],
    CaseStmtDefault                    -- V [ H[KW["default"]] _1],
 
+   TypeCaseStmt                       -- V is=2[ H[KW["typecase"] KW["("] _1 KW["as"] _2 KW[")"] KW["{"]] _3 KW["}"]],
+   TypeCaseStmtAlt                    -- V [ H[_1] _2],
+   TypeCaseStmtDefault                -- V [ H[KW["default"]] _1],
+
    Filter                             -- KW["where"] _1 KW["order"] KW["by"] _2 _3,
    FilterNoOrderByNoLimit             -- KW["where"] _1,
    FilterNoWhereNoLimit               -- KW["order"] KW["by"] _1,
@@ -986,11 +990,16 @@
    TemplateWith.1:iter-star                               -- _1,
    TemplateBody                                           -- KW["{"] V is=2[_1 KW["}"]],
    TemplateBody.1:iter-star                               -- _1,
+
    TemplateCase                                           --  V is=2[ H[KW["case"] KW["("] _1 KW[")"] KW["{"]] _2] KW["}"],
    TemplateCase.1:iter-star-sep                           -- _1 KW[","],
    TemplateCaseAlt                                        -- V [ H[_1 KW["{"]] _2] KW["}"],
    TemplateCaseAlt.1:iter-star-sep                        -- _1 KW[","],
    TemplateCaseAltDefault                                 -- V [ H[KW["default"] KW["{"]] _1] KW["}"],
+
+   TemplateTypeCase                                       --  V is=2[ H[KW["typecase"] KW["("] _1 KW["as"] _2 KW[")"] KW["{"]] _3] KW["}"],
+   TemplateTypeCaseAlt                                    -- V [ H[_1 KW["{"]] _2] KW["}"],
+   TemplateTypeCaseDefault                             -- V [ H[KW["default"] KW["{"]] _1] KW["}"],
 
    NoSpan                                                 -- KW["no-span"],
 
@@ -1218,6 +1227,7 @@
    AttributesExp -- KW["attributes"] _1,
    DataBindAction -- KW["databind"] _1,
    RenderAction -- KW["render"] _1,
+   AllPhasesAction -- KW["allphases"] _1,
 
    LocalRedefine -- KW["define"] _1 _2 KW["("] _3 KW[")"] KW["="] _4 _5,
    LocalRedefine.3:iter-star-sep           -- H hs=0[_1 KW[","]],

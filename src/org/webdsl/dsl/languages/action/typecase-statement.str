@@ -1,0 +1,95 @@
+module org/webdsl/dsl/languages/action/typecase-statement
+
+rules
+
+  rename-action :
+    TypeCaseStmt(e1, x, alt1*){anno*} -> TypeCaseStmt(e2, x, alt2*){anno*}
+    with  e2 := <rename-all> e1
+        ; alt2* := <map(try(type-case-add-var-and-rename(|x, e2))); rename-all> alt1*
+
+  rename-action :
+    TypeCaseStmtAlt(srt1, b1){anno*} -> TypeCaseStmtAlt(srt2, b2){anno*}
+    with  {| Rename, VarInContext:
+            srt2 := <rename-all> srt1
+          ; b2 := <rename-all> b1
+          |}
+
+  rename-action :
+    TypeCaseStmtDefault(b1){anno*} -> TypeCaseStmtDefault(b2){anno*}
+    with  {| Rename, VarInContext:
+            b2 := <rename-all> b1
+          |}
+
+  type-case-add-var-and-rename(|x, e) :
+    TypeCaseStmtAlt(srt, Block(stat1*)){anno*} -> TypeCaseStmtAlt(srt, Block(stat2*)){TypeCaseAddVarsOnce(), anno*}
+    where has-no-anno(|TypeCaseAddVarsOnce())
+    with  (y, stat2*) := <type-case-add-var-and-rename-helper(|x, e, srt, stat1*)>
+
+  type-case-add-var-and-rename(|x, e) :
+    TypeCaseStmtDefault(Block(stat1*)){anno*} -> TypeCaseStmtDefault(Block(stat2*)){TypeCaseAddVarsOnce(), anno*}
+    where has-no-anno(|TypeCaseAddVarsOnce())
+    with  srt := <type-of;add-immutable-anno> e
+        ; (y, stat2*) := <type-case-add-var-and-rename-helper(|x, e, srt, stat1*)>
+
+  type-case-add-var-and-rename-helper(|x, e, srt, stat1*) :
+    _ -> (y, [stat | stat2*])
+    with  y := <newname-webdsl> x
+        ; stat := stat|[ var y : srt := e as srt; ]|
+        ; stat2* := <alltd(\Var(x) -> Var(y)\)> stat1*
+
+  signature constructors
+    TypeCaseAddVarsOnce : Term
+
+rules
+
+  constraint-error-action :
+    TypeCaseStmt(e, _, alt*) -> <fail>
+    where t := <type-of> e
+        ; <filter(constraint-error-typecase-alt(|t))> alt*
+        ; <constraint-error-typecase-order> alt*
+
+  constraint-error-typecase-alt(|t1) :
+    TypeCaseStmtAlt(t2, _) -> <constraint-error-typecase-alt-message(|t1, t2)>
+    where not(<type-compatible>(t1,t2))
+
+  constraint-error-typecase-alt-message(|t1, t2) =
+    add-error(|[ "typecase alternative type '"
+               , <pp-type> t2
+               , "' is incompatible with type in typecase expression '"
+               , <pp-type> t1
+               , "'"])
+
+  constraint-error-typecase-order :
+    [ c1@TypeCaseStmtAlt(t1, _), c2@TypeCaseStmtAlt(t2, _) | tail ] -> <constraint-error-typecase-order-message(|t1, t2)> c2
+    where <type-compatible>(t1,t2); <subtype-of> (t2, t1)
+       <+ <constraint-error-typecase-order> [ c2 | tail ]
+
+  constraint-error-typecase-order-message(|t1, t2) =
+    add-error(|[ "typecase alternative should check subclass type '"
+               , <pp-type> t2
+               , "' before super type '"
+               , <pp-type> t1
+               , "'"])
+
+rules
+
+  desugar-in-define-context :
+    TypeCaseStmt(e, _, alt*){anno*} -> stat|[ { stat1 stat2* } ]|
+    with   (y, stat1) := <typecase-stmt-vardecl> e
+         ; stat2* := <typecase-to-if(|y)> alt*
+
+  typecase-stmt-vardecl :
+    e -> (x, <add-immutable-anno> stat|[ var x : srt := e; ]|)
+    with  srt := <type-of; strip-ref-sort> e
+        ; x := <toplevel-rename> "typecaseval"
+
+  typecase-to-if(|x) :
+    [] -> []
+
+  typecase-to-if(|x) :
+    [ TypeCaseStmtAlt(srt, Block(stat1*)), alt* ] -> stat*|[ if(e){ stat1* } else{ stat2* } ]|
+    with  stat2* := <typecase-to-if(|x)> alt*
+        ; e := |[ x is a srt ]|
+
+  typecase-to-if(|x) :
+    [ TypeCaseStmtDefault(Block(stat1*)), alt* ] -> stat1*
