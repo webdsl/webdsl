@@ -238,7 +238,9 @@ function replaceWithoutAction(serviceURL, jsonData, idOfElemToReplace){
     {
       if (this.readyState == 4){
         if (this.status == 200) {
-          $('#'+idOfElemToReplace).html(this.responseText);
+          var theNode = document.getElementById( idOfElemToReplace ); 
+          theNode.innerHTML = this.responseText;
+          ajax_post_process(theNode);
         }
         else if(this.status != 200) {
           notify('Invalid return of server: '+this.status);
