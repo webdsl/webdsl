@@ -60,3 +60,23 @@ test {
   assert( rendertemplate( typecasetest( testd ) ) == "d" );
   assert( rendertemplate( typecasetest( null as Ent ) ) == "*" );
 }
+
+
+function assigntest( arg: Ent ): String {
+  var res := "";
+  typecase( arg as x ){
+    Sub2    { res := x.sub2; }
+    Sub3    { res := x.sub3; }
+    Sub1    { res := x.sub1; }
+    Ent     { res := x.i; }
+    default { res := "*"; }
+  }
+  return res;
+}
+test {
+  assert( assigntest( testa ) == "a" );
+  assert( assigntest( testb ) == "b" );
+  assert( assigntest( testc ) == "c" );
+  assert( assigntest( testd ) == "d" );
+  assert( assigntest( null as Ent ) == "*" );
+}
