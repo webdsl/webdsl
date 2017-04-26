@@ -143,3 +143,10 @@ test groupby {
   assert([e | e in [gb4,gb5,gb6,gb7] group by e.nested] == [[gb4,gb5],[gb6,gb7]]);
   assert([e | e in [gb1,gb2,gb3] group by now().after(e.d)] == [[gb1,gb3],[gb2]]);
 }
+
+test nested {
+  assert( [ x | x in [0,1] where x in [ y | y in [x,2] ] ] == [0,1] );
+  var tmp := 0;
+  assert( [ x | x in [tmp,1] where x in [ y | y in [tmp,2] where x == y ] ] == [0] );
+  assert( [ x | x in [tmp,1] where x in [ y | y in [tmp,2] where y in [ z | z in [tmp,3] where x == y && y == z ] ] ] == [0] );
+}
