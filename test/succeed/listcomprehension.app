@@ -149,4 +149,18 @@ test nested {
   var tmp := 0;
   assert( [ x | x in [tmp,1] where x in [ y | y in [tmp,2] where x == y ] ] == [0] );
   assert( [ x | x in [tmp,1] where x in [ y | y in [tmp,2] where y in [ z | z in [tmp,3] where x == y && y == z ] ] ] == [0] );
+  regression1();
+  rendertemplate(regression2());
+}
+
+entity SigTest{
+  i : Int
+}
+template regression2() {
+  var col := [ i | i in [SigTest{}] ]
+  for( i: SigTest in col ){}
+}
+function regression1() {
+  var col := [ i | i in [SigTest{}] ];
+  for( x: SigTest in col ){}
 }
