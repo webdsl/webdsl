@@ -50,7 +50,8 @@ public final class WikiFormatter {
 		MutableDataSet defaultOptions = new MutableDataSet( PegdownOptionsAdapter.flexmarkOptions(Extensions.ALL & ~Extensions.HARDWRAPS & ~Extensions.ANCHORLINKS) );
 		defaultOptions.set(WikiLinkExtension.LINK_PREFIX, "");
 		defaultOptions.set(HtmlRenderer.FENCED_CODE_LANGUAGE_CLASS_PREFIX, "line-numbers language-");
-		optionsNoHardWraps = new MutableDataSet( defaultOptions );
+		defaultOptions.set(Parser.BLOCK_QUOTE_INTERRUPTS_PARAGRAPH, false); //Workaround for https://github.com/vsch/flexmark-java/issues/101 Blockquotes should now start after blank line
+		optionsNoHardWraps = new MutableDataSet( defaultOptions );		
 		optionsHardWraps = new MutableDataSet( defaultOptions );
 		optionsHardWraps.set(HtmlRenderer.SOFT_BREAK, "<br/>");
 		MARKDOWN_PARSER = Parser.builder( optionsNoHardWraps ).build();
@@ -91,7 +92,8 @@ public final class WikiFormatter {
     	try {
             Node document = MARKDOWN_PARSER.parse( text );
             HtmlRenderer renderer = getHTMLRenderer(rootUrl, useHardWraps);
-            return renderer.render(document);
+            return renderer.render(document)
+            		 + "<!--end-->"; //This forces an unclosed HTML-comment in the rendered output to be closed. This fixes the issue where commonmark may escape a closing `-->` when a blank line exists in the HTML comment.  
 //    		return processor.markdownToHtml( processVerbatim(text), getLinkRenderer( rootUrl ) );
     	} catch (Exception e) {
 			Logger.error(e);
