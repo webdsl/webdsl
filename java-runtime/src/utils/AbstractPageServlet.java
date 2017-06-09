@@ -802,6 +802,14 @@ public abstract class AbstractPageServlet{
 		}
 	}
 
+	public String getXForwardedFor() {
+		if (request == null) {
+			return null;
+		} else {
+			return request.getHeader("x-forwarded-for");
+		}
+	}
+
     protected TemplateContext templateContext = new TemplateContext();
     public String getTemplateContextString() {
         return templateContext.getTemplateContextString();

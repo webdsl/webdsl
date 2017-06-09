@@ -485,7 +485,11 @@ native class javax.servlet.http.HttpServletRequest as HttpServletRequest{
 }
 
 function remoteAddress(): String{
-  return getDispatchServlet().getRequest().getRemoteAddr();
+  var address := getDispatchServlet().getRequest().getRemoteAddr();
+  if( address == "127.0.0.1" ){  // e.g. Nginx proxying to http port of Tomcat
+    address := getPage().getXForwardedFor();  // only look at header if getRemoteAddr is useless
+  }
+  return address;
 }
 function baseUrl(): String{
   return getDispatchServlet().getBaseUrl();
@@ -519,6 +523,8 @@ native class AbstractPageServlet as PageServlet{
   submitWrapOpenHelper( String )
   submitWrapCloseHelper()
   actionHasAjaxPageUpdates: Bool
+  getXForwardedProto(): String
+  getXForwardedFor(): String
 }
 function getPage(): PageServlet{
   return PageServlet.getRequestedPage();
