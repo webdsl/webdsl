@@ -146,7 +146,7 @@ public abstract class AbstractDispatchServletHelper{
     return outgoingSuccessMessages;
   }
   
-  public abstract void storeOutgoingMessagesInHttpSession();
+  public abstract void storeOutgoingMessagesInHttpSession(boolean dropOldMessages);
   public abstract void retrieveIncomingMessagesFromHttpSession();
   
   // page dispatch custom routing

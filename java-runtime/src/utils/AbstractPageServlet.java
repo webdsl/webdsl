@@ -255,7 +255,7 @@ public abstract class AbstractPageServlet{
           }
         }
         else {
-          ThreadLocalServlet.get().storeOutgoingMessagesInHttpSession();
+          ThreadLocalServlet.get().storeOutgoingMessagesInHttpSession( !isRedirected() || isPostRequest() );
           addPrincipalToRequestLog(rle);
           if(!this.isAjaxRuntimeRequest()){
             ThreadLocalServlet.get().setEndTimeAndStoreRequestLog(utils.HibernateUtil.getCurrentSession());

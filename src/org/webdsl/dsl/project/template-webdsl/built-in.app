@@ -3361,7 +3361,7 @@ template messages(){
   render{
     list.addAll( getDispatchServlet().getIncomingSuccessMessages() );
     list.addAll( getDispatchServlet().getOutgoingSuccessMessages() ); //in case there are new messages created within this request
-    getDispatchServlet().clearSuccessMessages();    
+    if(!getPage().isRedirected()){ getDispatchServlet().clearSuccessMessages(); }    
   }
   if( list.length > 0 ){
     templateSuccess( list )
