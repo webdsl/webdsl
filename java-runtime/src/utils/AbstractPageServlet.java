@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.regex.Pattern;
 
@@ -1532,6 +1533,11 @@ public abstract class AbstractPageServlet{
             out.print(tags);
           }
         }
+      }
+      //session manager
+      public void reloadSessionManagerFromExistingSessionId(UUID sessionId){
+    	  ThreadLocalServlet.get().reloadSessionManagerFromExistingSessionId(hibernateSession, sessionId);
+    	  initialize(); //reload session variables
       }
 
       //request vars

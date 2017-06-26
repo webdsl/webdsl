@@ -525,6 +525,7 @@ native class AbstractPageServlet as PageServlet{
   actionHasAjaxPageUpdates: Bool
   getXForwardedProto(): String
   getXForwardedFor(): String
+  reloadSessionManagerFromExistingSessionId( UUID )
 }
 function getPage(): PageServlet{
   return PageServlet.getRequestedPage();
