@@ -1932,9 +1932,9 @@ template input( i: ref Float ){
   }
   validate{
     if( req != null ){
-      if(   /-?\d\d*\.\d*E?\d*/.match( req )
-         || /-?\d\d*E?\d*/.match( req )
-         || /-?\.\d\d*E?\d*/.match( req )
+      if(   /-?\d\d*\.\d*(E-?)?\d*/.match( req )
+         || /-?\d\d*(E-?)?\d*/.match( req )
+         || /-?\.\d\d*(E-?)?\d*/.match( req )
       ){
         var f: Float := req.parseFloat();
         if( f == null ){
@@ -2735,9 +2735,9 @@ template inputajax( b: ref Bool ){
 function checkFloatWellformedness( req: String ): [String]{
   var errors: [String] := null;
   if( req != null ){
-    if(   /-?\d\d*\.\d*E?\d*/.match( req )
-       || /-?\d\d*E?\d*/.match( req )
-       || /-?\.\d\d*E?\d*/.match( req )
+    if(   /-?\d\d*\.\d*(E-?)?\d*/.match( req )
+       || /-?\d\d*(E-?)?\d*/.match( req )
+       || /-?\.\d\d*(E-?)?\d*/.match( req )
     ){
       var f: Float := req.parseFloat();
       if( f == null ){
