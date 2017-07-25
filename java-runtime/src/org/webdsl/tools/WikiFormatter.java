@@ -13,6 +13,7 @@ import com.vladsch.flexmark.ast.Node;
 import com.vladsch.flexmark.ext.wikilink.WikiLinkExtension;
 import com.vladsch.flexmark.html.HtmlRenderer;
 import com.vladsch.flexmark.parser.Parser;
+import com.vladsch.flexmark.parser.ParserEmulationProfile;
 import com.vladsch.flexmark.profiles.pegdown.Extensions;
 import com.vladsch.flexmark.profiles.pegdown.PegdownOptionsAdapter;
 import com.vladsch.flexmark.util.options.MutableDataSet;
@@ -47,10 +48,10 @@ public final class WikiFormatter {
 		}
 		whitelist.addProtocols("a", "href", "#");
 		
-		MutableDataSet defaultOptions = new MutableDataSet( PegdownOptionsAdapter.flexmarkOptions(Extensions.ALL & ~Extensions.HARDWRAPS & ~Extensions.ANCHORLINKS) );
+		MutableDataSet defaultOptions = new MutableDataSet( PegdownOptionsAdapter.flexmarkOptions(true, Extensions.ALL & ~Extensions.HARDWRAPS & ~Extensions.ANCHORLINKS) );
 		defaultOptions.set(WikiLinkExtension.LINK_PREFIX, "");
 		defaultOptions.set(HtmlRenderer.FENCED_CODE_LANGUAGE_CLASS_PREFIX, "line-numbers language-");
-		defaultOptions.set(Parser.BLOCK_QUOTE_INTERRUPTS_PARAGRAPH, false); //Workaround for https://github.com/vsch/flexmark-java/issues/101 Blockquotes should now start after blank line
+//		defaultOptions.set(Parser.BLOCK_QUOTE_INTERRUPTS_PARAGRAPH, false); //Workaround for https://github.com/vsch/flexmark-java/issues/101 Blockquotes should now start after blank line
 		optionsNoHardWraps = new MutableDataSet( defaultOptions );		
 		optionsHardWraps = new MutableDataSet( defaultOptions );
 		optionsHardWraps.set(HtmlRenderer.SOFT_BREAK, "<br/>");
@@ -92,8 +93,8 @@ public final class WikiFormatter {
     	try {
             Node document = MARKDOWN_PARSER.parse( text );
             HtmlRenderer renderer = getHTMLRenderer(rootUrl, useHardWraps);
-            return renderer.render(document)
-            		 + "<!--end-->"; //This forces an unclosed HTML-comment in the rendered output to be closed. This fixes the issue where commonmark may escape a closing `-->` when a blank line exists in the HTML comment.  
+            return renderer.render(document);
+//            		 + "<!--end-->"; //This forces an unclosed HTML-comment in the rendered output to be closed. This fixes the issue where commonmark may escape a closing `-->` when a blank line exists in the HTML comment.  
 //    		return processor.markdownToHtml( processVerbatim(text), getLinkRenderer( rootUrl ) );
     	} catch (Exception e) {
 			Logger.error(e);
