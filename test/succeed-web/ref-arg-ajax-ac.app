@@ -18,7 +18,7 @@ section pages
   }
 
   var globaltext := TextEntity{ text := "1" }
-  var globaltext2 := TextEntity{ text := "2" }
+  var globaltext2 := TextEntity{ text := "secondtext" }
 
   define page root(){
     var t := globaltext
@@ -54,7 +54,7 @@ section pages
     var d : WebDriver := getFirefoxDriver();
 
     d.get(navigate(root()));
-    assert(d.getPageSource().contains("Access denied to this ajax template call"), "second template should not be shown");
+    assert(!d.getPageSource().contains("secondtext"), "second template should not be shown");
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
     assert(elist.length == 1, "expected <a> elements did not match");
