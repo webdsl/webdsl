@@ -13,6 +13,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.webdsl.lang.Environment;
+import org.webdsl.logging.Logger;
 
 public abstract class TemplateServlet {
     
@@ -223,16 +224,21 @@ public abstract class TemplateServlet {
             	threadLocalPageCached.getValidationExceptions().add(ve.setName(threadLocalPageCached.getValidationContext()));
             	threadLocalPageCached.setValidated(false);
                 utils.Warning.warn("Validation failed in initialization of "+getTemplateSignature()+": "+ve.getErrorMessage());  
-            skipThisTemplate = true;
-          }
-          catch(utils.MultipleValidationExceptions ve){
-            for(utils.ValidationException vex : ve.getValidationExceptions()){
-              threadLocalPageCached.getValidationExceptions().add(vex.setName(threadLocalPageCached.getValidationContext()));
-              utils.Warning.warn("Validation failed in initialization of "+getTemplateSignature()+": "+vex.getErrorMessage());  
-            }
-            threadLocalPageCached.setValidated(false); 
-            skipThisTemplate = true;
-          }
+                skipThisTemplate = true;
+	          }
+	          catch(utils.MultipleValidationExceptions ve){
+	            for(utils.ValidationException vex : ve.getValidationExceptions()){
+	              threadLocalPageCached.getValidationExceptions().add(vex.setName(threadLocalPageCached.getValidationContext()));
+	              utils.Warning.warn("Validation failed in initialization of "+getTemplateSignature()+": "+vex.getErrorMessage());  
+	            }
+	            threadLocalPageCached.setValidated(false); 
+	            skipThisTemplate = true;
+	          }
+              catch(Exception t){
+            	Logger.error("Something went wrong during var initialization of template " + getTemplateSignature());
+        	  	utils.Warning.printSmallStackTrace((Exception) t, 3);
+        	  	skipThisTemplate = true;
+              }
         } 
     } 
     
