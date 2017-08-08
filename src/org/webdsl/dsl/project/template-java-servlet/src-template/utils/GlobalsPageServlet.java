@@ -36,7 +36,7 @@ public class GlobalsPageServlet extends PageServlet
     protected void initialize(){}
     protected void conversion(){}
     protected void loadArguments(){}
-    protected void initVarsAndArgs(){}
+    public void initVarsAndArgs(){}
     public void initializeBasics(AbstractPageServlet ps, Object[] args){}
     public void serveAsAjaxResponse(AbstractPageServlet ps, Object[] ajaxarguments, TemplateCall templateArg){}
     public String getUniqueName(){ return "#### GlobalsPageServlet #### Should not call getUniqueName here."; }

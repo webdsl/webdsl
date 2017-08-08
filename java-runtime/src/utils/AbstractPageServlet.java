@@ -953,7 +953,7 @@ public abstract class AbstractPageServlet{
     protected abstract void initialize();
     protected abstract void conversion();
     protected abstract void loadArguments();
-    protected abstract void initVarsAndArgs();
+    public abstract void initVarsAndArgs();
 
     public void clearHibernateCache() {
         // used to be only ' hibSession.clear(); ' but that doesn't revert already flushed changes.
