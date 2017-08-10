@@ -14,7 +14,7 @@ import java.io.*;
 //dummy pageservlet instance for global init and global variables
 //some expressions require this to be available, eg. property setters with extension events
 @SuppressWarnings("unused")
-public class GlobalsPageServlet extends PageServlet
+public class GlobalsPageServlet extends webdsl.generated.templates.RootPage
 {
     public GlobalsPageServlet(){
     	hibernateSession = utils.HibernateUtil.getCurrentSession();    	
@@ -33,10 +33,10 @@ public class GlobalsPageServlet extends PageServlet
     public String getHiddenParams(){return "";}
     public String getUrlQueryParams(){return "";}
     public String getHiddenPostParamsJson(){return "";}
-    protected void initialize(){}
+//    protected void initialize(){}
     protected void conversion(){}
     protected void loadArguments(){}
-    public void initVarsAndArgs(){}
+//    public void initVarsAndArgs(){}
     public void initializeBasics(AbstractPageServlet ps, Object[] args){}
     public void serveAsAjaxResponse(AbstractPageServlet ps, Object[] ajaxarguments, TemplateCall templateArg){}
     public String getUniqueName(){ return "#### GlobalsPageServlet #### Should not call getUniqueName here."; }
