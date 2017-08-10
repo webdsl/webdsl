@@ -16,8 +16,13 @@ import java.io.*;
 @SuppressWarnings("unused")
 public class GlobalsPageServlet extends webdsl.generated.templates.RootPage
 {
+	private boolean inTestContext = false;
     public GlobalsPageServlet(){
-    	hibernateSession = utils.HibernateUtil.getCurrentSession();    	
+    	this(false);
+    }
+    public GlobalsPageServlet( boolean inTestContext ){
+    	hibernateSession = utils.HibernateUtil.getCurrentSession();
+    	this.inTestContext = inTestContext;
     }
     public void serve(HttpServletRequest request, HttpServletResponse response, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String, List<utils.File>> fileUploads){}
     protected void renderDebugJsVar(java.io.PrintWriter sout){}
@@ -33,10 +38,18 @@ public class GlobalsPageServlet extends webdsl.generated.templates.RootPage
     public String getHiddenParams(){return "";}
     public String getUrlQueryParams(){return "";}
     public String getHiddenPostParamsJson(){return "";}
-//    protected void initialize(){}
+    protected void initialize(){
+    	if(inTestContext){
+    		super.initialize();
+    	}
+    }
     protected void conversion(){}
     protected void loadArguments(){}
-//    public void initVarsAndArgs(){}
+    public void initVarsAndArgs(){
+    	if(inTestContext){
+    		super.initVarsAndArgs();
+    	}
+    }
     public void initializeBasics(AbstractPageServlet ps, Object[] args){}
     public void serveAsAjaxResponse(AbstractPageServlet ps, Object[] ajaxarguments, TemplateCall templateArg){}
     public String getUniqueName(){ return "#### GlobalsPageServlet #### Should not call getUniqueName here."; }
