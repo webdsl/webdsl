@@ -129,15 +129,29 @@ rules
               else e_args* := <take(|nargs)> (<map(get-varname-from-formarg)> farg*) end
             ; e_thepagecheck := <rename-toplevel> exp|[ x_predname(e_args*) ]|
             ;	elem0 := elem|[ init { if ( e_thepagecheck ) { stat* } else { goto accessDenied(); } } ]|
+            ; acrules := <map(?(_,_,<id>))> listofchecks
             ; rules( WeaveAccessControlInferred :+
-                   TemplateCall("navigate", [PageCall(x_ident,e*)], passign*, TemplateBody(elem2*)) ->
-                   IfTempl(<rename-toplevel>Or(ThisCall(x_predname,e_predargs*),ThisCall("inEmailContext",[])),[TemplateCall("navigate", [PageCall(x_ident,e*)], passign*, TemplateBody(elem2*))],[])
-                   with e_predargs* := <take(|nargs)> e* 
+                   TemplateCall("navigate", [PageCall(x_ident,e*)], passign*, TemplateBody(elem2*)) -> wrapped
+                   with e_predargs* := <take(|nargs)> e*
+                   ; wrapped := <surround-with-ac-debug(|acrules)> IfTempl(<rename-toplevel>Or(ThisCall(x_predname,e_predargs*),ThisCall("inEmailContext",[])),[TemplateCall("navigate", [PageCall(x_ident,e*)], passign*, TemplateBody(elem2*))],[])
+                    
      //todo match argument types although not really necessary since overloading is not possible for pages
                )
          end 
         
          //problem with nested checks;
+         
+  surround-with-ac-debug(|acrules*): 
+    elem0*@webdslterm -> webdslterm2
+    where is-debug-ac
+    ; e_rule := String( <map(pp-webdsl-to-string);separate-by(|", ");concat-strings; escape> acrules* )
+    ; if <is-list> elem0*
+      then webdslterm2 := elem* |[ <div class="ac_check"><span class="ac_info"> text( e_rule ) </span> elem0*  </div> ]|
+      else elem1 := elem0*; webdslterm2 := elem |[ <div class="ac_check"><span class="ac_info"> text( e_rule ) </span> elem1  </div> ]|
+      end
+  
+  surround-with-ac-debug(|acrules*) = not(is-debug-ac)    
+     
   process-action-checks(|toplevel-name,farg_page*): //page farg
   d@Action(amod*,x_ident,farg*,Block(stat*)){anno*} ->
     Action(amod*,x_ident,farg*,Block(stat_check*)){anno*}
@@ -213,8 +227,23 @@ rules
               if [(_,ThisCall(_,importedargs),_)] := <remove-all(is-true-check)> listofchecks
               then e_args* := importedargs
               else e_args* := <take(|nargs)> (<map(get-varname-from-formarg)> farg*) end
-            ; e_check := <rename-toplevel> ThisCall(x_predname, e_args*)
-            ; elem2* := elem* |[ if ( e_check ) { elem1* } ]|
+            ; e_check := <rename-toplevel> ThisCall(x_predname, e_args*) 
+            ; acrules := <map(?(_,_,<id>))> listofchecks
+            ; elem2* := <surround-with-ac-debug(|acrules)> elem* |[ if ( e_check ) { elem1* } ]|
+            // ; if is-debug-ac
+            //   then 
+            //     // acrules := <map(?(_,_,<id>))> listofchecks
+            //    e_rule := String( <map(pp-webdsl-to-string);separate-by(|", ");concat-strings; escape> acrules )
+            //   // ; e_rule := String( <pp-webdsl-to-string; escape> e_check )
+            //   ; elem2* := elem* |[ <div class="ac_check"><span class="ac_info"> text( e_rule ) </span> if ( e_check ) { elem1* } </div> ]|
+            //   else elem2* := elem* |[ if ( e_check ) { elem1* } ]|
+            //   end
+            
+            
+            // ; <pp-webdsl-to-string; debug(!"elem2")> elem2*
+            // ; <pp-webdsl-to-string; debug(!"elem3")> elem3*
+             
+                            
           //We previously rendered the ajax AC denied message. But this makes AC rules unusable for hiding elements. Now, apply same behavior for normal and ajax templates  
             // ; if <fetch(AjaxTemplate)> mod* then
             //     elem2* := elem* |[ if ( e_check ) { elem1* } else { "Access denied to this ajax template call" }  ]|
