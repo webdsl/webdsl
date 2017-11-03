@@ -482,8 +482,12 @@ function getDispatchServlet(): DispatchServlet{
 
 native class javax.servlet.http.HttpServletRequest as HttpServletRequest{
   getRemoteAddr(): String
+  getAttribute( String ): Object
 }
 
+function getServerAttribute( name: String ): String {
+  return getDispatchServlet().getRequest().getAttribute( name ) as String;
+}
 function remoteAddress(): String{
   var address := getDispatchServlet().getRequest().getRemoteAddr();
   if( address == "127.0.0.1" ){  // e.g. Nginx proxying to http port of Tomcat
