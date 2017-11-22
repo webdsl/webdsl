@@ -9,7 +9,9 @@ public class IncludePaths {
 	private static final String JQUERY_JS_CDN = "//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js";
 	
 	private static final String JQUERYUI_JS_LOCAL = "jquery-ui-1.10.4.min.js";
-	private static final String JQUERYUI_JS_CDN = "//ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js";	
+	private static final String JQUERYUI_JS_CDN = "//ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/jquery-ui.min.js";
+	private static final String JQUERYUI_TOUCH_PUNCH_JS_LOCAL = "jquery.ui.touch-punch-0.2.3.min.js";
+	private static final String JQUERYUI_TOUCH_PUNCH_JS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/jqueryui-touch-punch/0.2.3/jquery.ui.touch-punch.min.js";	
 	private static final String JQUERYUI_CSS_LOCAL = "jquery-ui-1.10.4.min.css";
 	private static final String JQUERYUI_CSS_CDN = "//ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/themes/smoothness/jquery-ui.css";
 	
@@ -20,6 +22,7 @@ public class IncludePaths {
 	private static String jQueryJSPath = JQUERY_JS_LOCAL;
 	
 	private static String jQueryUIJSPath = JQUERYUI_JS_LOCAL;
+	private static String jQueryUITouchPunchJSPath = JQUERYUI_TOUCH_PUNCH_JS_LOCAL;
 	private static String jQueryUICSSPath = JQUERYUI_CSS_LOCAL;
 	
 	private static String momentJSPath = MOMENT_JS_LOCAL;
@@ -36,6 +39,9 @@ public class IncludePaths {
 	public static String jQueryUIJS(){
 		return jQueryUIJSPath;
 	}
+  public static String jQueryUITouchPunchJS(){
+    return jQueryUITouchPunchJSPath;
+  }
 	public static String jQueryUICSS(){
 		return jQueryUICSSPath;
 	}
@@ -56,6 +62,7 @@ public class IncludePaths {
 				jQueryJSPath = JQUERY_JS_CDN;
 				jQueryUIJSPath = JQUERYUI_JS_CDN;
 				jQueryUICSSPath = JQUERYUI_CSS_CDN;
+				jQueryUITouchPunchJSPath = JQUERYUI_TOUCH_PUNCH_JS_CDN;
 			}
 		} catch ( Throwable t){
 			Logger.error("Something went wrong setting the include paths for css/js resources, paths will point to web application server, not cdn.", t );

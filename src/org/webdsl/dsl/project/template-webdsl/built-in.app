@@ -49,6 +49,7 @@ invoke logStatistics() every 5 minutes
 native class utils.IncludePaths as IncludePaths{
   static jQueryJS(): String
   static jQueryUIJS(): String
+  static jQueryUITouchPunchJS(): String
   static jQueryUICSS(): String
   static momentJS() : String
   static timepickerJS(): String
@@ -1721,6 +1722,7 @@ template inputListInternal( list: ref [Entity], selectfrom: [Entity], tname: Str
   includeCSS( IncludePaths.jQueryUICSS() )
   includeJS( IncludePaths.jQueryJS() )
   includeJS( IncludePaths.jQueryUIJS() )
+  includeJS( IncludePaths.jQueryUITouchPunchJS() )
 
   <script type="text/javascript">
     $(function(){
