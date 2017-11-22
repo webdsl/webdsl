@@ -112,12 +112,13 @@ rules
     with  // don't go into local template defines in the page definition
           localtemplatedefine* := <collect-om(?Define(_,_,_,_,_))> elem*
         ; elemwithoutdefines* := <topdown(try(remove-all(?Define(_,_,_,_,_))))> elem*
-        ; stat* := <collect(\ elem|[ init{stat*} ]| -> stat* \);concat> elemwithoutdefines*
-        ; elem0* := <topdown(try(remove-all(   {stat*: ?elem|[ init{stat*}        ]| }
-                                            <+ {x,e  : ?elem|[ acpagecheck(x,e)[]{} ]| } )))> elemwithoutdefines*
-        ; elem1* := [elem0*,localtemplatedefine*]
         // collect takes care of duplicates
         ; listofchecks := <collect(\TemplateCall("acpagecheck",[Var(x),e],[],TemplateBody([])){r}-> (x,e,r) \)> elem*
+        ; acrules := <map(?(_,_,<id>))> listofchecks
+        ; stat* := <collect(\ elem|[ init{stat*} ]| -> stat* \);concat> elemwithoutdefines*
+        ; elem0* := <topdown(try(remove-all(   {stat*: ?elem|[ init{stat*}        ]| }
+                                            <+ {x,e  : ?elem|[ acpagecheck(x,e)[]{} ]| } ))); surround-with-ac-debug(|acrules)> elemwithoutdefines*
+        ; elem1* := [elem0*,localtemplatedefine*]
         ; (x_predname, nargs) := <combine-checks-smart(id | farg*, [], x_ident, "page")> listofchecks
         ; if <is-dummy-pred> x_predname then
               elem0 := elem |[ init { stat* } ]|
@@ -129,7 +130,6 @@ rules
               else e_args* := <take(|nargs)> (<map(get-varname-from-formarg)> farg*) end
             ; e_thepagecheck := <rename-toplevel> exp|[ x_predname(e_args*) ]|
             ;	elem0 := elem|[ init { if ( e_thepagecheck ) { stat* } else { goto accessDenied(); } } ]|
-            ; acrules := <map(?(_,_,<id>))> listofchecks
             ; rules( WeaveAccessControlInferred :+
                    TemplateCall("navigate", [PageCall(x_ident,e*)], passign*, TemplateBody(elem2*)) -> wrapped
                    with e_predargs* := <take(|nargs)> e*
