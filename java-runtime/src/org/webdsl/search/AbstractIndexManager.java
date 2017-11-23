@@ -321,7 +321,9 @@ public abstract class AbstractIndexManager {
 	}
 
 	public static void reindex(WebDSLEntity ent) {
-		getFullTextSession().index(ent);
+	  if(ent != null){
+	    getFullTextSession().index(ent);
+	  }
 	}
 
 	protected static void reindexAutoCompletion(IndexReader sourceReader,
