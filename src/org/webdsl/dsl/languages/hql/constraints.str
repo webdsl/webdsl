@@ -1,0 +1,45 @@
+module org/webdsl/dsl/languages/hql/constraints
+
+rules
+
+  constraint-error-action :
+    QueryRule(SelectFrom(selection, FromClause(ranges)), whereclause, _, _) -> <fail>
+    with  {| HqlAlias:
+            <map(try(declare-alias))> ranges
+          ; <alltd(check-alias)> whereclause
+          |}
+
+  declare-alias :
+    FromRangeJoin(FromClass(Path([ent]), Some(AsAlias(alias@Alias(name))), None()), []) -> <fail>
+    where if <is-entity-type> SimpleSort(ent)
+          then rules( HqlAlias : name -> ent )
+          else <add-error(|["Entity type '", ent, "' not defined"])> alias
+          end
+
+  check-alias :
+    path@Path([x|xs]) -> <fail>
+    where ent := <HqlAlias> x  // this check only looks at entity property access, rule will fail here for different Path elements
+        ; <check-alias-field(|path, ent)> xs
+
+  check-alias-field(|path, ent) :
+    [x|xs] -> <fail>
+    where if t := <type-of-property-hql-alias(|path)> (ent, x)
+             ; (  SimpleSort(type) := t
+               <+ [] := xs; GenericSort(_,[SimpleSort(_)]) := t)  // last element can be a Set or List e.g. 'x in elements(y.set)' or 'x member of y.set'
+          then <check-alias-field(|path, type)> xs  // property exists, look up next field access using found type
+          else <add-error(|["No property '", x, "' defined for entity type '", ent, "'"])> path  // property does not exist, report error (attach to closest constructor, path), and skip checking the rest
+          end
+
+  type-of-property-hql-alias(|path) =  // pass along path for attaching warning to constructor, and ent entity type defined in alias for warning
+     type-of-property
+  <+ ?(ent, x); <type-of-property-hql-alias-subclass(|ent, x, path)> ent  // allow with warning if any subtype has the property, since HQL supports this with WebDSL's subclass hierarchy mapping to one table
+
+  type-of-property-hql-alias-subclass(|ent, x, path) =
+    bagof-SubClass; fetch-elem(is-property-in-subclass(|ent, x, path))
+
+  is-property-in-subclass(|ent, x, path) :
+    sub -> type
+    where if type := <type-of-property> (sub, x)
+          then try(<add-warning(|["No property '", x, "' defined for entity type '", ent, "'. However, it is defined for subtype '", sub, "' which is supported in HQL because they map to the same table"])> path)
+          else type := <type-of-property-hql-alias-subclass(|ent, x, path)> sub
+          end
