@@ -1580,9 +1580,7 @@ template radioInternal( ent1: ref Entity, ent2: [Entity], tname: String ){
   init{
     if( tmp != null ){
       var matching := [ e | e: Entity in ent2 where e.id.toString() == tmp ];
-      if(    matching.length > 0
-          && ent1 != matching[ 0 ]
-      ){
+      if( matching.length > 0 ){
         subme := matching[ 0 ];
       }
     }
