@@ -1051,11 +1051,11 @@ template dateoutputgeneric( d: ref Date, defaultformat: String ){
 }
 
 function convertJavaDateFormatToFlatPickr( f: String ): String{
-  return f.replace( "MMM", "M" ).replace( "dd", "d" ).replace( "EEE", "D" ).replace( "yyyy", "Y" ).replace("yy", "y").replace("mm", "i").replace( "MM", "m" ).replace( "HH", "H" ).replace( "hh", "h" );
+  return f.replace( "MMM", "M" ).replace( "dd", "d" ).replace("EEEE","l").replace( "EEE", "D" ).replace( "yyyy", "Y" ).replace("yy", "y").replace("mm", "i").replace( "MM", "m" ).replace( "HH", "H" ).replace( "hh", "h" ).replace( "a", "K" );
 }
 
 function javaToJsDate(d : Date) : String{
-	return "new Date(" + d.getYear() + ", " + d.getMonth() + ", " + d.getDay() + ", " + d.format("HH") + ", " + d.getMinute() + ", " + d.getSecond() + ")";
+  return "new Date(" + d.getYear() + ", " + d.getMonth() + ", " + d.getDay() + ", " + d.format("HH") + ", " + d.getMinute() + ", " + d.getSecond() + ")";
 }
 
 function convertJavaDateFormatToMomentJS( f: String ): String{
@@ -1068,7 +1068,6 @@ template input( d: ref DateTime ){
  
 template input( d: ref Date, minDate: DateTime, maxDate: DateTime ){
   var format := DateType.getDefaultDateFormat()
-  var dateformatString := ""
   var minDateOpt := "minDate: new Date(" + minDate.getYear() + ", " + minDate.getMonth() + ", " + minDate.getDay() + ", " + minDate.format("HH") + ", " + minDate.getMinute() + ")"
   var maxDateOpt := "maxDate: new Date(" + maxDate.getYear() + ", " + maxDate.getMonth() + ", " + maxDate.getDay() + ", " + minDate.format("HH") + ", " + maxDate.getMinute() + ")"
   init{
@@ -1086,12 +1085,11 @@ template input( d: ref Date, minDate: DateTime, maxDate: DateTime ){
         }
       }
     }
-    dateformatString := "dateFormat: '" + convertJavaDateFormatToFlatPickr( format );
   }
   dateinputgeneric(
     d
   , format
-  , dateformatString + "', " + minDateOpt + ", " + maxDateOpt
+  , minDateOpt + ", " + maxDateOpt
   )[ all attributes ]{ elements }
 }
 
@@ -1099,7 +1097,6 @@ template input( d: ref DateTime, minDate: DateTime, maxDate: DateTime ){
   var format := DateType.getDefaultDateTimeFormat()
   var minDateOpt := "minDate: " + javaToJsDate(minDate)
   var maxDateOpt := "maxDate: " + javaToJsDate(maxDate)
-  var formatString := ""
   init{
     var attr := attribute( "format" );
     if(    attr != null
@@ -1114,20 +1111,18 @@ template input( d: ref DateTime, minDate: DateTime, maxDate: DateTime ){
           format := formatanno;
         }
       }
-    }
-    // var tmp := /\s(?=(h|H))+/.split( format );
-    formatString := "dateFormat: '" + convertJavaDateFormatToFlatPickr(format) + "'";     
+    } 
   }
   dateinputgeneric(
     d as ref Date
   , format
-  , formatString + ", enableTime : true, " + minDateOpt + ", " + maxDateOpt
+  , "enableTime : true, " + minDateOpt + ", " + maxDateOpt
   )[ all attributes ]{ elements }
 }
 
 template input( d: ref Time ){
   var format := DateType.getDefaultTimeFormat()
-  var formatString := ""
+  var flatPickrOptions := "noCalendar: true, enableTime : true";
   init{
     var attr := attribute("format");
     if(    attr != null
@@ -1143,9 +1138,8 @@ template input( d: ref Time ){
         }
       }
     }
-    formatString := "dateFormat: '" + convertJavaDateFormatToFlatPickr(format) + "', noCalendar: true, enableTime : true";
   }
-  dateinputgeneric( d as ref Date, format, formatString )[ all attributes ]{ elements }
+  dateinputgeneric( d as ref Date, format, flatPickrOptions )[ all attributes ]{ elements }
 }
 template input( d: ref Date ){
   input( d, now().addYears( -50 ), now().addYears( 10 ) )[ all attributes ]{elements}
@@ -1154,21 +1148,32 @@ template input( d: ref Date, minYear: Int, maxYear: Int ){
  input(d, DateTime("01/01/" + minYear + " 0:00"), DateTime("31/12/" + maxYear + " 23:59") )
 }
 
-template dateinputgeneric( d: ref Date, dateformat: String, options: String ){
+template dateinputgeneric( d: ref Date, visibleJavaDateFormat: String, options: String ){
   var req := getRequestParameter( id )
+  var isTimeEnabled := ( /enableTime\s*:\s*true/.find(options) )
+  var isTimeOnly    := ( /noCalendar\s*:\s*true/.find(options) )
+  var internalJavaDateFormat := 
+    if(isTimeOnly)
+      DATEPICKER_TIMEFORMAT()
+    else (
+      if(isTimeEnabled)
+        DATEPICKER_DATETIMEFORMAT()
+      else
+        DATEPICKER_DATEFORMAT()
+    )
 
   request var errors: [String] := null
 
   if( errors != null && errors.length > 0 ){
     errorTemplateInput( errors ){
-      datepickerinput( d, dateformat, id, options )[ all attributes ]
+      datepickerinput( d, internalJavaDateFormat, visibleJavaDateFormat, id, options )[ all attributes ]
     }
     validate{ getPage().enterLabelContext( id ); }
     elements
     validate{ getPage().leaveLabelContext(); }
   }
   else{
-    datepickerinput( d, dateformat, id, options )[ all attributes ]
+    datepickerinput( d, internalJavaDateFormat, visibleJavaDateFormat, id, options )[ all attributes ]
     validate{ getPage().enterLabelContext( id ); }
     elements
     validate{ getPage().leaveLabelContext(); }
@@ -1176,9 +1181,9 @@ template dateinputgeneric( d: ref Date, dateformat: String, options: String ){
   validate{
     if( req != null ){
       if(    req != ""
-          && req.parseDate( dateformat ) == null
+          && req.parseDate( internalJavaDateFormat ) == null
       ){
-        errors := [ "Incorrect date format, expected format is " + dateformat ];
+        errors := [ "Incorrect date format, expected format is " + visibleJavaDateFormat ];
       }
     }
     if( errors == null ){ // if no wellformedness errors, check datamodel validations
@@ -1190,25 +1195,30 @@ template dateinputgeneric( d: ref Date, dateformat: String, options: String ){
 }
 template datepickerIncludes(){
   includeJS( IncludePaths.jQueryJS() )
-  includeJS( IncludePaths.momentJS() )
+  // includeJS( IncludePaths.momentJS() )
   includeJS( IncludePaths.timepickerJS() )
   includeCSS( IncludePaths.timepickerCSS() )
 }
 
-template datepickerinput( d: ref Date, dateformat: String, tname: String, options: String ){
-  var s: String
-  var momentJSFormat := convertJavaDateFormatToMomentJS(dateformat)
+function DATEPICKER_DATEFORMAT() : String    { return "yyyy-MM-dd"; }
+function DATEPICKER_TIMEFORMAT() : String    { return "HH:mm"; }
+function DATEPICKER_DATETIMEFORMAT() : String{ return "yyyy-MM-dd HH:mm"; }
+
+template datepickerinput( d: ref Date, internalJavaDateFormat : String, visibleJavaDateFormat: String, tname: String, options: String ){
+  var s: String        
+  var internalFlatPickrFormat := convertJavaDateFormatToFlatPickr( internalJavaDateFormat )
   var req := getRequestParameter( tname )
+  var flatPickrAltDateFormat := convertJavaDateFormatToFlatPickr( visibleJavaDateFormat )
   var onOpen := "onOpen: function(dateObj, dateStr, instance){ if(dateStr == ''){ instance.jumpToDate( new Date() ); } }"
   init{
     if( d == null ){
       s := "";
     }
     else{
-      s := d.format( dateformat );
+      s := d.format( internalJavaDateFormat );
     }
     if(req != null){
-    	s := req;
+      s := req;
     }
   }
   datepickerIncludes
@@ -1226,7 +1236,7 @@ template datepickerinput( d: ref Date, dateformat: String, tname: String, option
   />
 
   <script>
-    $("input:not(.flatpickr-input)[name=~tname]").flatpickr({~onOpen, allowInput: true, parseDate:function(str){ return moment(str, "~(momentJSFormat))").toDate(); }, time_24hr: true, ~options});
+    $("input:not(.flatpickr-input)[name=~tname]").flatpickr({~onOpen, allowInput: true, dateformat: '~internalFlatPickrFormat', altFormat: '~flatPickrAltDateFormat' , altInput: true, time_24hr: true, ~options});
   </script>
 
   databind{
@@ -1235,7 +1245,8 @@ template datepickerinput( d: ref Date, dateformat: String, tname: String, option
         d := null;
       }
       else{
-        var newdate := req.parseDateTime( dateformat );
+        
+        var newdate := req.parseDateTime( internalJavaDateFormat );
         if( newdate != null ){
           d := newdate;
         }
