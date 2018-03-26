@@ -1194,6 +1194,7 @@ template dateinputgeneric( d: ref Date, visibleJavaDateFormat: String, options: 
   }
 }
 template datepickerIncludes(){
+  includeHead( "<!--[if IE 9]><script type=\"text/javascript\" src=\"https://cdn.jsdelivr.net/npm/eligrey-classlist-js-polyfill@1.2.20171210/classList.min.js\"></script><![endif]-->" )
   includeJS( IncludePaths.jQueryJS() )
   // includeJS( IncludePaths.momentJS() )
   includeJS( IncludePaths.timepickerJS() )
