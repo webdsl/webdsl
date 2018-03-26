@@ -994,17 +994,17 @@ test allInput {
 	input.sendKeys("882332342");
 	
 	
-	input := d.findElements(SelectBy.className("input11"))[0]; 
+	input := d.findElements(SelectBy.cssSelector(".input11:not([type='hidden'])"))[0]; 
 	input.clear();
-	input.sendKeys("03/10/2012");
+	input.sendKeys("03/10/2012u'\ue007'"); //ue007 is the return key
 	
-	input := d.findElements(SelectBy.className("input12"))[0]; 
+	input := d.findElements(SelectBy.cssSelector(".input12:not([type='hidden'])"))[0]; 
 	input.clear();	
-	input.sendKeys("03/10/2012 3:28");
+	input.sendKeys("03/10/2012 3:28u'\ue007'"); //ue007 is the return key
 	
-	input := d.findElements(SelectBy.className("input13"))[0]; 
+	input := d.findElements(SelectBy.cssSelector(".input13:not([type='hidden'])"))[0]; 
 	input.clear();
-	input.sendKeys("3:28");
+	input.sendKeys("3:28u'\ue007'"); //ue007 is the return key
 	
 	input := d.findElements(SelectBy.tagName("select"))[1]; 
     input.click();
