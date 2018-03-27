@@ -698,9 +698,9 @@ test DateTimeInput {
 	var button3 := d.findElements(SelectBy.className("test11"))[0];
     button3.click();
     
-    var input := d.findElements(SelectBy.className("input-trigger"))[0]; 
+    var input := d.findElements(SelectBy.cssSelector(".input-trigger:not([type='hidden'])"))[0];
     input.clear();
-    input.sendKeys("08/10/2012 3:28");
+    input.sendKeys("08/10/2012 3:28u'\ue007'"); //ue007 is the return key
     
     var button4 := d.findElements(SelectBy.className("saveb"))[0];
     button4.click();
@@ -727,9 +727,9 @@ test DateInput {
 	var button3 := d.findElements(SelectBy.className("test12"))[0];
     button3.click();
     
-    var input := d.findElements(SelectBy.className("input-trigger"))[0]; 
+    var input := d.findElements(SelectBy.cssSelector(".input-trigger:not([type='hidden'])"))[0];
     input.clear();
-    input.sendKeys("06/10/2012");
+    input.sendKeys("06/10/2012u'\ue007'"); //ue007 is the return key
     
     var button4 := d.findElements(SelectBy.className("saveb"))[0];
     button4.click();
@@ -765,9 +765,9 @@ test TimeInput {
 	var button3 := d.findElements(SelectBy.className("test13"))[0];
     button3.click();
     
-    var input := d.findElements(SelectBy.className("input-trigger"))[0]; 
+    var input := d.findElements(SelectBy.cssSelector(".input-trigger:not([type='hidden'])"))[0];
     input.clear();
-    input.sendKeys("3:28");
+    input.sendKeys("3:28u'\ue007'"); //ue007 is the return key
     
     var button4 := d.findElements(SelectBy.className("saveb"))[0]; 
     button4.click();
