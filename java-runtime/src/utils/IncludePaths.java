@@ -16,8 +16,8 @@ public class IncludePaths {
 	private static final String JQUERYUI_CSS_CDN = "//ajax.googleapis.com/ajax/libs/jqueryui/1.10.4/themes/smoothness/jquery-ui.css";
 	
 	private static final String MOMENT_JS_LOCAL = "moment.min.js";
-	private static final String FLATPICKR_JS_LOCAL = "flatpickr.min.js";
-	private static final String FLATPICKR_CSS_LOCAL = "flatpickr.min.css";
+	private static final String FLATPICKR_JS_LOCAL = "flatpickr-4.3.2.min.js";
+	private static final String FLATPICKR_CSS_LOCAL = "flatpickr-4.3.2.min.css";
 	
 	private static String jQueryJSPath = JQUERY_JS_LOCAL;
 	
