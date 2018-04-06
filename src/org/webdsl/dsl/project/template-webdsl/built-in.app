@@ -1199,6 +1199,13 @@ template datepickerIncludes(){
   // includeJS( IncludePaths.momentJS() )
   includeJS( IncludePaths.timepickerJS() )
   includeCSS( IncludePaths.timepickerCSS() )
+  
+  head{
+    // https://github.com/flatpickr/flatpickr/issues/893
+    // Flatpickr does not update its internals on the alt input field when focus is lost without hitting enter.
+    // Force sending the enter-key on the flatpickr alt input that loses focus, so it updates its internals
+    postProcess( "$(node).find('input.flatpickr:visible').focusout( function(){ this.dispatchEvent( new KeyboardEvent('keydown',{'keyCode':13}) ); } );" )
+  }
 }
 
 function DATEPICKER_DATEFORMAT() : String    { return "yyyy-MM-dd"; }
