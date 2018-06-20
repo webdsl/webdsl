@@ -23,6 +23,15 @@ rules
             InverseProperty : (x_class,x) -> (ent,prop)
             InverseProperty : (ent,prop)  -> (x_class,x)
           )
+          
+  extend-property-declare(|x_class) = declare-inverse-reference-only(|x_class); fail
+
+  declare-inverse-reference-only(|x_class):
+    p@Property(x, k, s, annos) -> p 
+    where <fetch(?InverseReferenceOnlyAnno())> annos
+        ; rules(
+            InverseRefOnly : (x_class,x)
+          )
        
 // add PropertyTypeAnno for code completion
 signature constructors 
@@ -49,30 +58,36 @@ rules
 
   create-inverse-anno :
     Entity(x_class,superclass, entbodydecs1){anno*} -> Entity(x_class,superclass, entbodydecs2){anno*}
-    where entbodydecs2 := <map(try(desugar-inverse-property(|x_class)))> entbodydecs1
+    where entbodydecs2 := <map(try(desugar-inverse-property(|x_class)); try(desugar-inverse-reference-only(|x_class)))> entbodydecs1
 
   create-inverse-anno :
     EntityNoSuper(x_class, entbodydecs1){anno*} -> EntityNoSuper(x_class, entbodydecs2){anno*}
-    where entbodydecs2 := <map(try(desugar-inverse-property(|x_class)))> entbodydecs1
+    where entbodydecs2 := <map(try(desugar-inverse-property(|x_class)); try(desugar-inverse-reference-only(|x_class)))> entbodydecs1
 
   desugar-inverse-property(|x_class) :
     Property(x, k, s, annos){anno*} -> Property(x, k, s, annos2){anno*}
     where <map(try(declare-inverse-anno(|x_class, x)))> annos
         ; annos2 := <create-inverse-slave-anno(|x_class,x)> annos
 
+  desugar-inverse-reference-only(|x_class) :
+    Property(x, k, s, annos){anno*} -> Property(x, k, s, annos2){anno*}
+    where <InverseProperty;InverseRefOnly> (x_class,x)
+    where <not(fetch(?InverseReferenceOnlyAnno()))> annos
+    with  annos2 := [InverseReferenceOnlyAnno()| annos]; <debug(!"InverseRefOnly anno for: ")>(x_class,x)
+          
   create-inverse-slave-anno(|x_class,p) :
     xs -> [slaveanno|xs]
     where [] := <collect(?InverseSlaveAnno(_, _))> xs
         ; (ent, fld) := <once-CreateInverseSlaveAnno> (x_class, p)
         ; slaveanno := InverseSlaveAnno(ent, fld)
         ; rules( InverseSlaveOf : (x_class, p) -> (ent, fld) )
-
+    
   declare-inverse-anno(|x_class, p) =
     ?InverseAnno(ent, fld)
     ; rules(
         CreateInverseSlaveAnno : (ent, fld) -> (x_class, p)
       )
-
+      
 
 rules
   
