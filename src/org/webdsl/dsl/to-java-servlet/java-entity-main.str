@@ -547,12 +547,10 @@ strategies
      prop@Property(x, k, s, annos) -> class-body-dec* |[
 
        mod1* mod2* mod3* mod4* mod5* mod6* mod7* protected t _#x = e;
-       
-       ~*cbd_skipLoading       
+
        mod8*
        public t get#x() {
-         bstm_skipLoading*
-         
+
          bstm_lazygetter*
          return _#x;
        }
@@ -627,11 +625,6 @@ strategies
           	if <not(?[])> tmp_mod6* 
           	then !(x_Class, x); debug(!"prop with lazy getter: ")
           	end 
-          end
-        ; if <fetch( ?InverseReferenceOnlyAnno() )> annos; not(<fetch(is-searchable-anno)> annos)
-          then cbd_skipLoading  := class-body-dec* |[ boolean x#modifiedNotInitialized = false; ]|
-             ; bstm_skipLoading* := java:bstm*|[ if(x#modifiedNotInitialized){ x#modifiedNotInitialized = false; e_HibSession.flush(); } ]|
-          else cbd_skipLoading := [] ; bstm_skipLoading* := []
           end
         ; x_setreturnclass := <if where(<?"created" <+ ?"modified"> x) then !"org.webdsl.WebDSLEntity" end> x_Class
 
@@ -1136,13 +1129,11 @@ rules //associations
     ]|
     where prop-has-inverse-anno
     with  t_y       := <java-type> y_srt
+        ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
+        ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
         ; if <fetch(?InverseReferenceOnlyAnno)> annos 
-          then bstm0* := <association-update-statements(remove-bidirectional-reference-skip-load)> annos
-             ; bstm1* := <association-update-statements(add-bidirectional-reference-skip-load)> annos
-             ; bstm2* :=  []
-          else bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
-             ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
-             ; bstm2* :=  bstm*|[
+          then bstm2* :=  []
+          else bstm2* :=  bstm*|[
                  if(item != null){ item.increaseVersion(); }
                  if(oldthing != null){ oldthing.increaseVersion(); }
                ]|
@@ -1151,10 +1142,9 @@ rules //associations
   collection-mutation-methods(|x_Class) :
     prop@Property(x_prop, k, s@GenericSort(coll, [y_srt@SimpleSort(y)]), annos) ->
     class-body-dec* |[
-      public void removeFrom#x_prop(t_y item) { removeFrom#x_prop(item, false); }
-      public void removeFrom#x_prop(t_y item, boolean maySkipLoad) {
+      public void removeFrom#x_prop(t_y item) {
         bstm_setchanged*
-        bstm_remove*
+        get#x_prop().remove(item);
       }
 
       public void replaceAllIn#x_prop(java.util.Collection<t_y> col){
@@ -1174,10 +1164,9 @@ rules //associations
           removeFrom#x_prop( itm );
         }
       }
-      public void addTo#x_prop(t_y item){ addTo#x_prop(item, false); }
-      public void addTo#x_prop(t_y item, boolean maySkipLoad) {
+      public void addTo#x_prop(t_y item){
       	bstm_setchanged*
-        bstm_add*
+        get#x_prop().add(item);
         if(_version > 0){ item._version = Math.max(1, item._version); } // item is explicitly marked as persisted for template id construction in ajax replace rendering, instead of depending on flush event
       }
 
@@ -1197,30 +1186,6 @@ rules //associations
         ; if <fetch(?SimpleAnno("transient"))> annos
 		  then bstm_setchanged* := []
 		  else bstm_setchanged* := java:bstm*|[ setChanged("~x_prop"); ]| end
-		   ; if <fetch( ?InverseReferenceOnlyAnno() )> annos; not(<fetch(is-searchable-anno)> annos)
-		     then bstm_addextension*    := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"addTo","item","this")
-		        ; bstm_removeextension* := <entity-bstm-property-events> (x_Class,x_prop,y_srt,"removeFrom","item","this")
-		        //Prevent loading the Set from DB, to improve performance and minimize the locking of read rows .
-		        //This optimization is only in place when the property has the inverse-reference-only anno and is not searchable (index update only occurs when collection is actually modified)
-		        ; bstm_add* := java:bstm*|[
-											        if( maySkipLoad && is#x_prop#Uninitialized() ){
-											          bstm_addextension*
-											          x_prop#modifiedNotInitialized = true;
-											        } else {
-											          get#x_prop().add(item);
-											        }
-				                   ]|
-				    ; bstm_remove* := java:bstm*|[
-                              if( maySkipLoad && is#x_prop#Uninitialized() ){
-                                bstm_removeextension*
-                                x_prop#modifiedNotInitialized = true;
-                              } else {
-                                get#x_prop().remove(item);
-                              }
-                           ]|
-		     else bstm_add*    := java:bstm*|[ get#x_prop().add(item); ]|
-		        ; bstm_remove* := java:bstm*|[ get#x_prop().remove(item); ]|
-		     end
 
   list-mutation-methods(|x_Class) :
     prop@Property(x_prop, k, s@GenericSort("List", [srt_y@SimpleSort(y)]), annos) ->
@@ -1282,19 +1247,6 @@ rules //associations
         ; <?"Set" <+ ?"List"> coll
     // with  x_P := <capitalize-string> x_p
     //     ; x_getInverse := <concat-strings>["get", x_P]
-    
-  remove-bidirectional-reference-skip-load :
-    inv@name#([x_c, x_p]) ->
-      bstm* |[
-        //if ( item.x_getInverse().contains(this) ) { //check not necessary
-          item.removeFrom#x_p(this, true);
-        //}
-      ]|
-    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
-        ; GenericSort(coll,[_]) := <get-type-anno> inv
-        ; <?"Set" <+ ?"List"> coll
-    // with  x_P := <capitalize-string> x_p
-    //     ; x_getInverse := <concat-strings>["get", x_P]
 
   remove-bidirectional-reference(|x_target) :
     inv@name#([x_c, x_p]) ->
@@ -1322,17 +1274,6 @@ rules //associations
       bstm* |[
         //if ( !item.get#x_p().contains(this) ) { //check disabled because it would cause incorrect behavior for lists which can contain duplicates
           item.addTo#x_p(this);
-        //}
-      ]|
-    where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
-        ; GenericSort(coll,[_]) := <get-type-anno> inv
-        ; <?"Set" <+ ?"List"> coll
-          
-  add-bidirectional-reference-skip-load :
-    inv@name#([x_c, x_p]) ->
-      bstm* |[
-        //if ( !item.get#x_p().contains(this) ) { //check disabled because it would cause incorrect behavior for lists which can contain duplicates
-          item.addTo#x_p(this, true);
         //}
       ]|
     where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
