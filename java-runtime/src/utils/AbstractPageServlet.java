@@ -1559,17 +1559,21 @@ public abstract class AbstractPageServlet{
       public long getElapsedTime() {
           return System.currentTimeMillis() - startTime;
       }
+      
+      public Object getRequestScopedVar(String key){
+        return commandingPage.requestScopedVariables.get(key);
+      }
 
       public void addRequestScopedVar(String key, Object val){
     	  if(val != null){
-              requestScopedVariables.put(key, val);
+              commandingPage.requestScopedVariables.put(key, val);
     	  }
       }
 
       public void addRequestScopedVar(String key, WebDSLEntity val){
     	  if(val != null){
               val.setRequestVar();
-              requestScopedVariables.put(key, val);
+              commandingPage.requestScopedVariables.put(key, val);
     	  }
       }
       // statistics to be shown in log
