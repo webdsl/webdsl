@@ -43,11 +43,12 @@ public abstract class AbstractPageServlet{
     public boolean isReadOnly = false;
     public boolean isWebService(){ return false; }
 
-    static{
-    	common_css_link_tag_suffix = "/stylesheets/common_.css?" + System.currentTimeMillis() +"\" rel=\"stylesheet\" type=\"text/css\" />";
-    	fav_ico_link_tag_suffix = "/favicon.ico?" + System.currentTimeMillis() + "\" rel=\"shortcut icon\" type=\"image/x-icon\" />";
-    	ajax_js_include_name = "ajax.js?"+ System.currentTimeMillis();
+    static{      
+    	common_css_link_tag_suffix = "/stylesheets/" + CachedResourceFileNameHelper.getNameWithHash("stylesheets", "common_.css") + "\" rel=\"stylesheet\" type=\"text/css\" />";
+    	fav_ico_link_tag_suffix =  "/" + CachedResourceFileNameHelper.getNameWithHash("", "favicon.ico") + "\" rel=\"shortcut icon\" type=\"image/x-icon\" />";
+    	ajax_js_include_name = "ajax.js";
     }
+    
     public void serve(HttpServletRequest request, HttpServletResponse httpServletResponse, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,List<utils.File>> fileUploads) throws Exception
     {
       initTemplateClass();
@@ -515,7 +516,7 @@ public abstract class AbstractPageServlet{
 	private static String common_css_link_tag_suffix;
 	private static String fav_ico_link_tag_suffix;
 	private static String ajax_js_include_name;
-
+	
     public String renderResponse(StringWriter s) {
     	StringWriter sw = new StringWriter();
     	PrintWriter sout = new PrintWriter(sw);
@@ -537,13 +538,13 @@ public abstract class AbstractPageServlet{
         renderDebugJsVar(sout);
         sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalPage.get().getAbsoluteLocation()+"\";</script>");
 
-
         for(String sheet : this.stylesheets) {
             if(sheet.startsWith("//") || sheet.startsWith("http://") || sheet.startsWith("https://")){
                 sout.print("<link rel=\"stylesheet\" href=\""+ sheet + "\" type=\"text/css\" />");
             }
             else{
-                sout.print("<link rel=\"stylesheet\" href=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/stylesheets/"+sheet+"\" type=\"text/css\" />");
+                String hashedName = CachedResourceFileNameHelper.getNameWithHash("stylesheets", sheet); 
+                sout.print("<link rel=\"stylesheet\" href=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/stylesheets/"+hashedName+"\" type=\"text/css\" />");
             }
         }
         for(String script : this.javascripts) {
@@ -551,7 +552,8 @@ public abstract class AbstractPageServlet{
                 sout.println("<script type=\"text/javascript\" src=\"" + script + "\"></script>");
             }
             else{
-                sout.println("<script type=\"text/javascript\" src=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/javascript/"+script+"\"></script>");
+                String hashedName = CachedResourceFileNameHelper.getNameWithHash("javascript", script);
+                sout.println("<script type=\"text/javascript\" src=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/javascript/"+hashedName+"\"></script>");
             }
         }
         for(Map.Entry<String,String> headEntry : customHeadNoDuplicates.entrySet()) {
