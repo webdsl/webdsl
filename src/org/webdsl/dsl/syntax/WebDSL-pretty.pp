@@ -49,6 +49,7 @@
    SimpleAnno                         -- _1,
    InverseAnno                        -- KW["inverse"] KW["="] _1 KW["."] _2,
    InverseSlaveAnno                   -- KW["inverseSlave"] KW["="] _1 KW["."] _2,
+   InverseReferenceOnlyAnno           -- KW["inverse-reference-only"],
    InlineAnno                         -- KW["inline"] KW["("] _1 KW[")"],
    InlineAnno.1:iter-star-sep         -- _1 KW[","],
    SelectAnno                         -- KW["select"] KW["="] _1,

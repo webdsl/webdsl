@@ -76,62 +76,72 @@ strategies
     try(oncetd(?SessionEntity("securityContext",_); rules( AccessControlEnabled := True() )))
 
   generate-code-java-servlet =
-    ?def@Define(mods, name, args, targs, elems);
-      if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
-        {| ThisEmail, JavaThisPage, ThisTemplateName,ThisTemplateClassName, Variables, JavaThisPagePrefetches, ThisAjaxTemplateName: //Variables: to hold arguments/variables of parent templates/pages
-          with (
-              if ThisTemplateName   then debug(!"\nERROR: inline local template found in back-end, should have been desugared:\n");<exit> 1 end
-            ; if <fetch(Page)>  mods then
-                where(prefetches := <try(?Block(<id>)); filter(?PrefetchFor(_, _, _, _))> elems)
-              ; rules ( JavaThisPage := <if-page-add-override-in-name> (mods, name) )
-              ; rules ( JavaThisPagePrefetches := prefetches )
-              end
-            ; if <fetch(Email)> mods then rules ( ThisEmail := name ) end
-            ; if <fetch(AjaxTemplate)> mods then rules ( ThisAjaxTemplateName := <if-page-add-override-in-name> (mods, name) ) end
-            ; rules (
-              ThisTemplateName := name
-              ThisTemplateClassName := <get-template-class-name> def
-            )
-            ; cached-generate(
-                  annotate-with-unique-element-ids
-                ; log-time(not(GenerateCodeJavaServlet)|"generate code define")
-                ; all(generate-code-java-servlet)
-                | <ThisTemplateClassName>
-              )
-          )
-       |}
-     end
-   <+(?Action(_, _, _, _) <+ ?InitAction(_) <+ ?DataBindAction(_) <+ ?ValidateAction(_) <+ ?RenderAction(_) <+ ?AllPhasesAction(_)) ;
-         {| InAction, Variables:
-           rules ( InAction := True() )
-         ; log-time(not(GenerateCodeJavaServlet)|"generate code action")
-         ; all(generate-code-java-servlet)
-         |}
-   <+where(not(JavaInEntity)); ?Function(_,_,_,_);
-      if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
-         generate-java-servlet-global-function
-      end
-   <+where(get-entity-def => (ent_name, _)) ;
-       if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
-         {| JavaInEntity:
-           rules ( JavaInEntity := <id> )
-         ; cached-generate(
-               log-time(not(GenerateCodeJavaServlet)|"generate code entity")
-               ; all(generate-code-java-servlet)
-             | ent_name
-           )
-         |}
-       end
-   <+ ?LocalRedefine(_,_,_,_,_); //avoid page code generation for Arg constructors in LocalRedefine
-       {| InLocalRedefine:
-           rules ( InLocalRedefine := True() )
-         ; log-time(not(GenerateCodeJavaServlet)|"generate code local redefine")
-         ; all(generate-code-java-servlet)
-         |}
-   <+{?el@elem|[ var x : srt := e ]|
-         ; where(<elem> (el,<bagof-AllGlobalVars>))}
-   <+      log-time(not(GenerateCodeJavaServlet)|"generate code other")
-         ; all(generate-code-java-servlet)
+    {|  NewNameUsed: //make newname-webdsl scope aware
+	    ?def@Define(mods, name, args, targs, elems);
+	      if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
+	        {| ThisEmail, JavaThisPage, ThisTemplateName,ThisTemplateClassName, Variables, JavaThisPagePrefetches, ThisAjaxTemplateName: //Variables: to hold arguments/variables of parent templates/pages
+	          with (
+	              if ThisTemplateName   then debug(!"\nERROR: inline local template found in back-end, should have been desugared:\n");<exit> 1 end
+	            ; if <fetch(Page)>  mods then
+	                where(prefetches := <try(?Block(<id>)); filter(?PrefetchFor(_, _, _, _))> elems)
+	              ; rules ( JavaThisPage := <if-page-add-override-in-name> (mods, name) )
+	              ; rules ( JavaThisPagePrefetches := prefetches )
+	              end
+	            ; if <fetch(Email)> mods then rules ( ThisEmail := name ) end
+	            ; if <fetch(AjaxTemplate)> mods then rules ( ThisAjaxTemplateName := <if-page-add-override-in-name> (mods, name) ) end
+	            ; rules (
+	              ThisTemplateName := name
+	              ThisTemplateClassName := <get-template-class-name> def
+	            )
+	            ; <cached-generate(
+	                  annotate-with-unique-element-ids(| <suffix-from-name> name )
+	                ; log-time(not(GenerateCodeJavaServlet)|"generate code define")
+	                ; all(generate-code-java-servlet)
+	                | <ThisTemplateClassName>
+	              )> def
+	            // ; nameSuf := <checksum>name
+	            // ; rules( NamingSuffix := nameSuf) 
+	            // ; cached-generate(
+	              //     annotate-with-unique-element-ids(| <checksum>name )
+	              //   ; log-time(not(GenerateCodeJavaServlet)|"generate code define")
+	              //   ; all(generate-code-java-servlet)
+	              //   | <ThisTemplateClassName>
+	              // )
+	          )
+	       |}
+	     end
+	   <+(?Action(_, _, _, _) <+ ?InitAction(_) <+ ?DataBindAction(_) <+ ?ValidateAction(_) <+ ?RenderAction(_) <+ ?AllPhasesAction(_)) ;
+	         {| InAction, Variables:
+	           rules ( InAction := True() )
+	         ; log-time(not(GenerateCodeJavaServlet)|"generate code action")
+	         ; all(generate-code-java-servlet)
+	         |}
+	   <+where(not(JavaInEntity)); ?Function(_,_,_,_);
+	      if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
+	         generate-java-servlet-global-function
+	      end
+	   <+where(get-entity-def => (ent_name, _)) ;
+	       if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
+	         {| JavaInEntity:
+	           rules ( JavaInEntity := <id> )
+	         ; cached-generate(
+	               log-time(not(GenerateCodeJavaServlet)|"generate code entity")
+	               ; all(generate-code-java-servlet)
+	             | ent_name
+	           )
+	         |}
+	       end
+	   <+ ?LocalRedefine(_,_,_,_,_); //avoid page code generation for Arg constructors in LocalRedefine
+	       {| InLocalRedefine:
+	           rules ( InLocalRedefine := True() )
+	         ; log-time(not(GenerateCodeJavaServlet)|"generate code local redefine")
+	         ; all(generate-code-java-servlet)
+	         |}
+	   <+{?el@elem|[ var x : srt := e ]|
+	         ; where(<elem> (el,<bagof-AllGlobalVars>))}
+	   <+      log-time(not(GenerateCodeJavaServlet)|"generate code other")
+	         ; all(generate-code-java-servlet)
+	 |}
 
 // some helping annotations to create uniqueness among the static elements
 
@@ -242,51 +252,51 @@ rules
 
 strategies
 
-  annotate-with-unique-element-ids =
-    topdown(try(java-servlet-element-id))
+  annotate-with-unique-element-ids(|namesuffix) = 
+    topdown(try(java-servlet-element-id(|namesuffix)))
 
 rules
-
-  java-servlet-element-id :
+  
+  java-servlet-element-id(|suffix) :
     tc@TemplateCall(name, args,passign*, _){anno*} -> tc{TemplateCallNumber(newid),anno*}
     where <get-anno(?CallToDefinedAnno() <+ ?CallToRequiredAnno())> tc
        <+ <?"elements" <+ ?QualifiedElementsCall(_)> name
-    with   newid := <newname> "tcall"
+    with   newid := <newname-webdsl-suffix(|suffix)> "tcall"
     
-  java-servlet-element-id :
+  java-servlet-element-id(|suffix) :
     MemberTemplateCallIndex(x, tc{anno*}, i){anno1*} ->  MemberTemplateCallIndex(x, tc{TemplateCallNumber(newid),anno*}, i){anno1*}
-    with   newid := <newname> "tcall"
+    with   newid := <newname-webdsl-suffix(|suffix)> "tcall"
 
-  java-servlet-element-id :
+  java-servlet-element-id(|suffix) :
     tc@TemplateCall("form", attrs,passign*, elems){anno*} -> tc{FormNumber(newid),anno*}
-    where  newid := <newname> "form"
+    where  newid := <newname-webdsl-suffix(|suffix)> "form"
 
-  java-servlet-element-id :
+  java-servlet-element-id(|suffix) :
     tc@TemplateCall("dynamicform", attrs,passign*, elems){anno*} -> tc{FormNumber(newid),anno*}
-    where  newid := <newname> "dynamicform"
+    where  newid := <newname-webdsl-suffix(|suffix)> "dynamicform"
 
-  java-servlet-element-id :
+  java-servlet-element-id(|suffix) :
     tc@PropertySubmit(_,_){anno*} -> tc{ActionNumber(newid),anno*}
-    where  newid := <newname> "action"
-  java-servlet-element-id :
+    where  newid := <newname-webdsl-suffix(|suffix)> "action"
+  java-servlet-element-id(|suffix) :
     tc@PropertySubmitMultiple(_,_){anno*} -> tc{ActionNumber(newid),anno*}
-    where  newid := <newname> "action"
+    where  newid := <newname-webdsl-suffix(|suffix)> "action"
 
-  java-servlet-element-id-template-call :
-    tc -> tc{InputNumber(newid),anno*}
-    with  _{anno*} := tc
-        ; newid := <newname> "input"
+  // java-servlet-element-id-template-call :
+  //   tc -> tc{InputNumber(newid),anno*}
+  //   with  _{anno*} := tc
+  //       ; newid := <newname-webdsl-suffix(|suffix)> "input"
           
-  java-servlet-element-id :
+  java-servlet-element-id(|suffix) :
     tc@IfTempl(e, elems, elems2){anno*} -> tc{CFNumber(newid),anno*}
-    where  newid := <newname> "if"
+    where  newid := <newname-webdsl-suffix(|suffix)> "if"
 
-  java-servlet-element-id :
+  java-servlet-element-id(|suffix) :
     tc@ForAll(x, srt, fltr, elems, sep){anno*} -> tc{CFNumber(newid),anno*}
-    where  newid := <newname> "for"
-  java-servlet-element-id :
+    where  newid := <newname-webdsl-suffix(|suffix)> "for"
+  java-servlet-element-id(|suffix) :
     tc@For(x, srt, e1, fltr, elems, sep){anno*} -> tc{CFNumber(newid),anno*}
-    where  newid := <newname> "for"
+    where  newid := <newname-webdsl-suffix(|suffix)> "for"
 
   template-class-name-parents: (mod*, allnames) -> class
     with  name := <reverse; separate-by(|"_"); concat-strings> allnames

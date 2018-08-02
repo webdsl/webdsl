@@ -550,6 +550,7 @@ strategies
 
        mod8*
        public t get#x() {
+
          bstm_lazygetter*
          return _#x;
        }
@@ -594,7 +595,7 @@ strategies
         ; e      := <owned-collection-default-value-override-java(|x_Class,prop) <+ java-type-default-value> s
         ; if <!id_name;?x> x_Class     // if this is the id property
           then
-              x_index := <newname> <concat-strings>[x,"index"]
+              x_index := <newname-webdsl> <concat-strings>[x,"index"]
             //; mod0* := [anno|[@org.hibernate.annotations.Index(name="~x_index")]|]  unique annotation(in table annotation) already creates index
             ; cbds_naturalid := class-body-dec* |[
                public String getNaturalId() {
@@ -887,7 +888,7 @@ rules // One-to-Many association with Set
       anno|[ @OneToMany(fetch=javax.persistence.FetchType.LAZY) ]| //mappedBy="~other_prop", targetEntity=x_ent,
     , anno|[ @JoinColumn(name="~joinColumnName", insertable=false, updatable=false) ]|
     , anno|[ @org.hibernate.annotations.Persister(impl = utils.OneToManyPersister.class) ]|
-    | subselect*
+    | optannos*
     ]
     where t := <defined-java-type> s
         ; inv := <fetch-elem(?InverseSlaveAnno(ent, fld) <+ ?InverseAnno(ent, fld))> annos
@@ -896,6 +897,10 @@ rules // One-to-Many association with Set
         //; x_ent := <concat-strings> [ent, ".class"]
         ; joinColumnName := <concat-strings> ["\\\"", ent, "_", fld, "\\\""]
         ; subselect* := <get-subselect-anno>
+        ; if <fetch(?InverseReferenceOnlyAnno)> annos
+            then optannos* := [ anno|[ @org.hibernate.annotations.OptimisticLock(excluded=true) ]| | subselect*]
+            else optannos* := subselect*
+          end
 
 rules // One-to-Many association with List: not true inverse (duplication in db) due to hibernate limitations
 
@@ -1051,7 +1056,7 @@ rules // special methods
     ]|
     where <?"Set" <+ ?"List"> coll
     with  t         := <java-type> GenericSort("List", [y_srt])
-        ; x_listvar := <newname> "list"
+        ; x_listvar := <newname-webdsl> "list"
         ; e_newgen  := <owned-collection-transform-list-to-genericset(|x_Class,prop,x_listvar) <+ transform-list-to-genericset(|x_listvar)> s
         //; bas*        := <bidirectional-manytomany-setter(|x_listvar) <+ ![]> prop
         ; cbds      := <collection-mutation-methods(|x_Class) <+ ![]> prop
@@ -1119,20 +1124,26 @@ rules //associations
           }
           //manually increase versions in case of one-to-one, to work around hibernate bug, see http://yellowgrass.org/issue/WebDSL/191
           this.increaseVersion();
-          if(item != null){ item.increaseVersion(); }
-          if(oldthing != null){ oldthing.increaseVersion(); }
+          bstm2*          
     }
     ]|
     where prop-has-inverse-anno
     with  t_y       := <java-type> y_srt
         ; bstm0* := <association-update-statements(remove-bidirectional-reference)> annos
         ; bstm1* := <association-update-statements(add-bidirectional-reference)> annos
+        ; if <fetch(?InverseReferenceOnlyAnno)> annos 
+          then bstm2* :=  []
+          else bstm2* :=  bstm*|[
+                 if(item != null){ item.increaseVersion(); }
+                 if(oldthing != null){ oldthing.increaseVersion(); }
+               ]|
+          end 
 
   collection-mutation-methods(|x_Class) :
     prop@Property(x_prop, k, s@GenericSort(coll, [y_srt@SimpleSort(y)]), annos) ->
     class-body-dec* |[
       public void removeFrom#x_prop(t_y item) {
-      	bstm_setchanged*
+        bstm_setchanged*
         get#x_prop().remove(item);
       }
 
@@ -1144,12 +1155,16 @@ rules //associations
       public void removeAllFrom#x_prop() {
         //force retrieval
         org.hibernate.Hibernate.initialize(get#x_prop());
-        while(!get#x_prop().isEmpty()) {
-          removeFrom#x_prop(get#x_prop().iterator().next());
+        Iterator<t_y> itt = get#x_prop().iterator();
+        while( itt.hasNext() ) {
+          t_y itm = itt.next();
+          //We use the iterator to remove items from underlying collection. This fixes failing removal of null objects.
+          itt.remove();
+          //We still need to use the remove method to inform hibernate/execute extend-functions
+          removeFrom#x_prop( itm );
         }
       }
-
-      public void addTo#x_prop(t_y item) {
+      public void addTo#x_prop(t_y item){
       	bstm_setchanged*
         get#x_prop().add(item);
         if(_version > 0){ item._version = Math.max(1, item._version); } // item is explicitly marked as persisted for template id construction in ajax replace rendering, instead of depending on flush event
@@ -1230,8 +1245,8 @@ rules //associations
     where <?"InverseAnno" <+ ?"InverseSlaveAnno"> name
         ; GenericSort(coll,[_]) := <get-type-anno> inv
         ; <?"Set" <+ ?"List"> coll
-    with  x_P := <capitalize-string> x_p
-        ; x_getInverse := <concat-strings>["get", x_P]
+    // with  x_P := <capitalize-string> x_p
+    //     ; x_getInverse := <concat-strings>["get", x_P]
 
   remove-bidirectional-reference(|x_target) :
     inv@name#([x_c, x_p]) ->

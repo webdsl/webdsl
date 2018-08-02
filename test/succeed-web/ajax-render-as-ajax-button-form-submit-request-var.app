@@ -25,15 +25,20 @@ application test
     assert(d.getPageSource().contains("redirected to success page"), "should have been redirected");
   }
 
+
+  request var rv := "initial"
   page moretests(){
+    init{ rv := "Request var set 1"; }
     placeholder p testajax()
   }
   
   ajax template testajax(){
+    init{ rv := rv + "2"; }
     placeholder p showit("",p)
   }
   
   ajax template showit(s: String, p: Placeholder){
+    init{ rv := rv + "3"; }
     output(s)
     placeholder ph noise()
     div{
@@ -48,6 +53,8 @@ application test
       replace(p, showit("first test",p));
       replace("test", showit("second test",p));
     }
+    
+    output(rv)
   }
   
   ajax template noise(){
@@ -57,6 +64,7 @@ application test
   test{
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(moretests()));
+    assert(d.getPageSource().contains("Request var set 123"));
     d.getSubmits()[1].click();
     assert(d.getPageSource().contains("first test"));
     assert(d.getPageSource().contains("second test"));
