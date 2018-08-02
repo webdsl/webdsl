@@ -75,73 +75,76 @@ strategies
   is-ac-enabled =
     try(oncetd(?SessionEntity("securityContext",_); rules( AccessControlEnabled := True() )))
 
-  generate-code-java-servlet =
-    {|  NewNameUsed: //make newname-webdsl scope aware
-	    ?def@Define(mods, name, args, targs, elems);
-	      if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
-	        {| ThisEmail, JavaThisPage, ThisTemplateName,ThisTemplateClassName, Variables, JavaThisPagePrefetches, ThisAjaxTemplateName: //Variables: to hold arguments/variables of parent templates/pages
-	          with (
-	              if ThisTemplateName   then debug(!"\nERROR: inline local template found in back-end, should have been desugared:\n");<exit> 1 end
-	            ; if <fetch(Page)>  mods then
-	                where(prefetches := <try(?Block(<id>)); filter(?PrefetchFor(_, _, _, _))> elems)
-	              ; rules ( JavaThisPage := <if-page-add-override-in-name> (mods, name) )
-	              ; rules ( JavaThisPagePrefetches := prefetches )
-	              end
-	            ; if <fetch(Email)> mods then rules ( ThisEmail := name ) end
-	            ; if <fetch(AjaxTemplate)> mods then rules ( ThisAjaxTemplateName := <if-page-add-override-in-name> (mods, name) ) end
-	            ; rules (
-	              ThisTemplateName := name
-	              ThisTemplateClassName := <get-template-class-name> def
-	            )
-	            ; <cached-generate(
-	                  annotate-with-unique-element-ids(| <suffix-from-name> name )
-	                ; log-time(not(GenerateCodeJavaServlet)|"generate code define")
-	                ; all(generate-code-java-servlet)
-	                | <ThisTemplateClassName>
-	              )> def
-	            // ; nameSuf := <checksum>name
-	            // ; rules( NamingSuffix := nameSuf) 
-	            // ; cached-generate(
-	              //     annotate-with-unique-element-ids(| <checksum>name )
-	              //   ; log-time(not(GenerateCodeJavaServlet)|"generate code define")
-	              //   ; all(generate-code-java-servlet)
-	              //   | <ThisTemplateClassName>
-	              // )
-	          )
-	       |}
-	     end
-	   <+(?Action(_, _, _, _) <+ ?InitAction(_) <+ ?DataBindAction(_) <+ ?ValidateAction(_) <+ ?RenderAction(_) <+ ?AllPhasesAction(_)) ;
-	         {| InAction, Variables:
-	           rules ( InAction := True() )
-	         ; log-time(not(GenerateCodeJavaServlet)|"generate code action")
-	         ; all(generate-code-java-servlet)
-	         |}
-	   <+where(not(JavaInEntity)); ?Function(_,_,_,_);
-	      if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
-	         generate-java-servlet-global-function
-	      end
-	   <+where(get-entity-def => (ent_name, _)) ;
-	       if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
-	         {| JavaInEntity:
-	           rules ( JavaInEntity := <id> )
-	         ; cached-generate(
-	               log-time(not(GenerateCodeJavaServlet)|"generate code entity")
-	               ; all(generate-code-java-servlet)
-	             | ent_name
-	           )
-	         |}
-	       end
-	   <+ ?LocalRedefine(_,_,_,_,_); //avoid page code generation for Arg constructors in LocalRedefine
-	       {| InLocalRedefine:
-	           rules ( InLocalRedefine := True() )
-	         ; log-time(not(GenerateCodeJavaServlet)|"generate code local redefine")
-	         ; all(generate-code-java-servlet)
-	         |}
-	   <+{?el@elem|[ var x : srt := e ]|
-	         ; where(<elem> (el,<bagof-AllGlobalVars>))}
-	   <+      log-time(not(GenerateCodeJavaServlet)|"generate code other")
-	         ; all(generate-code-java-servlet)
-	 |}
+  generate-code-java-servlet = try-scope-webdsl-newname( generate-code-java-servlet-define )
+
+  try-scope-webdsl-newname(s) = if needs-global-unique-names then s else {| NewNameUsed: s |} end
+  needs-global-unique-names = ?InitAction(_)
+  
+  generate-code-java-servlet-define =
+    ?def@Define(mods, name, args, targs, elems);
+      if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
+        {| ThisEmail, JavaThisPage, ThisTemplateName,ThisTemplateClassName, Variables, JavaThisPagePrefetches, ThisAjaxTemplateName: //Variables: to hold arguments/variables of parent templates/pages
+          with (
+              if ThisTemplateName   then debug(!"\nERROR: inline local template found in back-end, should have been desugared:\n");<exit> 1 end
+            ; if <fetch(Page)>  mods then
+                where(prefetches := <try(?Block(<id>)); filter(?PrefetchFor(_, _, _, _))> elems)
+              ; rules ( JavaThisPage := <if-page-add-override-in-name> (mods, name) )
+              ; rules ( JavaThisPagePrefetches := prefetches )
+              end
+            ; if <fetch(Email)> mods then rules ( ThisEmail := name ) end
+            ; if <fetch(AjaxTemplate)> mods then rules ( ThisAjaxTemplateName := <if-page-add-override-in-name> (mods, name) ) end
+            ; rules (
+              ThisTemplateName := name
+              ThisTemplateClassName := <get-template-class-name> def
+            )
+            ; <cached-generate(
+                  annotate-with-unique-element-ids(| <suffix-from-name> name )
+                ; log-time(not(GenerateCodeJavaServlet)|"generate code define")
+                ; all(generate-code-java-servlet)
+                | <ThisTemplateClassName>
+              )> def
+            // ; nameSuf := <checksum>name
+            // ; rules( NamingSuffix := nameSuf) 
+            // ; cached-generate(
+              //     annotate-with-unique-element-ids(| <checksum>name )
+              //   ; log-time(not(GenerateCodeJavaServlet)|"generate code define")
+              //   ; all(generate-code-java-servlet)
+              //   | <ThisTemplateClassName>
+              // )
+          )
+       |}
+     end
+   <+(?Action(_, _, _, _) <+ ?InitAction(_) <+ ?DataBindAction(_) <+ ?ValidateAction(_) <+ ?RenderAction(_) <+ ?AllPhasesAction(_)) ;
+         {| InAction, Variables:
+           rules ( InAction := True() )
+         ; log-time(not(GenerateCodeJavaServlet)|"generate code action")
+         ; all(generate-code-java-servlet)
+         |}
+   <+where(not(JavaInEntity)); ?Function(_,_,_,_);
+      if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
+         generate-java-servlet-global-function
+      end
+   <+where(get-entity-def => (ent_name, _)) ;
+       if where(WebDSLCompileBuiltIns) <+ not(has-anno(Precompiled)) then
+         {| JavaInEntity:
+           rules ( JavaInEntity := <id> )
+         ; cached-generate(
+               log-time(not(GenerateCodeJavaServlet)|"generate code entity")
+               ; all(generate-code-java-servlet)
+             | ent_name
+           )
+         |}
+       end
+   <+ ?LocalRedefine(_,_,_,_,_); //avoid page code generation for Arg constructors in LocalRedefine
+       {| InLocalRedefine:
+           rules ( InLocalRedefine := True() )
+         ; log-time(not(GenerateCodeJavaServlet)|"generate code local redefine")
+         ; all(generate-code-java-servlet)
+         |}
+   <+{?el@elem|[ var x : srt := e ]|
+         ; where(<elem> (el,<bagof-AllGlobalVars>))}
+   <+      log-time(not(GenerateCodeJavaServlet)|"generate code other")
+         ; all(generate-code-java-servlet)
 
 // some helping annotations to create uniqueness among the static elements
 
