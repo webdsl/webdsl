@@ -37,11 +37,14 @@ public final class WikiFormatter {
     private static HtmlRenderer RENDERER_HW = null;
     
 	static{
-		whitelist.addTags("abbr", "hr", "del")
+		whitelist.addTags("abbr", "hr", "del", "details", "summary")
 		         .addAttributes("abbr", "title")
 		         .addAttributes("th", "align")
 		         .addAttributes("td", "align")
-		         .addAttributes("code", "class");
+		         .addAttributes("code", "class")
+		         .addAttributes("div", "class")
+				 .addAttributes("details", "class")
+				 .addAttributes("details", "open");
 		//allow id's on title tags
 		for(int i=1;i<7;i++){
 			whitelist.addAttributes("h"+i, "id");
