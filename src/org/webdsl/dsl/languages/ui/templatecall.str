@@ -32,19 +32,19 @@ rules //rename rule for each templatecall variant
     tc@TemplateCallPropsNoBody(x1, arg1*, passign1*){anno*}
     -> TemplateCallPropsNoBody(x2, arg2*, passign2*){anno*}
     with  arg2*     := <try(templatecall-replace-page-args(|x1)); rename-all> arg1*
-        ; x2 := <resolve-template-call-name> (x1,arg2*)
+        ; x2 := <resolve-template-call-name(|tc)> (x1,arg2*)
         ; passign2* := <rename-all> passign1*
 
   rename-ui :
     tc@TemplateCallProps(x1, passign1*){anno*}
     -> TemplateCallProps(x2, passign2*){anno*}
-    with  x2 := <resolve-template-call-name> (x1,[])
+    with  x2 := <resolve-template-call-name(|tc)> (x1,[])
         ; passign2* := <rename-all> passign1*
 
   rename-ui :
     tc@TemplateCallPropsNoArgs(x1, passign1*, elem1*){anno*}
     -> TemplateCallPropsNoArgs(x2, passign2*, elem2*){anno*}
-    with  x2 := <resolve-template-call-name> (x1,[])
+    with  x2 := <resolve-template-call-name(|tc)> (x1,[])
         ; elem2*    := <rename-all> elem1*
         ; passign2* := <rename-all> passign1*
 
@@ -52,7 +52,7 @@ rules //rename rule for each templatecall variant
     tc@TemplateCall(x1, arg1*, passign1*, elem1*){anno*}
     -> TemplateCall(x2, arg2*, passign2*, elem2*){anno*}
     with  arg2*     := <try(templatecall-replace-page-args(|x1)); rename-all> arg1*
-        ; x2 := <resolve-template-call-name> (x1,arg2*)
+        ; x2 := <resolve-template-call-name(|tc)> (x1,arg2*)
         ; elem2*    := <rename-all> elem1*
         ; passign2* := <rename-all> passign1*
 
@@ -60,29 +60,29 @@ rules //rename rule for each templatecall variant
     tc@TemplateCallNoBody(x1, arg1*){anno*}
     -> TemplateCallNoBody(x2, arg2*){anno*}
     with  arg2* := <try(templatecall-replace-page-args(|x1)); rename-all> arg1*
-        ; x2 := <resolve-template-call-name> (x1,arg2*)
+        ; x2 := <resolve-template-call-name(|tc)> (x1,arg2*)
 
   rename-ui :
     tc@TemplateCallNoArgs(x1){anno*}
     -> TemplateCallNoArgs(x2){anno*}
-    with  x2 := <resolve-template-call-name> (x1,[])
+    with  x2 := <resolve-template-call-name(|tc)> (x1,[])
 
   rename-ui :
     tc@TemplateCallNoAssigns(x1, arg1*, elem1*){anno*}
     -> TemplateCallNoAssigns(x2, arg2*, elem2*){anno*}
     with  arg2*  := <try(templatecall-replace-page-args(|x1)); rename-all> arg1*
-        ; x2 := <resolve-template-call-name> (x1,arg2*)
+        ; x2 := <resolve-template-call-name(|tc)> (x1,arg2*)
         ; elem2* := <rename-all> elem1*
 
   rename-ui :
     tc@TemplateCallBody(x1, elem1*){anno*}
     -> TemplateCallBody(x2, elem2*){anno*}
-    with  x2 := <resolve-template-call-name> (x1,[])
+    with  x2 := <resolve-template-call-name(|tc)> (x1,[])
         ; elem2* := <rename-all> elem1*
 
 rules //template call either refers to a defined template, or to a built-in template, otherwise it is an error
 
-  resolve-template-call-name :
+  resolve-template-call-name(|tc) :
     (x,arg*) -> x1
     with  x' := x{<toplevel-rename> x}
         //; <debug> x; <debug> arg*; <debug> <InTemplate<+InPage<+InEmail<+!"unknown context">; <debug> x1; <debug> "\n"
@@ -91,7 +91,7 @@ rules //template call either refers to a defined template, or to a built-in temp
                      <+ <debug(!"error in templatecall found during model-to-model: ")> (x,arg*);fail> arg*) end //extra check in case model-to-model produces bad code
         ; x1 := <rename-template-call-name-required(|x)
            <+rename-template-call-name-defined-unique
-           <+rename-template-call-name-defined
+           <+rename-template-call-name-defined(|tc)
            <+rename-template-call-name-builtin
            <+rename-template-call-name-template-elements-arg(|x)
            <+rename-member-template-call(|x)
@@ -112,10 +112,14 @@ rules //template call either refers to a defined template, or to a built-in temp
     ; rules ( CallContextVars : xnew -> vars )
   )
 
-  rename-template-call-name-defined :
+  rename-template-call-name-defined(|tc) :
     (x,arg*) -> x
     where xsa := <strip-annos> x
         ; name := <resolve-overloaded-template> (xsa,arg*,x)
+        ; if <has-anno(|PlaceholderCallToAjaxTemplate())> tc  // if this call should be to an ajax template
+          then <IsDefinedAsAjaxTemplate> name                 // then check whether the resolved template is an ajax template
+          else <not(IsDefinedAsAjaxTemplate)> name            // otherwise the resolved template may not be ajax template (ajax template no longer allowed to be used as regular template)
+          end
     with  rules ( CallToDefinedTemplate : x -> name )
         ; <store-enclosing-define-for-template-call> x
 
@@ -193,11 +197,16 @@ rules // using page as template produces error; tested in fail/pageastemplate.ap
 rules //template not defined
 
   constraint-error-templatecall(|p,arg*) :
-    x -> <add-error(|err*)>
+    tc -> <add-error(|err*)>
     where <IncorrectTemplateCall> p
         ; if <ErrorDuringOverloadResolution> p
           then err* := <ErrorDuringOverloadResolution>
-          else err* := ["Template with signature ",<pp-func-sig> (p,<map(type-of)>arg*)," not defined "] end
+          else ppsig := <pp-func-sig> (p,<map(type-of)>arg*)
+             ; if <has-anno(|PlaceholderCallToAjaxTemplate())> tc
+               then err* := ["Ajax template with signature ", ppsig, " not defined"]
+               else err* := ["Template with signature ", ppsig, " not defined"]
+               end
+          end
 
   constraint-error-ui = ?tc@TemplateCallNoBody(p,arg*)       ;where(<constraint-error-templatecall(|p,arg*)> tc)
   constraint-error-ui = ?tc@TemplateCallNoArgs(p)            ;where(<constraint-error-templatecall(|p,[]  )> tc)

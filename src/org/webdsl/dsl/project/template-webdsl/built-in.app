@@ -2729,7 +2729,7 @@ template inputajax( b: ref Bool ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages( errors )
+      errorTemplateInput( errors )
     }
   }
   validate{
@@ -2783,7 +2783,7 @@ template inputajax( f: ref Float ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages( errors )
+      errorTemplateInput( errors )
     }
   }
   validate{
@@ -2839,7 +2839,7 @@ template inputajax( i: ref Int ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages( errors )
+      errorTemplateInput( errors )
     }
   }
   validate{
@@ -2895,7 +2895,7 @@ template inputajax( l: ref Long ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages( errors )
+      errorTemplateInput( errors )
     }
   }
   validate{
@@ -2940,7 +2940,7 @@ template inputajax( s: ref URL ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages( errors )
+      errorTemplateInput( errors )
     }
   }
   validate{
@@ -2999,7 +2999,7 @@ template inputajax( s: ref String ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages( errors )
+      errorTemplateInput( errors )
     }
   }
   validate{
@@ -3044,7 +3044,7 @@ template inputajax( s: ref Email ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages( errors )
+      errorTemplateInput( errors )
     }
   }
   validate{
@@ -3095,7 +3095,7 @@ template selectcheckboxajax( set: ref {Entity}, from: [Entity] ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages( errors )
+      errorTemplateInput( errors )
     }
   }
   validate{
@@ -3134,7 +3134,7 @@ template selectajax( set: ref {Entity}, from: [Entity] ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages( errors )
+      errorTemplateInput( errors )
     }
   }
   validate{
@@ -3179,7 +3179,7 @@ template selectajax( ent: ref Entity, from: [Entity] ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages( errors )
+      errorTemplateInput( errors )
     }
   }
   validate{
@@ -3218,7 +3218,7 @@ template radioajax( ent1: ref Entity, ent2: [Entity] ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages( errors )
+      errorTemplateInput( errors )
     }
   }
   validate{
@@ -3257,7 +3257,7 @@ template inputajax( list: ref [Entity], from: [Entity] ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages( errors )
+      errorTemplateInput( errors )
     }
   }
   validate{
@@ -3303,7 +3303,7 @@ template inputSDFajax( s: ref Text, language: String ){
   validate{ getPage().leaveLabelContext(); }
   placeholder "validate" + id{
     if( errors != null && errors.length > 0 ){
-      showMessages(errors)
+      errorTemplateInput(errors)
     }
   }
   validate{
