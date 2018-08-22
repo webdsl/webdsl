@@ -51,7 +51,7 @@ public class GlobalsPageServlet extends webdsl.generated.templates.RootPage
     	}
     }
     public void initializeBasics(AbstractPageServlet ps, Object[] args){}
-    public void serveAsAjaxResponse(AbstractPageServlet ps, Object[] ajaxarguments, TemplateCall templateArg){}
+    public void serveAsAjaxResponse(Object[] ajaxarguments, TemplateCall templateArg){}
     public String getUniqueName(){ return "#### GlobalsPageServlet #### Should not call getUniqueName here."; }
     protected void increaseStatReadOnly() { }
     protected void increaseStatReadOnlyFromCache() { }

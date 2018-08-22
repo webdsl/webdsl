@@ -598,8 +598,10 @@ public abstract class AbstractPageServlet{
     //ajax/js runtime request related
     protected abstract void initializeBasics(AbstractPageServlet ps, Object[] args);
     public boolean isServingAsAjaxResponse = false;
-    public void serveAsAjaxResponse(AbstractPageServlet ps, Object[] args, TemplateCall templateArg)
+    public void serveAsAjaxResponse(Object[] args, TemplateCall templateArg)
     { 
+      AbstractPageServlet ps = ThreadLocalPage.get();
+      TemplateServlet ts = ThreadLocalTemplate.get();
       //inherit commandingPage
       commandingPage = ps.commandingPage;
   
@@ -612,6 +614,7 @@ public abstract class AbstractPageServlet{
       this.isServingAsAjaxResponse = true;
       templateservlet.render(null, args, Environment.createNewLocalEnvironment(envGlobalAndSession), null); // new clean environment with only the global templates, and global/session vars
 
+      ThreadLocalTemplate.set(ts);
       ThreadLocalPage.set(ps);
     }
 
