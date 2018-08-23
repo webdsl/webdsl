@@ -159,7 +159,7 @@ public abstract class AbstractPageServlet{
             }
             // action called but no action found
             else if( !isWebService() && isValid() && isActionSubmit() ){
-              org.webdsl.logging.Logger.error("Error: server received POST request but was unable to dispatch to a proper action");
+              org.webdsl.logging.Logger.error("Error: server received POST request but was unable to dispatch to a proper action (" + request.getRequestURL() + ")" );
               response.getWriter().write("404 \n Error: server received POST request but was unable to dispatch to a proper action");
             }
             // action inside ajax template called and failed
