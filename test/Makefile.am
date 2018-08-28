@@ -51,12 +51,24 @@ TBLANDCTREEUSEDINSTRATEGOTEST = \
   $(wildcard succeed-web/types/*.tbl) \
   $(wildcard succeed-web/types/*.sdf)
 
+ 
+# Use a configure substitution to workaround ‘Unterminated variable reference. Stop.’
+# See https://lists.gnu.org/archive/html/bug-automake/2013-06/msg00014.html
+# original:
+#
 # http://www.chemie.fu-berlin.de/chemnet/use/info/make/make_8.html#SEC73
-TESTS = $(patsubst %.app,%.sh,$(TESTSSUCCEEDALL)) $(patsubst %.app,%.sh,$(TESTSFAIL)) 
+# TESTS = $(patsubst %.app,%.sh,$(TESTSSUCCEEDALL)) $(patsubst %.app,%.sh,$(TESTSFAIL)) 
+TESTS = @test_subst@
 
 EXTRA_DIST = $(TESTSFAIL) $(TESTSSUCCEEDALL) $(TESTSSUCCEEDWEBALL) succeed/module/module/goto.app succeed/prefetch/module/logutils.app $(wildcard *.sh) run $(NATIVEJAVAFILESUSEDINTESTS) $(TBLANDCTREEUSEDINSTRATEGOTEST)
 
-TESTS += $(patsubst %.app,%.sh,$(TESTSSUCCEEDWEBALL))
+# Use a configure substitution to workaround ‘Unterminated variable reference. Stop.’
+# See https://lists.gnu.org/archive/html/bug-automake/2013-06/msg00014.html
+# original:
+#
+# http://www.chemie.fu-berlin.de/chemnet/use/info/make/make_8.html#SEC73
+# TESTS += $(patsubst %.app,%.sh,$(TESTSSUCCEEDWEBALL))
+TESTS += @test_subst2@
 
 $(TESTSSUCCEEDWEBALL:.app=.sh): run-test-succeed-web-all.sh
 	@$(LN_S) -f $$(pwd)/$< ./$@

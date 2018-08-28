@@ -1,3 +1,7 @@
+# Used in test/Makefile.am as workaround for ‘Unterminated variable reference. Stop.’
+AC_SUBST([test_subst], ['$(patsubst %.app,%.sh,$(TESTSSUCCEEDALL)) $(patsubst %.app,%.sh,$(TESTSFAIL))'])
+AC_SUBST([test_subst2], ['$(patsubst %.app,%.sh,$(TESTSSUCCEEDWEBALL))'])
+
 AC_PREREQ([2.60])
 AC_INIT([webdsl], [9.7], [webdsl@st.ewi.tudelft.nl])
 AC_CONFIG_AUX_DIR([config])
