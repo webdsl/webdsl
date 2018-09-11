@@ -1068,8 +1068,8 @@ template input( d: ref DateTime ){
  
 template input( d: ref Date, minDate: DateTime, maxDate: DateTime ){
   var format := DateType.getDefaultDateFormat()
-  var minDateOpt := "minDate: new Date(" + minDate.getYear() + ", " + minDate.getMonth() + ", " + minDate.getDay() + ", " + minDate.format("HH") + ", " + minDate.getMinute() + ")"
-  var maxDateOpt := "maxDate: new Date(" + maxDate.getYear() + ", " + maxDate.getMonth() + ", " + maxDate.getDay() + ", " + minDate.format("HH") + ", " + maxDate.getMinute() + ")"
+  var minDateOpt := "minDate: " + javaToJsDate(minDate)
+  var maxDateOpt := "maxDate: " + javaToJsDate(maxDate)
   init{
     var attr := attribute( "format" );
     if(    attr != null
