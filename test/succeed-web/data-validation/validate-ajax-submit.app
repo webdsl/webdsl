@@ -12,7 +12,7 @@ application registerexample
     main {
       submit action{replace(reg,reg());} [ajax] { "replace form with ajax" }
       header { "Form:" }
-      placeholder reg{ reg() }
+      placeholder reg reg()
     }
   }
 

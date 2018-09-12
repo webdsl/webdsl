@@ -16,7 +16,7 @@ application test
   }
   
   template showString( str : String ){
-    decorate { output(str) }
+    placeholder x decorate { output(str) }
     "plain: " output(str)
   }
   

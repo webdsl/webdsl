@@ -66,7 +66,7 @@ application test
     validate{ getPage().leaveLabelContext();}
     placeholder "validate"+tname {
       if(errors != null && errors.length > 0){
-        showMessages(errors)
+        errorTemplateInput(errors)
       }
     }
     validate{
@@ -110,7 +110,7 @@ application test
     validate{ getPage().leaveLabelContext();}
     placeholder "validate"+tname {
       if(errors != null && errors.length > 0){
-        showMessages(errors)
+        errorTemplateInput(errors)
       }
     }
     validate{

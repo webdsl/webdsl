@@ -28,7 +28,7 @@ section entities
       }
     }
     header { "via template" }
-    displaynews(n, User{ name := "michel" })
+    placeholder tmp displaynews(n, User{ name := "michel" })
     
     header { "via search function"}
     var s: String := "hallo"

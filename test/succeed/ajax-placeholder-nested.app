@@ -2,7 +2,7 @@ application test
 
   page root() {   
    action tmp(p:Placeholder){}
-    bla("123", one, two, three)
+    placeholder x bla("123", one, two, three)
     submit tmp(one) { " " }
     var i := 0
     inputajax(i)[class="input3", oninput=tmp(one)]

@@ -9,7 +9,7 @@ read-only page root(){
     e.i := 1;
   }
   placeholder p{}
-  testajax(p)
+  placeholder x testajax(p)
 }
 
 read-only ajax template testajax(p:Placeholder){

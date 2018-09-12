@@ -12,9 +12,7 @@ application test
   }
   
   define editableText(text : Ref<Text>) {
-    placeholder editableText {
-      showEditableText(text, editableText)
-    }
+    placeholder editableText showEditableText(text, editableText)
   }
 
   define ajax showEditableText(text : Ref<Text>, editableText: Placeholder) {

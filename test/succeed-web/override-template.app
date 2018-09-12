@@ -18,11 +18,12 @@ application test
 
   page root(){
     one("0")
-    two("10")
+    placeholder tmp two("10")
   }
 
   test {
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
-    assert(d.getPageSource().contains("0123101112"));
+    assert(d.getPageSource().contains("0123"));
+    assert(d.getPageSource().contains("101112"));
   }

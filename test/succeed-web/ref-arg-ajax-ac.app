@@ -33,9 +33,7 @@ section pages
   
   define editableText(text : Ref<Text>) {
     init{ log(""+text.getEntity()); }
-    placeholder editableText {
-      showEditableText(text, editableText)
-    }
+    placeholder editableText showEditableText(text, editableText)
   }
 
   define ajax showEditableText(text : Ref<Text>, editableText: Placeholder) {

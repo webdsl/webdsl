@@ -43,7 +43,7 @@ section somesection
   define page root(){
     one(6)
     two(7,"8")
-    three(9,"10")
+    placeholder x three(9,"10")
     navigate four(11)[class="navpage1"]{ "go" }
   }
   
@@ -51,7 +51,8 @@ section somesection
     var d : WebDriver := getHtmlUnitDriver();
     d.get(navigate(root()));
 
-    assert(d.getPageSource().contains("678910"));
+    assert(d.getPageSource().contains("678"));
+    assert(d.getPageSource().contains("910"));
 
     var nav := d.findElement(SelectBy.className("navpage1"));
     nav.click();

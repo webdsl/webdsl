@@ -59,8 +59,8 @@ section somesection
   } 
   
   define page root(){
-    bar(6)
-    implicitactionrule(2)
+    placeholder tmp1 bar(6)
+    placeholder tmp2 implicitactionrule(2)
     
     for(u:User){
       output(u.name)

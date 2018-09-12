@@ -8,7 +8,7 @@ application customer
   }
   
   define page root(){
-    placeholder "body" { displayNote() }
+    placeholder "body" displayNote()
   }
   
   define ajax displayNote(){

@@ -19,7 +19,7 @@ var t_5 := Test { bla := "5" }
 define page root() {
   var s: List<Test> := [t_1,t_2,t_3,t_4,t_5]
   var sset: Set<Test> := {t_1,t_2,t_3,t_4,t_5}
-  templ(s)
+  placeholder tmp1 templ(s)
   placeholder target {
     "placeholder: 'target'"
   }
@@ -35,13 +35,13 @@ define page root() {
   placeholder pl {
     "placeholder: 'pl'"
   }
-  test(s, pl)
+  placeholder tmp2 test(s, pl)
 
   break
   placeholder pl3 {
     "placeholder: 'pl3'"
   }
-  testset(sset, pl3)
+  placeholder tmp3 testset(sset, pl3)
   
   break
   for(t:TestEnt){
