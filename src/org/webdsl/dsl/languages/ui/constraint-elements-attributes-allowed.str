@@ -1,0 +1,87 @@
+module org/webdsl/dsl/languages/ui/constraint-elements-attributes-allowed
+
+imports
+  libstrategolib
+  libwebdsl-front
+  org/webdsl/dsl/typechecker/error
+  org/webdsl/dsl/languages/ui/rename
+  org/webdsl/dsl/languages/ui/templatecall-utils
+
+rules  // placeholder x test[ "error" ]
+
+  imports org/webdsl/dsl/languages/ajax/normalize
+  rules
+
+  constraint-error-templatecall(|p,arg*) :
+    tc -> <add-error(|["Ajax template call cannot have attributes or elements."])>
+    where <has-anno(|PlaceholderCallToAjaxTemplate())> tc
+    with  (n, args, att, b) := <get-tc-components> tc
+    where <not(?[])> att <+ <not(?[])> b
+
+rules  // elements{ "error" }
+
+  constraint-error-templatecall(|p,arg*) :
+    tc -> <add-error(|["'elements' call cannot have attributes or elements."])>
+    where <?"elements"> p
+    with  (n, args, att, b) := <get-tc-components> tc
+    where <not(map(allowed-attributes-in-elements-call))> att <+ <not(?[])> b
+
+  // feature used in label template, might not be needed anymore
+  allowed-attributes-in-elements-call =
+    ?PropertyAssignment("templateContext", _)
+
+rules  // template test( telems: TemplateElement ){ telems{ "error" } }
+       // template test( contents: [title: String, nav: TemplateElements] ){ for( c in contents ){ c.nav{ "error" } } }
+
+  imports org/webdsl/dsl/languages/ui/template-elements-argument
+  imports org/webdsl/dsl/languages/ui/template-var-arg
+  rules
+
+  constraint-error-templatecall(|p,arg*) :
+    tc -> <add-error(|["Call to argument with type 'TemplateElements' cannot have attributes or elements."])>
+    where <CallToTemplateElementsArgument <+ has-anno(?MemberTC(_))> p
+    with  (n, args, att, b) := <get-tc-components> tc
+    where <not(?[])> att <+ <not(?[])> b
+
+rules  // page test(){ elements }
+       // ajax template test(){ elements }
+       // page test( telems: TemplateElement ){ telems }
+       // ajax template test( telems: TemplateElement ){ telems }
+       // page test( contents: [nav: TemplateElements] ){ telems }
+       // ajax template test( contents: [nav: TemplateElements] ){ telems }
+
+  signature constructors
+    CallInPageOrAjax : Term
+
+  rules
+
+  mark-if-in-page-or-ajax = if (InAjaxTemplate <+ InPage); not(IsLocalRedefineTemplate) then add-anno(|CallInPageOrAjax()) end
+
+  elements-attrs-in-page-ajax-error = add-error(|["Pages and ajax templates cannot be passed attributes or elements."])
+
+  constraint-error-templatecall(|p,arg*) :
+    tc -> <elements-attrs-in-page-ajax-error>
+    where <has-anno(|CallInPageOrAjax())> tc
+    with  (n, args, att, b) := <get-tc-components> tc
+    where <?"elements"> p
+       <+ <CallToTemplateElementsArgument <+ has-anno(?MemberTC(_))> p
+       <+ <fetch(?AllAttributes() <+ ?AllAttributeExceptExp(_) <+ ?AttributesExp(_))> att
+
+  rules  // <div all attributes></div>
+
+  constraint-error-ui :
+    elem@XMLEmptyElement(name,attrs) -> <elements-attrs-in-page-ajax-error>
+    where <has-anno(|CallInPageOrAjax())> elem
+    where <check-for-attr-usage-in-xml-element> attrs
+
+  constraint-error-ui :
+    elem@XMLEmptyElementUnclosed(name,attrs) -> <elements-attrs-in-page-ajax-error>
+    where <has-anno(|CallInPageOrAjax())> elem
+    where <check-for-attr-usage-in-xml-element> attrs
+
+  constraint-error-ui :
+    elem@XMLElement(name1,attrs,elem*,name2) -> <elements-attrs-in-page-ajax-error>
+    where <has-anno(|CallInPageOrAjax())> elem
+    where <check-for-attr-usage-in-xml-element> attrs
+
+  check-for-attr-usage-in-xml-element = oncetd(?AllAttributes() <+ ?AllAttributeExceptExp(_) <+ ?AttributesExp(_))

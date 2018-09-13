@@ -1027,6 +1027,7 @@
    Placeholder                                            -- KW["placeholder"] _1 KW["{"] _2 KW["}"],
    Placeholder.2:iter-star                                -- _1,
    PlaceholderWithAjaxCall                                -- KW["placeholder"] _1 _2,
+   PlaceholderWithAjaxCall                                -- KW["placeholder"] KW["<"] _1 KW[">"] _2 _3,
    PlaceholderVar                                         -- KW["placeholdervar"] _1,
    AjaxClear                                              -- KW["clear"] KW["("] _1 KW[")"],
    AjaxRestyle                                            -- KW["restyle"] KW["("] _1 KW[","] _2 KW[")"],
