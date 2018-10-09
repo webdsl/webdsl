@@ -39,13 +39,57 @@ exports
   %% Kernel syntax is required here since we do not want LAYOUT to be parsed between
   %% the first QMLex and StringLex
   syntax
+    %% string literal as expression
     <QMLex-LEX> <StringLex-LEX> <QMLex-LEX>  -> <String-CF>  {ast("String(<2>)")}
+    <QMLex-LEX> StringPart* <QMLex-LEX>      -> <String-CF>  {ast("StringInterp(<2>)"), avoid}
+
+    %% string literal as template element
+    <QMLex-LEX> <StringLex-LEX> <QMLex-LEX> -> <TemplateElement-CF> {ast("Text(<2>)")}
+    <QMLex-LEX> StringPart* <QMLex-LEX>     -> <TemplateElement-CF> {ast("TextInterp(<2>)"), avoid}
+
+    SimpleStringPart       -> StringPart
+    <StringLexInterp-LEX>  -> StringPart
+
+    "~" <SimpleExp-CF>    -> SimpleStringPart {cons("InterpExp")}
+    "~" "(" <Exp-CF> ")"  -> StringPart {cons("InterpExp")}
+    "\\~"                 -> StringPart {cons("InterpTilde")}  %% escape to get a literal '~'
+
+  restrictions
+    SimpleStringPart -/- [\.\(]  %% make fieldaccess/call not part of string that follows
+                                 %% use parentheses variant if a . is needed in the string
+
+  context-free syntax
+    %% ~SimpleExp and ~(Exp) shorthand for output template call
+    "~" SimpleExp    -> OutputShorthand {cons("OutputShorthand")}
+    "~" "(" Exp ")"  -> OutputShorthand {cons("OutputShorthand")}
+    OutputShorthand  -> TemplateElement
+
+  context-free syntax
+  %% SimpleExp: specific commonly occuring expressions allowed directly after '~' inside string
+  %% allowing all expressions directly after '~' causes too many ambiguities
+  %% parentheses expression is used as delimiter for inserting any expression
+  %% allowed after '~': var/fieldaccess/thiscall/call/brackets a, a.b, a(), a.b(), (exp)
+  %% a '.' after a SimpleExp must be rejected as part of String to avoid amb, e.g. not allowed: "~a."
+  %% in these cases, use '()' if a '.' is needed as part of the string,       e.g.     allowed: "~(a)."
+
+   VarId             -> SimpleVar {cons("Var")}
+   SimpleVar         -> SimpleExp
+   SimpleExp "." Id  -> SimpleExp {cons("FieldAccess")}
+
+   Id "(" {Exp ","}* ")"                -> SimpleExp {cons("ThisCall")}
+   SimpleExp "." Id "(" {Exp ","}* ")"  -> SimpleExp {cons("Call")}
 
   lexical syntax
-      "\""                         -> QMLex
+    "\""                         -> QMLex
     StringChar*                  -> StringLex
-    ~[\"\n]                      -> StringChar
+    StringChar+                  -> StringLexInterp
+    ~[\"\n\~]                    -> StringChar
+    
     "\\\""                       -> StringChar
+
+  lexical restrictions
+    StringLex
+    StringLexInterp -/- ~[\"\n\~]
 
   lexical syntax
     [\ \t\n\r]                   -> LAYOUT
@@ -59,7 +103,6 @@ exports
   lexical restrictions
     Asterisk   -/- [\/]
     Eof        -/- ~[]
-    StringLex  -/- ~[\"\n]
 
   context-free restrictions
     LAYOUT?     -/- [\ \t\n\r]
