@@ -216,7 +216,10 @@ public class HibernateUtil {
 				beforeTransactionCompletion_.beforeTransactionCompletion_();
 			}
 			catch (Exception e) {
-				ThreadLocalPage.get().exceptionInHibernateInterceptor = e;
+			  AbstractPageServlet ps = ThreadLocalPage.get();
+			  if(ps != null){
+				  ps.exceptionInHibernateInterceptor = e;
+			  }
 			}
 		}
 	}
