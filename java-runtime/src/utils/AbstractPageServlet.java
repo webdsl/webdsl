@@ -936,7 +936,7 @@ public abstract class AbstractPageServlet{
             stylesheets.add(filename);
         }
     }
-    public void addStylesheetInclude(String filename, String media) { commandingPage.addStylesheetInclude( filename, media ); }
+    public void addStylesheetInclude(String filename, String media) { commandingPage.addStylesheetIncludeInternal( filename, media ); }
     public void addStylesheetIncludeInternal(String filename, String media) {
     	String combined = media != null && !media.isEmpty() ? filename + "\" media=\""+ media : filename;
         if(!stylesheets.contains(combined)){
