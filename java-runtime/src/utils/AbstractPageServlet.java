@@ -925,33 +925,33 @@ public abstract class AbstractPageServlet{
     
     protected java.util.Map<String,String> customHeadNoDuplicates = new java.util.HashMap<String,String>();
 
-    public void addJavascriptInclude(String filename) {
+    public void addJavascriptInclude(String filename) { commandingPage.addJavascriptIncludeInternal( filename ); }
+    public void addJavascriptIncludeInternal(String filename) {
         if(!javascripts.contains(filename))
             javascripts.add(filename);
     }
-
-    public void addStylesheetInclude(String filename) {
+    public void addStylesheetInclude(String filename) { commandingPage.addStylesheetIncludeInternal( filename ); }
+    public void addStylesheetIncludeInternal(String filename) {
         if(!stylesheets.contains(filename)){
             stylesheets.add(filename);
         }
     }
-    public void addStylesheetInclude(String filename, String media) {
+    public void addStylesheetInclude(String filename, String media) { commandingPage.addStylesheetInclude( filename, media ); }
+    public void addStylesheetIncludeInternal(String filename, String media) {
     	String combined = media != null && !media.isEmpty() ? filename + "\" media=\""+ media : filename;
         if(!stylesheets.contains(combined)){
             stylesheets.add(combined);
         }
     }
 
-    public void addCustomHead(String header) {
-//        customHeads.add(header);
-    	addCustomHead(header, header);
-    }
-
-    public void addCustomHead(String key, String header) {
+    public void addCustomHead(String header) { commandingPage.addCustomHeadInternal(header, header); }
+    public void addCustomHead(String key, String header) { commandingPage.addCustomHeadInternal(key, header); }
+    public void addCustomHeadInternal(String key, String header) {
         customHeadNoDuplicates.put(key, header);
     }
-
-    public void addBodyAttribute(String key, String value) {
+    
+    public void addBodyAttribute(String key, String value) { commandingPage.addBodyAttributeInternal(key, value); }
+    public void addBodyAttributeInternal(String key, String value) {
     	bodyAttributes.add(" "+key+"=\""+value+"\"");
     }
 
