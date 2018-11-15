@@ -9,13 +9,23 @@ import org.webdsl.logging.Logger;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.vladsch.flexmark.ast.AutoLink;
+import com.vladsch.flexmark.ast.HtmlBlock;
+import com.vladsch.flexmark.ast.HtmlInline;
+import com.vladsch.flexmark.ast.Link;
 import com.vladsch.flexmark.ast.Node;
 import com.vladsch.flexmark.ext.wikilink.WikiLinkExtension;
+import com.vladsch.flexmark.html.AttributeProvider;
+import com.vladsch.flexmark.html.AttributeProviderFactory;
 import com.vladsch.flexmark.html.HtmlRenderer;
+import com.vladsch.flexmark.html.IndependentAttributeProviderFactory;
+import com.vladsch.flexmark.html.renderer.AttributablePart;
+import com.vladsch.flexmark.html.renderer.NodeRendererContext;
 import com.vladsch.flexmark.parser.Parser;
-import com.vladsch.flexmark.parser.ParserEmulationProfile;
 import com.vladsch.flexmark.profiles.pegdown.Extensions;
 import com.vladsch.flexmark.profiles.pegdown.PegdownOptionsAdapter;
+import com.vladsch.flexmark.util.html.Attributes;
+import com.vladsch.flexmark.util.options.MutableDataHolder;
 import com.vladsch.flexmark.util.options.MutableDataSet;
 
 import utils.AbstractPageServlet;
@@ -43,18 +53,29 @@ public final class WikiFormatter {
 		         .addAttributes("td", "align")
 		         .addAttributes("code", "class")
 		         .addAttributes("div", "class")
-				 .addAttributes("details", "class")
-				 .addAttributes("details", "open");
+		         .addAttributes("a", "rel")
+             .addAttributes("details", "class")
+             .addAttributes("details", "open");
 		//allow id's on title tags
 		for(int i=1;i<7;i++){
 			whitelist.addAttributes("h"+i, "id");
 		}
 		whitelist.addProtocols("a", "href", "#");
+		whitelist.addEnforcedAttribute("a", "rel", "nofollow");
 		
 		MutableDataSet defaultOptions = new MutableDataSet( PegdownOptionsAdapter.flexmarkOptions(true, Extensions.ALL & ~Extensions.HARDWRAPS & ~Extensions.ANCHORLINKS) );
 		defaultOptions.set(WikiLinkExtension.LINK_PREFIX, "");
 		defaultOptions.set(HtmlRenderer.FENCED_CODE_LANGUAGE_CLASS_PREFIX, "line-numbers language-");
-//		defaultOptions.set(Parser.BLOCK_QUOTE_INTERRUPTS_PARAGRAPH, false); //Workaround for https://github.com/vsch/flexmark-java/issues/101 Blockquotes should now start after blank line
+
+		/*
+		 * rel=no-follow is handled by jsoup for now (so it does not apply to unsafe wikitexts) For more finer grained behavior, e.g. only adding rel="no-follow" to external links,
+		 * we probably need to process links in the markdown parser/renderer, which works like below, but not yet for links entered as HTML (<a href...) in the markdown source,
+		 * see https://github.com/vsch/flexmark-java/issues/277
+		 */		
+     // //add rel="nofollow" attribute to link nodes (from examples mentioned in https://github.com/vsch/flexmark-java/issues/103) 
+     // Parser.addExtensions(defaultOptions, AttributeProviderExtension.create());
+
+		//defaultOptions.set(Parser.BLOCK_QUOTE_INTERRUPTS_PARAGRAPH, false); //Workaround for https://github.com/vsch/flexmark-java/issues/101 Blockquotes should now start after blank line
 		optionsNoHardWraps = new MutableDataSet( defaultOptions );		
 		optionsHardWraps = new MutableDataSet( defaultOptions );
 		optionsHardWraps.set(HtmlRenderer.SOFT_BREAK, "<br/>");
@@ -163,5 +184,41 @@ public final class WikiFormatter {
 //                .println(wikiFormat("This is a header\n=========\n\nAnd here's a link [[page(MainPage)|Main page]].\nHello people! [[home()]] -- [[home|Terug naar de homepage]]\n\nHere is some verbatim:\n<verbatim>Dit is een test <hoi>. Enzovoorts\nBlabla\n\n  Free $$$ for all!</verbatim>Doei.", true, "/test") );
 //    }
     
+    
 
+// //Flexmark extension classes used for adding rel="nofollow" attribute to links    
+//  static class AttributeProviderExtension implements HtmlRenderer.HtmlRendererExtension {
+//      @Override
+//      public void rendererOptions(final MutableDataHolder options) {
+//          // add any configuration settings to options you want to apply to everything, here
+//      }
+//
+//      @Override
+//      public void extend(final HtmlRenderer.Builder rendererBuilder, final String rendererType) {
+//          rendererBuilder.attributeProviderFactory(WikiLinkAttributeProvider.Factory());
+//      }
+//
+//      static AttributeProviderExtension create() {
+//          return new AttributeProviderExtension();
+//      }
+//  }
+//
+//  static class WikiLinkAttributeProvider implements AttributeProvider {
+//        @Override
+//        public void setAttributes(final Node node, final AttributablePart part, final Attributes attributes) {
+//            if ( (node instanceof Link || node instanceof AutoLink /*|| node instanceof ???? */)
+//                 && (part == AttributablePart.LINK) ) {
+//              attributes.replaceValue("rel", "nofollow"); //this also adds the attribute when missing
+//            }
+//        }
+//  
+//        static AttributeProviderFactory Factory() {
+//            return new IndependentAttributeProviderFactory() {
+//                @Override
+//                public AttributeProvider create(NodeRendererContext arg0) {
+//                  return new WikiLinkAttributeProvider();
+//                }
+//            };
+//        }
+//    }
 }

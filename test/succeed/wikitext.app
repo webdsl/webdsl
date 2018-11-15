@@ -6,7 +6,7 @@ application text
 
   define page root(){
   }
-
+  
   test textFunctions {
   
     var s1 : WikiText := "12345";
@@ -62,8 +62,34 @@ application text
     assert(("34gDE" as WikiText).split("4").concat("4") == "34gDE");
     assert(("ery54h-tyjfu-kfyj-u" as WikiText).split("-").length == 4);
     assert(("tfhfg6tyhj" as WikiText).split().concat("-") == "t-f-h-f-g-6-t-y-h-j");
-
+    
   }
+  test renderingFunctions{
+     //check rendering or URLs
+    var t : WikiText := "[some link](http://example.org)";
+    var rendered := rendertemplate( output(t) );
+    var rawRendered := rendertemplate( rawoutput(t) );
+    assert( rendered.contains("<a href") );
+    assert( rawRendered.contains("<a href") );
+    assert( rendered.contains("rel=\"nofollow\"") );
+    assert( !rawRendered.contains("rel=\"nofollow\"") );
+        
+    t := "http://example.org";
+    rendered := rendertemplate( output(t) );
+    rawRendered := rendertemplate( rawoutput(t) );
+    assert( rendered.contains("<a href") );
+    assert( rawRendered.contains("<a href") );
+    assert( rendered.contains("rel=\"nofollow\"") );
+    assert( !rawRendered.contains("rel=\"nofollow\"") );
+    
+    t := "<a href=\"http://example.org\">text</a>";
+    rendered := rendertemplate( output(t) );
+    rawRendered := rendertemplate( rawoutput(t) );
+    assert( rendered.contains("<a href") );
+    assert( rawRendered.contains("<a href") );
+    assert( rendered.contains("rel=\"nofollow\"") );
+    assert( !rawRendered.contains("rel=\"nofollow\"") );
+  } 
   
   test callStringArg{
     test("4343trg" as WikiText);
