@@ -61,6 +61,7 @@ public abstract class AbstractPageServlet{
       this.parammap = parammap;
       this.parammapvalues = parammapvalues;
       this.fileUploads=fileUploads;
+      
 
       redirectHttpHttps();
 
@@ -139,6 +140,7 @@ public abstract class AbstractPageServlet{
           download();
         }
         else {
+          boolean isAjaxResponse = true;
           // regular render, or failed action render
           if( hasNotExecutedAction() || isNotValid() ){
             // ajax replace performed during validation, assuming that handles all validation
@@ -183,6 +185,7 @@ public abstract class AbstractPageServlet{
             // 3 redirect in page init
             // 4 download in page init
             else{
+              isAjaxResponse = false;
               renderOrInitAction();
             }
           }
@@ -232,6 +235,8 @@ public abstract class AbstractPageServlet{
               //, send only redirect location, so the client can simply set
               // window.location = req.responseText;
               response.getWriter().write("[{action:\"relocate\", value:\""+this.getRedirectUrl() + "\"}]");
+            } else {
+              isAjaxResponse = false;
             }
             if(!isAjaxRuntimeRequest()) {
               addLogSqlToSessionMessages();
@@ -239,6 +244,11 @@ public abstract class AbstractPageServlet{
             //else: action successful + no validation error + regular submit
             //        -> always results in a redirect, no further action necessary here
           }
+          
+          if(isAjaxResponse){
+            response.setContentType("application/json");
+          }
+          
         }
 
         updatePageRequestStatistics();
