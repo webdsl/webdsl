@@ -1267,7 +1267,7 @@ public abstract class AbstractPageServlet{
             in = blob.getBinaryStream();
             response.setContentType(download.getContentType());
             if(!downloadInline) {
-                response.setHeader("Content-Disposition", "attachment; filename=\"" + download.getFileName() + "\"");
+                response.setHeader("Content-Disposition", "attachment; filename=\"" + download.getFileNameForDownload() + "\"");
             }
             java.io.BufferedOutputStream bufout = new java.io.BufferedOutputStream(outstream);
             byte bytes[] = new byte[32768];

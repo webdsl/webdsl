@@ -11,6 +11,7 @@ import java.util.Map;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
+import javax.persistence.Transient;
 
 @Entity public class File
 { 
@@ -109,15 +110,24 @@ import javax.persistence.Id;
   }
 
   @org.hibernate.annotations.AccessType(value = "field") protected String fileName = "";
-
+  
   public String getFileName()
   { 
     return fileName;
   }
-
+  
   public void setFileName(String newitem)
   { 
     fileName = newitem;
+  }
+  
+  @Transient protected String fileNameForDownload = null;
+  public String getFileNameForDownload(){
+    return fileNameForDownload != null ? fileNameForDownload : getFileName();
+  }
+  
+  public void setFileNameForDownload(String name){
+    fileNameForDownload = name;
   }
 
   @org.hibernate.annotations.AccessType(value = "field") protected long sizeInBytes = 0;
