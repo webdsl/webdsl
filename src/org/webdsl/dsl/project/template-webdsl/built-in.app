@@ -453,6 +453,8 @@ type File{
   getContentType(): String
   setContentType( String )
   getFileName(): String
+  getSizeInBytes() : Long
+  getSizeHumanReadable() : String  
   delete() : File
 }
 type String{
