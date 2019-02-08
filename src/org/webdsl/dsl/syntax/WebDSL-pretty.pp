@@ -1488,6 +1488,11 @@
    HTMLWrapperMultiple                                    -- KW["htmlwrapper"] KW["{"] _1 KW["}"],
    HTMLWrapperBody                                        -- _1 _2 _3,
 
-   TemplateId                                             -- KW["id"]
+   TemplateId                                             -- KW["id"],
 
+   OutputShorthand                                        -- H hs=0[ KW["~"] _1 ],
+   StringInterp                                           -- H hs=0[ KW["\""] _1 KW["\""] ],
+   TextInterp                                             -- H hs=0[ KW["\""] _1 KW["\""] ],
+   InterpExp                                              -- H hs=0[ KW["~"] _1 ],
+   InterpTilde                                            -- KW["\~"]
 ]

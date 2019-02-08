@@ -55,10 +55,56 @@ rules
     
 rules
 
-  get-class-info : 
-    CompilationUnit(packagedef, import, [ClassDec(ClassDecHead(annos, Id(classname), None(), optsuper, optinterface), ClassBody(body))]) -> 
-    (packagedef, import, annos, classname, optsuper, optinterface, <remove-all(filter-method-decs(|(packagedef,classname)))> body)
-    
+  get-class-info :
+    CompilationUnit(
+      packagedef
+    , import
+    , [ClassDec(ClassDecHead(annos, Id(classname), None(), optsuper, optinterface), ClassBody(body))]
+    )
+  ->
+    ( packagedef
+    , import
+    , annos
+    , classname
+    , optsuper
+    , optinterface
+    , <replace-null-handling-exceptions(|classname); remove-all(filter-method-decs(|(packagedef,classname)))> body
+    )
+
+  replace-null-handling-exceptions(|classname) =
+    {| MethodsToAdd :
+      alltd(generate-helper-method-null-exception(|classname))
+    ; repeat(![ <once-MethodsToAdd> | <id>])
+    |}
+
+  generate-helper-method-null-exception(|classname) :
+    NullIsEmptyString(e, vartypes) -> java:expr|[ x(e*) ]|
+    with  x := <concat-strings; newname> [classname,"$nullchk"]
+        ; (e*,param*) :=
+            <  collect(\ full@ExprName(Id(x)) -> (full, x) \)
+               ; <zip(\ ((full,x),t) -> (full, param|[ t x ]|) \)> (<id>,vartypes)
+               ; unzip
+            <+ !([],[])
+            > e
+        ; rules(
+            MethodsToAdd :+=
+              class-body-dec |[
+                private static String x(param*){
+                  try{
+                    Object value = e;
+                    if(value == null){
+                      return "";
+                    }
+                    else{
+                      return value.toString();
+                    }
+                  }
+                  catch(NullPointerException n){
+                    return "";
+                  }
+                }
+              ]|)
+
   // interfaces merge not used in WebDSL
   filter-interface-decs =
     ?i@CompilationUnit(_,_,[InterfaceDec(InterfaceDecHead(_,_,_,_),_)])
@@ -80,6 +126,7 @@ rules
         JavaPartialClasses-Method-Body   :+ (key,result,name,params) -> body
       )
     )
+
     
   retrieve-and-merge-methods =
     <map(retrieve-and-merge-method)> <bagof-JavaPartialClasses-Method-Keys;uniq>
