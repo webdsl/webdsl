@@ -149,7 +149,9 @@ GENSTRFILES =    $(wildcard ./org/webdsl/dsl/analysis/*.str) \
                  $(wildcard ./org/webdsl/dsl/modules/*/*/*.str) \
                  $(wildcard ./org/webdsl/dsl/transformation/*.str) \
                  $(wildcard ./org/webdsl/dsl/typechecker/*.str)
-                 
+
+JAVA_TRANS_FILES = $(wildcard ./org/webdsl/dsl/java-transformations/*.str)
+
 BACKEND_TRANS_FILES = \
 				 $(wildcard ./org/webdsl/dsl/back-end-transformations/*.str) \
 				 $(wildcard ./org/webdsl/dsl/back-end-transformations/*/*.str) 
@@ -255,7 +257,7 @@ src-gen/org/webdsl/webdsl_generator/Main.java : $(TBLS) $(SIGS) $(PPTABLES) $(SY
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.webdsl_generator -i $(srcdir)/org/webdsl/dsl/generation/webdsl-generator.str -o src-gen/org/webdsl/webdsl_generator/Main.java -la org.webdsl.webdsl-front
 	cp src-gen/org/webdsl/webdsl_generator/Main.rtree libwebdsl-generator.rtree
 
-src-gen/org/webdsl/java_transformations/Main.java : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) libwebdsl-front.rtree
+src-gen/org/webdsl/java_transformations/Main.java : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(JAVA_TRANS_FILES) libwebdsl-front.rtree
 	mkdir -p src-gen/org/webdsl/java_transformations
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.java_transformations -i $(srcdir)/org/webdsl/dsl/java-transformations/java-transformations.str -o src-gen/org/webdsl/java_transformations/Main.java -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front
 	cp src-gen/org/webdsl/java_transformations/Main.rtree libjava-transformations.rtree
