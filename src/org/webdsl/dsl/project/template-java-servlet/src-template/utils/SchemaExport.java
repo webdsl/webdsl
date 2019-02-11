@@ -39,7 +39,7 @@ public class SchemaExport {
     }
 
     public static void handleException(Exception ex){
-        System.out.println("exception occured: " + ex.getMessage());
+        System.out.println("exception occurred: " + ex.getMessage());
         ex.printStackTrace();
         hibSession.getTransaction().rollback();
         throw new RuntimeException("conversion failed!");

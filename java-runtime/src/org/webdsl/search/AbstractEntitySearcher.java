@@ -1191,7 +1191,7 @@ public abstract class AbstractEntitySearcher<EntityClass extends WebDSLEntity, F
             } catch ( ParseException e ) {
                 // TODO Auto-generated catch block
                 Logger.error(e);
-                return luceneQuery.toString( "Error occured during query parsing" );
+                return luceneQuery.toString( "Error occurred during query parsing" );
             }
             updateLuceneQuery = false;
             updateHighlightQuery = updateBoboBrowseResult = updateFullTextQuery = updateLuceneQueryWithFacetSelection = true;

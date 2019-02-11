@@ -34,7 +34,7 @@ public class TemplateAction{
 			}
 			catch(Exception excep){
 				org.webdsl.logging.Logger.error("exception during execution of action", excep);
-				threadLocalPageCached.getValidationExceptions().add(new utils.ValidationException(actionident,"An error occured while processing your request"));
+				threadLocalPageCached.getValidationExceptions().add(new utils.ValidationException(actionident,"An error occurred while processing your request"));
 				threadLocalPageCached.setValidated(false);
 			}
 			finally{

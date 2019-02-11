@@ -291,7 +291,7 @@ public abstract class AbstractPageServlet{
 
       catch(utils.MultipleValidationExceptions mve){
     	  String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
-    	  org.webdsl.logging.Logger.error("Validation exceptions occured while handling request URL [ "+url + " ]. Transaction is rolled back." );
+    	  org.webdsl.logging.Logger.error("Validation exceptions occurred while handling request URL [ " + url + " ]. Transaction is rolled back.");
     	  for(utils.ValidationException vex : mve.getValidationExceptions()){
     		  org.webdsl.logging.Logger.error( "Validation error: " + vex.getErrorMessage() , vex );
     	  }
@@ -301,7 +301,7 @@ public abstract class AbstractPageServlet{
       }
       catch (Exception e) {
         String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
-        org.webdsl.logging.Logger.error("exception occured while handling request URL [ "+url+ " ]. Transaction is rolled back.");
+        org.webdsl.logging.Logger.error("exception occurred while handling request URL [ " + url + " ]. Transaction is rolled back.");
         org.webdsl.logging.Logger.error("exception message: "+e.getMessage(), e);
         if(hibernateSession.isOpen()){
           hibernateSession.getTransaction().rollback();
