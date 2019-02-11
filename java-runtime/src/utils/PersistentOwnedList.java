@@ -19,7 +19,7 @@ public class PersistentOwnedList extends PersistentList implements utils.Persist
 	protected int cachedSize = -1;
     protected org.hibernate.impl.FilterImpl filter = null;
     protected org.hibernate.impl.FilterImpl filterHint = null;
-    protected utils.AbastractOwnedListType cachedType = null;
+    protected utils.AbstractOwnedListType cachedType = null;
     protected org.hibernate.impl.FilterImpl restoreFilter = null;
 
 	public PersistentOwnedList(SessionImplementor session) {
@@ -171,7 +171,7 @@ public class PersistentOwnedList extends PersistentList implements utils.Persist
 		} else if(!wasInitialized() && getFilterHint() != null) { // implies getFilter() == null, because !wasInitialized()
 			// Use the filter hint if it is less restrictive than the requested filter
 			// In that case the filter hint warns about the future use of a different filter that requires re-fetching
-			utils.AbastractOwnedListType type = getOwnedListType();
+			utils.AbstractOwnedListType type = getOwnedListType();
 			FilterImpl newFilter = getAffectingFilter(type);
 			FilterImpl hintFilter = getFilterHint();
 			if(newFilter != null && !utils.QueryOptimization.equalFilters(hintFilter, newFilter) && type.isFilterCompatible(hintFilter, newFilter)) {
@@ -182,7 +182,7 @@ public class PersistentOwnedList extends PersistentList implements utils.Persist
 				utils.QueryOptimization.restoreFilter(lqi, hintFilter);
 			}
 		} else if(wasInitialized() && getFilter() != null) { // Only need to check the filter if the collection was initialized using a filter
-			utils.AbastractOwnedListType type = getOwnedListType();
+			utils.AbstractOwnedListType type = getOwnedListType();
 			FilterImpl oldFilter = getFilter();
 			FilterImpl newFilter = getAffectingFilter(type);
 			if(!type.isFilterCompatible(oldFilter, newFilter)) unfiltered(writing);
@@ -237,15 +237,15 @@ public class PersistentOwnedList extends PersistentList implements utils.Persist
     	this.filterHint = filterHint;
     }
 
-	public utils.AbastractOwnedListType getOwnedListType() {
+	public utils.AbstractOwnedListType getOwnedListType() {
 		if(cachedType != null) {
 			return cachedType;
 		}
 		else {
 			SessionImplementor session = getSession();
 			CollectionPersister persister = session.getPersistenceContext().getCollectionEntry(this).getLoadedPersister();
-			if(persister.getCollectionType() instanceof CustomCollectionType && ((CustomCollectionType)persister.getCollectionType()).getUserType() instanceof utils.AbastractOwnedListType) {
-				cachedType = (utils.AbastractOwnedListType)((CustomCollectionType)persister.getCollectionType()).getUserType();
+			if(persister.getCollectionType() instanceof CustomCollectionType && ((CustomCollectionType)persister.getCollectionType()).getUserType() instanceof utils.AbstractOwnedListType) {
+				cachedType = (utils.AbstractOwnedListType)((CustomCollectionType)persister.getCollectionType()).getUserType();
 				return cachedType;
 			}
 			return null;
@@ -256,7 +256,7 @@ public class PersistentOwnedList extends PersistentList implements utils.Persist
 		return getAffectingFilter(getOwnedListType());
 	}
 
-	protected FilterImpl getAffectingFilter(utils.AbastractOwnedListType type) {
+	protected FilterImpl getAffectingFilter(utils.AbstractOwnedListType type) {
 		SessionImplementor session = getSession();
 		FilterImpl filter = null;
 		LoadQueryInfluencers lqi = session.getLoadQueryInfluencers();

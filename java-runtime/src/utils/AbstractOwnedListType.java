@@ -10,7 +10,7 @@ import org.hibernate.persister.collection.CollectionPersister;
 import org.hibernate.usertype.UserCollectionType;
 
 @SuppressWarnings("unchecked")
-public abstract class AbastractOwnedListType implements UserCollectionType {
+public abstract class AbstractOwnedListType implements UserCollectionType {
 
 	@Override
 	public boolean contains(Object collection, Object entity) {
