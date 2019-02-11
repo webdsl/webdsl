@@ -38,6 +38,9 @@ analyzer year{
 analyzer month{
     tokenizer = PatternTokenizer(pattern="^[0-9]{4}([0-9]{2})", group="1")
 }
+analyzer testSyntaxAnalyzer{
+    tokenizer = PatternTokenizer(pattern="\~", group="1")
+}
 
   analyzer autocomplete_untokenized {
     tokenizer = KeywordTokenizer
