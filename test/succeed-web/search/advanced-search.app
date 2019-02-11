@@ -74,7 +74,7 @@ analyzer month{
             };
           var i3 := Item{
               name := "Car"
-              description := "The Fiat 500 (Italian: cinquecento, Italian pronunciation: [tralala]) is a car produced by the Fiat company of Italy between 1957 and 1975, with limited production of the Fiat 500 K estate continuing until 1977. The car was designed by Dante Giacosa. Launched as the Nuova (new) 500 in July 1957,[1] it was marketed as a cheap and practicaltown car. Measuring only 3 metres (~10 feet) long, and originally powered by a tiny 479 cc two-cylinder, air-cooled engine, the 500 redefined the term 'small car' and is considered one of the first city cars. In 2007 Fiat launched a similar styled, longer and heavier front wheel drive car, the Fiat    Nuova 500. TheEnd."
+              description := "The Fiat 500 (Italian: cinquecento, Italian pronunciation: [tralala]) is a car produced by the Fiat company of Italy between 1957 and 1975, with limited production of the Fiat 500 K estate continuing until 1977. The car was designed by Dante Giacosa. Launched as the Nuova (new) 500 in July 1957,[1] it was marketed as a cheap and practicaltown car. Measuring only 3 metres (\~10 feet) long, and originally powered by a tiny 479 cc two-cylinder, air-cooled engine, the 500 redefined the term 'small car' and is considered one of the first city cars. In 2007 Fiat launched a similar styled, longer and heavier front wheel drive car, the Fiat    Nuova 500. TheEnd."
             };
         d.save();
         p.save();
@@ -238,8 +238,8 @@ analyzer month{
         assert(pagesource.contains("boolean-4:3"), pagePreFix + "Boolean query should return 3 item results ( (-(description:italian) +(description:theend)) (description:italian) )");
         assert(pagesource.contains("boolean-5:0"), pagePreFix + "Boolean query on Persons should return 0 person results ( -birthday:(19540504 TO 19560504) (name:pepe) )");
         assert(pagesource.contains("boolean-6:1"), pagePreFix + "Boolean query on Persons should return 1 person result ( (-birthday:(19540504 TO 19560504)) (name:pepe) )");
-        assert(pagesource.contains("phrase-1:1"), pagePreFix + "Phrase query (\"fat proteine\"~2) should only have matched 1 result");
-        assert(pagesource.contains("phrase-2:Bottle of dr Pepper"), pagePreFix + "Phrase query (\"fat proteine\"~2) should only have matched item with name 'Bottle of dr Pepper'");
+        assert(pagesource.contains("phrase-1:1"), pagePreFix + "Phrase query (\"fat proteine\"\~2) should only have matched 1 result");
+        assert(pagesource.contains("phrase-2:Bottle of dr Pepper"), pagePreFix + "Phrase query (\"fat proteine\"\~2) should only have matched item with name 'Bottle of dr Pepper'");
 
         // assert(pagesource.contains("customstopfilter-1:0"), pagePreFix + "Searching for a stopword defined in custom stopword list should give 0 results");
         // assert(pagesource.contains("customstopfilter-2:1"), pagePreFix + "Searching for 'bottle' defined in custom stopword list should give 1 results");
