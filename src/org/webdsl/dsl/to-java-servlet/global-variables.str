@@ -10,7 +10,7 @@ imports
 rules //global var use
 
   expression-to-java-servlet :
-    gv@GlobalVar(x) -> expr|[ (x_class) ThreadLocalPage.getEnv().getGlobalVariable("~x") ]|
+    gv@GlobalVar(x) -> expr|[ (x_class) utils.ThreadLocalPage.getEnv().getGlobalVariable("~x") ]|
     where x_class := <get-type-anno; java-type-name> gv
 
 rules
@@ -23,32 +23,20 @@ rules
   generate-global-variables-init-class: 
     _ -> <emit-java-code> compilation-unit|[
       package utils;
-  
-      import java.io.*;
-      import java.util.HashMap;
-  
-      import javax.servlet.*;
-      import javax.servlet.http.*;
-      import java.util.*;
-      import utils.*;
-      import pkgname.*;
-      import pkgname2.*;
-      
-      import org.webdsl.lang.Environment;
-  
+
       @SuppressWarnings({"unused","unchecked"})
       public class GlobalVariables {
       
         private static org.hibernate.Session hibSession;
         
-        private static Environment env; 
+        private static org.webdsl.lang.Environment env; 
         
         private static java.io.PrintWriter out = null;
           
         ~*cbds*
         ~*cbds1*
     
-        static boolean applicationContextPropertyExists(String name, List<ApplicationContextProperty> res){
+        static boolean applicationContextPropertyExists(String name, java.util.List<ApplicationContextProperty> res){
           for(ApplicationContextProperty a : res){
             if(a.getName().equals(name))	
               return true;
@@ -66,32 +54,32 @@ rules
         public static void load(){
           if(!globalvarsChecked){
               out = new java.io.PrintWriter(System.out);
-              ThreadLocalOut.push(out);
+              utils.ThreadLocalOut.push(out);
 
               bstm_initobjects*
 
               //assumes session already started a transaction
               org.hibernate.Session hibSession = e_HibSession;
 
-              AbstractPageServlet ps = ThreadLocalPage.get();
+              utils.AbstractPageServlet ps = utils.ThreadLocalPage.get();
               env = ps.envGlobalAndSession;
 
               org.hibernate.Query q = e_HibSession.createQuery("from ApplicationContextProperty");
-              List<ApplicationContextProperty> res = q.list();
+              java.util.List<ApplicationContextProperty> res = q.list();
 
               bstm3*
               bstm1*
               bstm2*
 
               org.hibernate.Query q2 = e_HibSession.createQuery("from ApplicationContextProperty");
-              List<ApplicationContextProperty> results = q2.list();
+              java.util.List<ApplicationContextProperty> results = q2.list();
               for(ApplicationContextProperty a : results)
               {
                 bstm4*
               }
 
               hibSession = null;
-              ThreadLocalOut.popChecked(out);
+              utils.ThreadLocalOut.popChecked(out);
               out = null;
               globalvarsChecked = true;
           }
@@ -101,13 +89,11 @@ rules
       }
     ]|
     //where not([] := <bagof-AllGlobalVars>) // fails if there are no global vars, wont generate anything then
-    with  pkgname    := <TemplatePackage>
-        ; pkgname2   := <DomainPackage>
-        ; cbds* := <map({\ 
+    with  cbds* := <map({\ 
                            GlobalVarDeclInit(x, srt, e) -> 
                            class-body-dec*|[ 
                              //private static t x = null;
-                             private static UUID x#id = null;
+                             private static java.util.UUID x#id = null;
                               
                              public static x_class get#x(org.hibernate.Session hibSession)
                              {
@@ -197,7 +183,7 @@ rules
           x_acpident.setName("~x_ident");
           x_acpident.setDatabaseId(x_ident.getId());
           e_HibSession.save(x_acpident);
-          GlobalVariables.x_ident#id = x_acpident.getDatabaseId();
+          utils.GlobalVariables.x_ident#id = x_acpident.getDatabaseId();
           
           //set version property to 1, which indicates a persisted entity
           x_ident.setVersion(1);
@@ -216,7 +202,7 @@ rules
   generate-global-var-initializer-method = 
     bstm* := <map(generate-global-var-initializer); concat> <bagof-AllGlobalVars>
     ; !|[
-        public static boolean initGlobalVars(Environment env, org.hibernate.Session hibSession) {
+        public static boolean initGlobalVars(org.webdsl.lang.Environment env, org.hibernate.Session hibSession) {
           bstm*
           return true;
         }
@@ -224,7 +210,7 @@ rules
 
   generate-global-var-initializer :
     GlobalVarDeclInit(x, srt, e) -> bstm*|[ 
-      env.putGlobalVariable("~x", GlobalVariables.get#x(e_HibSession)); 
+      env.putGlobalVariable("~x", utils.GlobalVariables.get#x(e_HibSession)); 
       if(env.getGlobalVariable("~x") == null) {
         e_HibSession.getTransaction().commit();
         return false;

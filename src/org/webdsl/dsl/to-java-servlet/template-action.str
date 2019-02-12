@@ -13,10 +13,12 @@ rules // submit action call
   generate-submit-action-run-invoke(| x_action, e*) = generate-submit-action-run-invoke(| x_action, "ident", e*)
 
   generate-submit-action-run-invoke(| x_action, ident, e*) =
-    !java:bstm|[ new x_action().run(threadLocalPageCached, getEnv(), getElementsContext(), e*, ident); ]|
+    with( pkgtname := <ActionPackage> )
+  ; !java:bstm|[ new pkgtname.x_action().run(threadLocalPageCached, getEnv(), getElementsContext(), e*, ident); ]|
 
   generate-submit-action-databind-phase(| x_action) =
-    !java:bstm|[ threadLocalPageCached.actionToBeExecutedHasDisabledValidation = x_action.isValidationDisabled(); ]|
+    with( ambname := <ActionPackage> )
+  ; !java:bstm|[ threadLocalPageCached.actionToBeExecutedHasDisabledValidation = ambname.x_action.isValidationDisabled(); ]|
 
 rules // action methods
 
@@ -30,20 +32,14 @@ rules // action methods
     Action(amod*, x_action, farg*, Block(stat*)){anno*} ->
     <emit-java-code-local>
     compilation-unit|[
-      package pkgname3;
-      import pkgname2.*;
-      import pkgname4.*;
-      import utils.*;
-      import java.io.*;
-      import java.util.*;
-      import org.webdsl.lang.Environment;
+      package pkgname_act;
 
-      public class x_action extends TemplateAction{
+      public class x_action extends utils.TemplateAction{
           
         ~*cbds_ignorevalidation*
           
-        public void run(final AbstractPageServlet threadLocalPageCached, final Environment env, final String elementsContext, param*){
-          handleAction(threadLocalPageCached, env, elementsContext, actionident, new TemplateActionBody(){
+        public void run(final utils.AbstractPageServlet threadLocalPageCached, final org.webdsl.lang.Environment env, final String elementsContext, param*){
+          handleAction(threadLocalPageCached, env, elementsContext, actionident, new utils.TemplateActionBody(){
             public void run(){
               bstm_nonfinalvars*
               bstm*
@@ -59,12 +55,10 @@ rules // action methods
        ; param* := <add-input-id-for-action-as-param; map(arguments-to-java-servlet; add-final-modifier-to-java-farg <+ debug(!"map failed in template-action.str"))> farg1*
        ; bstm* := <statements-to-java-servlet> stat*
     |}
-    ; pkgname2 := <DomainPackage>
-    ; pkgname3 := <ActionPackage>
+    ; pkgname_act := <ActionPackage>
     ; if <fetch(ActionModifierIgnoreValidation)> amod*
       then cbds_ignorevalidation* := [ class-body-dec|[ public static boolean isValidationDisabled(){ return true; } ]| ]
       else cbds_ignorevalidation* := [ class-body-dec|[ public static boolean isValidationDisabled(){ return false; } ]| ] end
-    ; pkgname4 := <TemplatePackage>
     ; x_template := <ThisTemplateClassName>
 
   add-input-id-for-action-as-param :

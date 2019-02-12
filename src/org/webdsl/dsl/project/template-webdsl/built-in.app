@@ -470,7 +470,7 @@ type Image{
 
 // access to servlet context
 
-native class AbstractDispatchServletHelper as DispatchServlet{
+native class utils.AbstractDispatchServletHelper as DispatchServlet{
   getIncomingSuccessMessages(): [String]
   getOutgoingSuccessMessages(): [String]
   clearSuccessMessages()
@@ -507,7 +507,7 @@ function urlComponents(): [String]{
 
 // access to page context
 
-native class AbstractPageServlet as PageServlet{
+native class utils.AbstractPageServlet as PageServlet{
   inSubmittedForm(): Bool
   formRequiresMultipartEnc: Bool
   getFileUploads( String ): [File]
@@ -576,7 +576,7 @@ template addBodyAttribute( key: String, value: String ){
 
 //access to template context
 
-native class TemplateServlet as TemplateServlet{
+native class utils.TemplateServlet as TemplateServlet{
   getUniqueId(): String
   getUniqueIdNoCache(): String
   static getCurrentTemplate(): TemplateServlet
