@@ -42,7 +42,7 @@ public class TemplateCall {
       this.args = args;
   }
 
-  public static TemplateCall None = new TemplateCall(false, "", new Object[0]);
+  public static TemplateCall None = new TemplateCall(false, "", org.apache.commons.lang3.ArrayUtils.EMPTY_OBJECT_ARRAY);
 
   public static Map<String, utils.TemplateCall> NoWithCalls = new HashMap<String, utils.TemplateCall>();
 

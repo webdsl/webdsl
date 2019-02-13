@@ -15,6 +15,7 @@ imports
   org/webdsl/dsl/to-java-servlet/uicomponents/attributes
   org/webdsl/dsl/to-java-servlet/type-utils
   org/webdsl/dsl/to-java-servlet/hibernate-util
+  org/webdsl/dsl/to-java-servlet/optimization
 
 // control flow page elements   : for, if, templatecall
 
@@ -308,7 +309,7 @@ rules //templatecall
         ; e_argswithref* := <handle-ref-arg> (calledTemplateArgs, args)
           // call common templatecall translation
         ; java_tname := expr|["~x_name"]|
-        ; java_args := expr|[ new Object[] { e_argswithref* } ]|
+        ; java_args := <optimize-empty-array> e_argswithref*
         ; result := <control-flow-tcall-helper(|[],java_tname,java_args,[],java_tname)> tc //last argument, parentname, is current template in this case
 
   /**
@@ -367,10 +368,10 @@ rules //templatecall
     with //could be that not all args are specified, only implicit args are available at this point
          varslength := <length> vars
        ; selectedTemplateArgs := <reverse;take(|varslength);reverse> templateArgs
-       ; e_templ* := <handle-ref-arg> (selectedTemplateArgs, vars)
+       ; e_args := <handle-ref-arg; optimize-empty-array> (selectedTemplateArgs, vars)
        ; if <fetch(?NoEnclosingDefine())> anno*
-         then result := java:expr|[ e_env.putWithcall("~origname", new utils.TemplateCall("~templname", null, new Object[] { e_templ* }, utils.TemplateCall.EmptyAttrs)) ]|
-         else result := java:expr|[ e_env.putWithcall("~origname", new utils.TemplateCall("~templname", getElementsContext(), new Object[] { e_templ* }, attrs)) ]|
+         then result := java:expr|[ e_env.putWithcall("~origname", new utils.TemplateCall("~templname", null, e_args, utils.TemplateCall.EmptyAttrs)) ]|
+         else result := java:expr|[ e_env.putWithcall("~origname", new utils.TemplateCall("~templname", getElementsContext(), e_args, attrs)) ]|
          end
 
   control-flow-emit-with-calls-fold-helper :
@@ -439,7 +440,7 @@ rules
         ; e_argswithref* := <handle-ref-arg> (calledTemplateArgs, args)
         // call common templatecall translation
         ; java_tname := expr|[ env.getWithcall("~originalname").name ]|
-        ; java_args:=  expr|[ org.webdsl.tools.Utils.concatArrays(new Object[] { e_argswithref* }, env.getWithcall("~originalname").args) ]|
+        ; java_args:=  expr|[ org.webdsl.tools.Utils.concatArrays(~<optimize-empty-array> e_argswithref*, env.getWithcall("~originalname").args) ]|
         ; java_elementsarglookupname := java:expr|[ "~originalname" ]|
         ; result := <control-flow-tcall-helper(|[],java_tname,java_args,[],java_elementsarglookupname)> tc
 

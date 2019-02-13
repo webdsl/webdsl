@@ -7,6 +7,7 @@ imports
   org/webdsl/dsl/to-java-servlet/control-flow-to-java-servlet
   org/webdsl/dsl/to-java-servlet/template-ref-arguments
   org/webdsl/dsl/to-java-servlet/hibernate-util
+  org/webdsl/dsl/to-java-servlet/optimization
 
 rules
 
@@ -28,8 +29,8 @@ rules
      ; foldr(!expr|[new java.util.ArrayList<Object[]>()]|, exp-var-arg-to-java-exp)> exp-var-args
 
   exp-var-arg-to-java-exp :
-    (ExpVarArg(exps), e) -> expr|[ utils.TemplateVarArg.add(e, new Object[]{ e_arg* }) ]|
-    with  e_arg* := <map(expression-to-java-servlet)> exps
+    (ExpVarArg(exps), e) -> expr|[ utils.TemplateVarArg.add(e, e_args) ]|
+    with  e_args := <map(expression-to-java-servlet); optimize-empty-array> exps
 
 rules // access values of defined template var arg
 
@@ -60,8 +61,8 @@ rules // template elements var args in template call
   expression-to-java-servlet :
     TemplateCallExpression(x1, vars, ps1, elems1){anno*} -> result
     with  templateArgs := <fetch-elem(?CalledTemplateArgs(<id>))> anno*
-        ; e_templ* := <handle-ref-arg> (templateArgs, vars)
-        ; result := expr|[ new utils.TemplateCall("~x1", null, new Object[] { e_templ* }, utils.TemplateCall.EmptyAttrs)  ]|
+        ; e_args := <handle-ref-arg; optimize-empty-array> (templateArgs, vars)
+        ; result := expr|[ new utils.TemplateCall("~x1", null, e_args, utils.TemplateCall.EmptyAttrs)  ]|
 
 rules // for loops for creating var args in template call
 
@@ -75,7 +76,7 @@ rules // for loops for creating var args in template call
         ; x_type := <java-type-name> srt
         ; e_list := <expression-to-java-servlet> exp
         ; list-of-exp-lists := <map(?ExpVarArg(<map(expression-to-java-servlet)>))> expvarargs
-        ; bstm* := <map(\e_arg* -> java:bstm|[ add(arg, new Object[]{ e_arg* }); ]| \)> list-of-exp-lists
+        ; bstm* := <map(\e_arg* -> java:bstm|[ add(arg, ~<optimize-empty-array> e_arg*); ]| \)> list-of-exp-lists
 
   exp-var-arg-to-java-exp :
     (ExpVarArgForAll(x, srt, fltr, expvarargs), e) ->
@@ -86,7 +87,7 @@ rules // for loops for creating var args in template call
     with  t := <java-type> srt
         ; x_type := <java-type-name> srt
         ; list-of-exp-lists := <map(?ExpVarArg(<map(expression-to-java-servlet)>))> expvarargs
-        ; bstm* := <map(\e_arg* -> java:bstm|[ add(arg, new Object[]{ e_arg* }); ]| \)> list-of-exp-lists
+        ; bstm* := <map(\e_arg* -> java:bstm|[ add(arg,~<optimize-empty-array> e_arg*); ]| \)> list-of-exp-lists
 
   exp-var-arg-to-java-exp :
     (ExpVarArgForCount(x, e1, e2, expvarargs), e) ->
@@ -100,4 +101,4 @@ rules // for loops for creating var args in template call
         ; e3 := <expression-to-java-servlet> e1
         ; e4 := <expression-to-java-servlet> e2
         ; list-of-exp-lists := <map(?ExpVarArg(<map(expression-to-java-servlet)>))> expvarargs
-        ; bstm* := <map(\e_arg* -> java:bstm|[ add(arg, new Object[]{ e_arg* }); ]| \)> list-of-exp-lists
+        ; bstm* := <map(\e_arg* -> java:bstm|[ add(arg, ~<optimize-empty-array> e_arg*); ]| \)> list-of-exp-lists
