@@ -54,6 +54,7 @@ public class TemplateCall {
 
   public static final Map<String, String> EmptyAttrs = new HashMap<String, String>();
   public static final List<String> EmptyExceptList = new ArrayList<String>();
+  public static final TemplateCall EmptyElementsCall = new TemplateCall("elementsempty", null, null, null);
   @SuppressWarnings("serial")
   public static final List<String> listStringWithClassAndStyle = new java.util.ArrayList<String>(2){{ add("class"); add("style"); }};
   
