@@ -1049,7 +1049,7 @@ template dateoutputgeneric( d: ref Date, defaultformat: String ){
       }
     }
   }
-  output( d.format( dateformat ) )
+  text( d.format( dateformat ) )
 }
 
 function convertJavaDateFormatToFlatPickr( f: String ): String{
@@ -1865,7 +1865,7 @@ template labelInternal( s: String, tname: String, tc: TemplateContext ){
 // input/output( Int )
 
 template output( i: Int ){
-  output( i.toString() )
+  text( i.toString() )
 }
 
 template input( i: ref Int ){
@@ -1933,7 +1933,7 @@ template inputIntInternal( i: ref Int, tname: String ){
 //input/output Float
 
 template output( i: Float ){
-  output( i.toString() )
+  text( i.toString() )
 }
 
 template input( i: ref Float ){
@@ -2257,7 +2257,7 @@ template inputTextInternal( s: ref Text, tname: String ){
 //input/output URL
 
 template output( s: URL ){
-  navigate url( s )[ all attributes ]{ url( s ) }
+  navigate url( s )[ all attributes ]{ text( s ) }
 }
 
 template input( s: ref URL ){
@@ -2702,7 +2702,7 @@ native class org.spoofax.interpreter.terms.IStrategoTerm as ATerm{
 }
 
 template output( a: ATerm ){
-  output( a.toString() )
+  text( a.toString() )
 }
 
 native class org.webdsl.tools.strategoxt.StrategoProgram as Stratego{
