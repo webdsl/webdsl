@@ -11,6 +11,10 @@ entity Tmp {
   function get(): String {
     return name;
   }
+  function interpInEntity(): String{
+    return "~i~this.i~n~this.n~this.n.n~get()~this.get()";
+  }
+  derived : String := "~i~this.i~n~this.n~this.n.n~get()~this.get()"
 }
 
 var t1 := Tmp { name := "t1" i := 1 }
@@ -42,6 +46,9 @@ template testtemplate() {
   ~n1.n
   ~testfun()
   ~broken()
+
+  output( t1.interpInEntity() )
+  output( t1.derived )
 }
 
 function testfun(): String{
@@ -57,6 +64,6 @@ function broken(): String{
 
 test {
   log( rendertemplate( testtemplate() ));
-  assert( rendertemplate( testtemplate() ) == "[no-interp]t1blat1.foo1\~escape\\\\\~[no-interp]t1blat1.foo1\~t1t11test[]test[]test12" );
+  assert( rendertemplate( testtemplate() ) == "[no-interp]t1blat1.foo1\~escape\\\\\~[no-interp]t1blat1.foo1\~t1t11test[]test[]test1211t1t111t1t1" );
 }
 
