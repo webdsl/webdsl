@@ -90,19 +90,25 @@ public abstract class TemplateServlet {
         if(!skipThisTemplate){
           tryInitializeTemplate(calledName, args, env, attrs);
           tryInitializeVarsOnce(); //this phase could be skipped, so performed in render as well
-          storeInputsInternal();
+          if(!skipThisTemplate){
+            storeInputsInternal();
+          }
         }
       }  
     public void validateInputs(String calledName, Object[] args, Environment env,  Map<String,String> attrs) {
         if(!skipThisTemplate){
           tryInitializeTemplate(calledName, args, env, attrs);
-          validateInputsInternal();
+          if(!skipThisTemplate){
+            validateInputsInternal();
+          }
         }
       } 
     public void handleActions(String calledName, Object[] args, Environment env, Map<String,String> attrs) {          
         if(!skipThisTemplate){
           tryInitializeTemplate(calledName, args, env, attrs);
-          handleActionsInternal();
+          if(!skipThisTemplate){
+            handleActionsInternal();
+          }
         }
       }  
 
@@ -111,19 +117,21 @@ public abstract class TemplateServlet {
         tryInitializeTemplate(calledName, args, env, attrs);
         tryInitializeVarsOnce();
      
-        java.io.StringWriter s = new java.io.StringWriter();
+        if(!skipThisTemplate){
+          java.io.StringWriter s = new java.io.StringWriter();
 
-        PrintWriter out = new java.io.PrintWriter(s);
-        ThreadLocalOut.push(out);
-        beforeRender();
-        renderInternal();
-        afterRender();
-        ThreadLocalOut.popChecked(out);
-        out = ThreadLocalOut.peek();
-        
-        tryWriteSpanOpen(out);
-        out.write(s.toString());
-        tryWriteSpanClose(out);
+          PrintWriter out = new java.io.PrintWriter(s);
+          ThreadLocalOut.push(out);
+          beforeRender();
+          renderInternal();
+          afterRender();
+          ThreadLocalOut.popChecked(out);
+          out = ThreadLocalOut.peek();
+
+          tryWriteSpanOpen(out);
+          out.write(s.toString());
+          tryWriteSpanClose(out);
+        }
       }
     }
     
