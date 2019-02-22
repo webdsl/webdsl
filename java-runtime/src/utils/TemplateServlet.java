@@ -184,7 +184,6 @@ public abstract class TemplateServlet {
     	return getUniqueName() + "_Template";
     }
     public abstract String getTemplateSignature();
-    public abstract String getStateEncodingOfArgument();
     public String getTemplateContext(){
       return threadLocalPageCached.getTemplateContextString();
     } 
@@ -323,9 +322,5 @@ public abstract class TemplateServlet {
     	else{
     		throw ex;
     	}
-    }
-
-    public String debugStateEncodingAll(){ 
-    	return "TemplateClass: " + getTemplateClassName() + "\nTemplateArgument: " + getStateEncodingOfArgument() + "\nContextString: " + getTemplateContext() + "\nUniqueId: " + getUniqueId();
     }
 }
