@@ -57,7 +57,7 @@ rules
           ~*cbds_load-template-map-and-ref-arg-classes*
           public static org.webdsl.lang.Environment loadTemplateMap(String keyOverwrite, org.webdsl.lang.Environment staticEnv){
             staticEnv.putTemplate(keyOverwrite==null?"~x":keyOverwrite, x_Page.class);
-            loadLiftedTemplateMap(staticEnv);
+            utils.AbstractPageServlet.loadLiftedTemplateMap(x_Page.class);
             return staticEnv;
           }
 
@@ -161,6 +161,7 @@ rules
 
   replace-with-empty-list-if-empty(|list) = if where(<?[]> list) then ![] else id end
   replace-with-empty-list-if-empty(|list1,list2) = if where(<?[]> list1; <?[]> list2) then ![] else id end
+  replace-with-empty-list-if-empty(|list1,list2,list3) = if where(<?[]> list1; <?[]> list2; <?[]> list3) then ![] else id end
 
   load-template-map-and-ref-arg-classes :
    (bstm_refarginlocaldef*, def, bstm_localtplredefclasses*) -> result
@@ -171,7 +172,7 @@ rules
         else bstm_lifted* := [ExprStm( <lifted-template-load-template-map-helper> (liftedtemplates, java:expr|[ staticEnv ]|) )]
            ; bstm_liftedrefarg* :=
                <map({\
-                 TemplateCall(z,_,_,_) -> bstm |[ z_value.loadRefArgClasses(refargclasses); ]| // the lifted template might have lifted elements itself, recursively call loadRefArgClasses
+                 TemplateCall(z,_,_,_) -> bstm |[ utils.AbstractPageServlet.loadRefArgClasses(z_value.class); ]| // the lifted template might have lifted elements itself, recursively call loadRefArgClasses
                  with  z_value := <TopLevelTemplateClassName> z
                \})> liftedtemplates
         end
@@ -182,22 +183,26 @@ rules
                            with  z_value := <concat-strings> [z,".class"]
                        \})>
                        [pagecallrefargclass*,ajaxcallrefargclass*]
-      ; result :=
-        java:class-body-dec*|[
-          public static void loadLiftedTemplateMap(org.webdsl.lang.Environment staticEnv){
-            //template or email class itself is already added
-            bstm_lifted*
-            bstm_localtplredefclasses*
-          }
-          public static void loadRefArgClasses(java.util.Map<String, Class<?>> refargclasses){
-            bstm_refargclasses*
-            bstm_liftedrefarg*
-            // in the ref arg class lookup map, a unique name is always used as key,
-            // hence it does not need to go in the Environment class (that keeps a stack of local template overrides)
-            // they are already loaded with the initial template load in java-base-page.str/PageServlet.java
-            bstm_refarginlocaldef*
-          }
-        ]|
+      ; loadLiftedTemplateMap* :=
+          <replace-with-empty-list-if-empty(|bstm_lifted*, bstm_localtplredefclasses*)> class-body-dec*|[
+            public static void loadLiftedTemplateMap(org.webdsl.lang.Environment staticEnv){
+              //template or email class itself is already added
+              bstm_lifted*
+              bstm_localtplredefclasses*
+            }
+          ]|
+      ; loadRefArgClasses* :=
+          <replace-with-empty-list-if-empty(|bstm_refargclasses*, bstm_liftedrefarg*, bstm_refarginlocaldef*)> class-body-dec*|[
+            public static void loadRefArgClasses(java.util.Map<String, Class<?>> refargclasses){
+              bstm_refargclasses*
+              bstm_liftedrefarg*
+              // in the ref arg class lookup map, a unique name is always used as key,
+              // hence it does not need to go in the Environment class (that keeps a stack of local template overrides)
+              // they are already loaded with the initial template load in java-base-page.str/PageServlet.java
+              bstm_refarginlocaldef*
+            }
+          ]|
+      ; result := [loadLiftedTemplateMap*,loadRefArgClasses*]
 
   extract-lifted-templates-from-template-def =
     collect-all( // collect-all because rendertemplate(TemplateCall) might be nested in templatecall arguments
@@ -222,9 +227,9 @@ rules
     (liftedtemplates,e_env) -> <foldl(lifted-template-load-template-map-helper-fold)> (liftedtemplates,e_env)
 
   lifted-template-load-template-map-helper-fold:
-    (TemplateCall(z,_,_,_),e_env) -> expr |[ ambname.z_value.loadTemplateMap(null, e_env) ]| // the lifted template might have lifted elements itself, recursively call loadTemplateMap
+    (TemplateCall(z,_,_,_),e_env) -> expr |[ utils.AbstractPageServlet.loadTemplateMap(pkgtname.z_value.class, null, e_env) ]| // the lifted template might have lifted elements itself, recursively call loadTemplateMap
     with  z_value := <TopLevelTemplateClassName> z
-        ; ambname := <TemplatePackage>
+        ; pkgtname := <TemplatePackage>
 
   prefetch-for-to-function =
     ?For(x, srt, _, _, b, _)
@@ -273,7 +278,7 @@ rules
   add-template-binding:
     (x,xclass,e_argswithref*, spanname1, spanname2) ->
       bstm* |[
-        x_value.loadTemplateMap(x_key, env);
+        utils.AbstractPageServlet.loadTemplateMap(x_value.class, x_key, env);
         Object[] x_array = ~<optimize-empty-array> e_argswithref*;
         env.putExtraLocalTemplateArguments(x_key, new utils.LocalTemplateArguments(x_array,"~spanname1","~spanname2"));
       ]|
@@ -284,13 +289,13 @@ rules
   add-template-classes:
     (x,x_class,e_argswithref*, spanname1, spanname2) ->
       bstm |[
-        x_class.loadTemplateMap(null, staticEnv);
+        utils.AbstractPageServlet.loadTemplateMap(x_class.class);
       ]|
 
   add-template-ref-arg-classes:
     (x,x_class,e_argswithref*, spanname1, spanname2) ->
       bstm |[
-        x_class.loadRefArgClasses(refargclasses);
+        utils.AbstractPageServlet.loadRefArgClasses(x_class.class);
       ]|
 
 rules

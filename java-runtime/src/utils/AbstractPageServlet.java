@@ -1639,5 +1639,37 @@ public abstract class AbstractPageServlet{
       // this causes the problem that a page might be rendered with data that was not actually committed
       // workaround: store the exception in this variable and explicitly rethrow before sending page content to output stream
       public Exception exceptionInHibernateInterceptor = null;
-      
+
+	public static Environment loadTemplateMap(Class<?> clazz) {
+		return loadTemplateMap(clazz, null, staticEnv);
+	}
+	public static Environment loadTemplateMap(Class<?> clazz, String keyOverwrite, Environment env) {
+		reflectionLoadClassesHelper(clazz, "loadTemplateMap", new Object[] { keyOverwrite, env });
+		return env;
+ 	}
+	public static Object[] loadEmailAndTemplateMapArgs = new Object[] { staticEnv, emails };
+	public static void loadEmailAndTemplateMap(Class<?> clazz) {
+		reflectionLoadClassesHelper(clazz, "loadEmailAndTemplateMap", loadEmailAndTemplateMapArgs);
+	}
+	public static Object[] loadLiftedTemplateMapArgs = new Object[] { staticEnv };
+	public static void loadLiftedTemplateMap(Class<?> clazz) {
+		reflectionLoadClassesHelper(clazz, "loadLiftedTemplateMap", loadLiftedTemplateMapArgs);
+	}
+	public static Object[] loadRefArgClassesArgs = new Object[] { refargclasses };
+	public static void loadRefArgClasses(Class<?> clazz) {
+		reflectionLoadClassesHelper(clazz, "loadRefArgClasses", loadRefArgClassesArgs);
+	}
+	public static void reflectionLoadClassesHelper(Class<?> clazz, String method, Object[] args) {
+		for (java.lang.reflect.Method m : clazz.getMethods()) {
+			if (method.equals(m.getName())) {  // will just skip if not defined, so the code generator does not need to generate empty methods
+				try {
+					m.invoke(null, args);
+				} catch (IllegalAccessException | IllegalArgumentException | java.lang.reflect.InvocationTargetException e) {
+					e.printStackTrace();
+				}
+				break;
+			}
+		}
+	}
+
 }
