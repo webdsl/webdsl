@@ -6,9 +6,10 @@ public abstract class RefArg{
 
 	public abstract Object get();
 
-	public abstract java.util.List<Object> getAllowed();
+	public java.util.List<Object> getAllowed(){
+		return null;
+	}
 
-	
 	// the following are only overridden for ref arg referring to an entity property, template variable ref arg uses these defaults
 	
 	public void load(String uuid){}
