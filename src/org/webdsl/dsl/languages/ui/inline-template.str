@@ -93,6 +93,7 @@ rules // desugaring phase - apply inlining at template call
     TemplateCall(name,args,passigns,_) -> genname
     where is-template-inlining-enabled
     where <not(?"elementsempty" <+ ?"elements")> name
+    where stop-inline-if-ac-used(|name,args)
     // is-automatic-inline-simple-template is executed during single traversal declare, when this happens cannot be sure yet that override template has been declared, therefore check for override definitions happens here
     where <CallToDefinedTemplate; TemplateGennameToSig; not(TopLevelTemplateDeclOverride)> name
     where has-no-anno(|TemplateCallInlineDisabled())
@@ -100,8 +101,23 @@ rules // desugaring phase - apply inlining at template call
     where <not(TemplateRedefinitions)> genname // don't inline when there is any local override in the application defined for this template
     where <IsInlineSimpleTemplate> genname
     // check that properties/attributes are allowed to be inlined
-    where <map(?PropertyAssignment(_,_)  
+    where <map(?PropertyAssignment(_,_)
             <+ ?TemplateCall("elementsempty",_,_,_))> passigns
+
+  stop-inline-if-ac-used(|name,args) =
+    get-possible-matching-template-rules-cached
+  ; not(fetch(matching-template-ac-rule(|name,args)))
+
+  get-possible-matching-template-rules-cached =
+      NonTrueTemplateACRules
+  <+  <bagof-AccessControlRule> "template"
+    ; filter(where(?AccessControlRule(_, _, _, <not(?True())>, _)))
+    ; rules( NonTrueTemplateACRules := <id> )
+
+  matching-template-ac-rule(|name,args):
+    ac@AccessControlRule("template", n, a, _, _) -> ac
+    where <match-names> (n,<strip-annos>name)
+    where <match-arguments> (a,<map(\e -> Arg("",<type-of> e)\)> args)
 
   desugar-ui:
     TemplateCall(name,args,passigns,elems) -> inlinedbody4
