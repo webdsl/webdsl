@@ -3337,6 +3337,13 @@ template inputSDFajax( s: ref Text, language: String ){
   }
 }
 
+//failed action lookup message
+
+//gets displayed on failed actions (only for ajax)
+template actionFailureMessage( msg : String ){
+  <script>window.actionFailureMessage = "~msg";</script>
+}
+
 //validation message templates
 
 template errorTemplateInput( messages: [String] ){

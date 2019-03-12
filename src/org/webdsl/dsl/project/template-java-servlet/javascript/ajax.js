@@ -206,13 +206,27 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfe
           clientExecute(this.responseText, thisobject);
         }
         else if(this.status != 200) {
-          notify('Invalid return of server: '+this.status);
+          showError(thisobject, 'Error while handling this action, the server returned status '+ this.status + '. The action may no longer be available. Copy your unsaved changes before leaving/refreshing this page.');
         }
         if(loadfeedback){ stopLoading(attachObj, loadingimage); }
         __requestcount--;
       }
     }
   );
+}
+
+function showError(thisobject, genericError){
+  notify(genericError);
+  var msg = window.actionFailureMessage !== undefined ? actionFailureMessage : genericError;
+  var thisobjectSpecificError = $(thisobject).data('action-failed');
+  
+  if( thisobjectSpecificError !== undefined )
+    msg = thisobjectSpecificError;
+  
+  var dismissHTML = "<a href=\"javascript:$('.action-failure-msg').fadeOut();void(0)\" style=\"margin-left: 15px;\">Dismiss</a>";
+  var errorElem = $("<span class=\"action-failure-msg\" style=\"display: none;\">" + msg + dismissHTML + "</span>");
+  $('body').append(errorElem);
+  errorElem.fadeIn();
 }
 
 var __requestcount = 0;
@@ -243,7 +257,7 @@ function replaceWithoutAction(serviceURL, jsonData, idOfElemToReplace){
           ajax_post_process(theNode);
         }
         else if(this.status != 200) {
-          notify('Invalid return of server: '+this.status);
+          showError(thisobject, 'Invalid return of server: '+this.status);
         }
       }
     }
