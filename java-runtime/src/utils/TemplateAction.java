@@ -1,5 +1,7 @@
 package utils;
 
+import org.hibernate.StaleObjectStateException;
+
 public class TemplateAction{
 
 	//TODO: get rid of getElementsContext() calls in action code, then this field is no longer needed     
@@ -33,9 +35,16 @@ public class TemplateAction{
 				threadLocalPageCached.setValidated(false);
 			}
 			catch(Exception excep){
-				org.webdsl.logging.Logger.error("exception during execution of action", excep);
-				threadLocalPageCached.getValidationExceptions().add(new utils.ValidationException(actionident,"An error occurred while processing your request"));
-				threadLocalPageCached.setValidated(false);
+			  AbstractDispatchServletHelper servlet = ThreadLocalServlet.get();
+			  if(excep instanceof StaleObjectStateException && servlet.retries < AbstractDispatchServletHelper.maxRetries){
+			    //In case a stale object state exception is thrown during handling of action, re-throw the exception, so DispatchPageServlet.handlePage() will retry handling this request. 
+			    throw excep;
+			  } else {
+			    org.webdsl.logging.Logger.error("exception during execution of action", excep);
+	        threadLocalPageCached.getValidationExceptions().add(new utils.ValidationException(actionident,"An error occurred while processing your request"));
+	        threadLocalPageCached.setValidated(false);
+			  }
+				
 			}
 			finally{
 				// do the redirect if no exceptions occurred and no validations failed

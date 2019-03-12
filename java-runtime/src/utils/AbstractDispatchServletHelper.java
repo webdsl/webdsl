@@ -158,4 +158,7 @@ public abstract class AbstractDispatchServletHelper{
   public List<String> getUrlComponents(){
     return urlComponents;
   }
+  
+  public static final int maxRetries = utils.BuildProperties.getTransactionRetries();
+  public int retries = 0;
 }
