@@ -77,14 +77,15 @@ public abstract class AbstractPageServlet{
         this.isOptimizationEnabled = false;
       }
       if(parammap.get("logsql") != null){
-    	this.isLogSqlEnabled = true;
-    	reqAppender = utils.RequestAppender.getInstance();
+    	  this.isLogSqlEnabled = true;
+    	  this.isPageCacheDisabled = true;
+    	  reqAppender = utils.RequestAppender.getInstance();
       }
       if(reqAppender != null){
-    	reqAppender.addRequest(rle.getId().toString());
+    	  reqAppender.addRequest(rle.getId().toString());
       }
       if(parammap.get("nocache") != null){
-    	this.isPageCacheDisabled = true;
+    	  this.isPageCacheDisabled = true;
       }
       initRequestVars();
       hibernateSession = utils.HibernateUtil.getCurrentSession();
