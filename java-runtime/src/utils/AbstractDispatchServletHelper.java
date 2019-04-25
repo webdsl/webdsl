@@ -92,6 +92,10 @@ public abstract class AbstractDispatchServletHelper{
 
   public String getContextPath() { return contextPath; }
   
+  protected boolean disablePageCache = false;
+  public void disablePageCache(){ //in custom routing, you can disable page cache
+    disablePageCache = true;
+  }
   
   protected void addToValues(String key, String val,Map<String, List<String>> parammapvalues){
 	  List<String> current = parammapvalues.get(key); 
