@@ -8,6 +8,7 @@ imports
   org/webdsl/dsl/languages/ui/templatecall-utils
   org/webdsl/dsl/languages/ui/templatecall
   org/webdsl/dsl/transformation/emit
+  org/webdsl/dsl/typechecker/error
 
 rules
 
@@ -39,14 +40,7 @@ rules // access values of defined template var arg
 
   desugar :
     FieldAccess(e, f){anno*} -> FieldAccessVarArgIndex(e, f, x_index, type){anno*}
-    where <type-of
-           ; ?TemplateVarArgSortInner(_){anno1*}
-           ; !anno1*
-           ; filter(?FormalVarArg(_,_))
-           ; add-indices
-           ; fetch-elem(?(_,FormalVarArg(f,_)))
-           ; ?(index,FormalVarArg(_,type))> e
-    with  x_index := <!(<id>,1); subti; int-to-string> index
+    where (x_index,type) := <get-member-tcall-index(|f,e)>
 
   type-of :
     FieldAccessVarArgIndex(e, f, index, type){anno*} -> type
@@ -80,17 +74,26 @@ rules // call template elements of defined template var arg
     where tmp{anno*} := xold
         ; memberanno := <fetch-elem(?MemberTC(arg))> anno*
 
+  constraint-error-ui :
+    MemberTemplateCall(x, tc){anno*} -> <add-error(|["TemplateElements argument '",x,".",tcname,"' not defined"])>
+    where tcname := <get-tc-name; strip-annos> tc
+        ; not(get-member-tcall-index(|tcname,Var(x)))
+
   desugar-ui :
     MemberTemplateCall(x, tc){anno*} -> MemberTemplateCallIndex(x, tc, x_index){anno*}
-    where  tcname := <get-tc-name; strip-annos> tc
-         ; <type-of
-            ; ?TemplateVarArgSortInner(_){anno1*}
-            ; !anno1*
-            ; filter(?FormalVarArg(_,_))
-            ; add-indices
-            ; fetch-elem(?(_,FormalVarArg(tcname,_)))
-            ; ?(index,FormalVarArg(_,_))> Var(x)
-    with  x_index := <!(<id>,1); subti; int-to-string> index
+    where tcname := <get-tc-name; strip-annos> tc
+        ; (x_index,type) := <get-member-tcall-index(|tcname,Var(x))>
+
+  get-member-tcall-index(|tcname,e) =
+    <type-of
+    ; ?TemplateVarArgSortInner(_){anno1*}
+    ; !anno1*
+    ; filter(?FormalVarArg(_,_))
+    ; add-indices
+    ; fetch-elem(?(_,FormalVarArg(tcname,_)))
+    ; ?(index,FormalVarArg(_,type))> e
+  ; x_index := <!(<id>,1); subti; int-to-string> index
+  ; !(x_index, type)
 
 rules // creating template elements var args in template call
 
