@@ -196,7 +196,7 @@ function findTopDown(element, id)
 
 function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfeedback)
 {
-  var attachObj;
+  var attachObj, loadingimage;
   if(loadfeedback){ attachObj = typeof loadImageElem !== 'undefined' ? loadImageElem : thisobject; delete loadImageElem; loadingimage = startLoading(attachObj); }
   serverInvokeCommon(template, action, jsonparams, thisform, thisobject,
     function()
@@ -267,10 +267,9 @@ function replaceWithoutAction(serviceURL, jsonData, idOfElemToReplace){
 var loadImageElem;
 
 function startLoading(attachObj){
-  var container = document.createElement("div");
-  var image = document.createElement("img");
-  image.src = contextpath+"/images/ajax-loader.gif";
-  container.appendChild(image);
+  var div = document.createElement("div");
+  div.innerHTML = '<div class="lds-ring"><div></div><div></div><div></div><div></div>' + loadingStyle +'</div>';
+  var container = div.firstChild;
   container.style.display = 'inline';
   container.style.position = 'absolute';
   attachObj.appendChild(container);
@@ -561,3 +560,42 @@ function appendLogSql(command) {
   div.innerHTML = command.value;
   document.body.appendChild(div);
 }
+
+var loadingStyle = `
+<style>
+.lds-ring {
+  display: inline-block;
+  position: relative;
+  width: 32px;
+  height: 32px;
+}
+.lds-ring div {
+  box-sizing: border-box;
+  display: block;
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin: 3px;
+  border: 3px solid #ddd;
+  border-radius: 50%;
+  animation: lds-ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+  border-color: #ddd transparent transparent transparent;
+}
+.lds-ring div:nth-child(1) {
+  animation-delay: -0.45s;
+}
+.lds-ring div:nth-child(2) {
+  animation-delay: -0.3s;
+}
+.lds-ring div:nth-child(3) {
+  animation-delay: -0.15s;
+}
+@keyframes lds-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+</style>`;
