@@ -197,7 +197,7 @@ function findTopDown(element, id)
 function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfeedback)
 {
   var attachObj, loadingimage;
-  if(loadfeedback){ attachObj = typeof loadImageElem !== 'undefined' ? loadImageElem : thisobject; delete loadImageElem; loadingimage = startLoading(attachObj); }
+  if(loadfeedback){ attachObj = typeof loadImageElem !== 'undefined' ? loadImageElem : thisobject; loadImageElem = undefined; loadingimage = startLoading(attachObj); }
   serverInvokeCommon(template, action, jsonparams, thisform, thisobject,
     function()
     {
