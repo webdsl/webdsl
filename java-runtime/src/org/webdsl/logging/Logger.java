@@ -1,5 +1,10 @@
 package org.webdsl.logging;
 
+import javax.servlet.http.HttpServletRequest;
+
+import utils.AbstractDispatchServletHelper;
+import utils.ThreadLocalServlet;
+
 public class Logger {
     private static final org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(org.webdsl.logging.Logger.class);
 
@@ -16,15 +21,15 @@ public class Logger {
     }
 
     public static final void error(Object message, Throwable t){
-        logger.error("ERROR " + message, t);
+        logger.error( addURLSuffix("ERROR " + message), t);
     }
 
     public static final void error(Object message){
-        logger.error("ERROR " + message);
+        logger.error( addURLSuffix("ERROR " + message) );
     }
 
     public static final void error(Throwable t){
-        logger.error("ERROR ", t);
+        logger.error( addURLSuffix("ERROR "), t);
     }
 
     public static final void trace(Object message){
@@ -32,14 +37,26 @@ public class Logger {
     }
 
     public static final void fatal(Object message){
-        logger.fatal(message);
+        logger.fatal( addURLSuffix( message.toString() ) );
     }
 
     public static final void fatal(Object message, Throwable t){
-        logger.error("FATAL " + message, t);
+        logger.error( addURLSuffix("FATAL " + message), t);
     }
 
     public static final void fatal(Throwable t){
-        logger.error("FATAL ", t);
+        logger.error( addURLSuffix("FATAL "), t);
+    }
+    
+    private static String addURLSuffix( String msg ) {
+      AbstractDispatchServletHelper dsh = ThreadLocalServlet.get();
+      if(dsh != null) {
+        HttpServletRequest req = dsh.getRequest();
+        if(req != null) {
+          return msg + " [" + req.getRequestURL().toString() + "]";
+        }
+      }
+      //else
+      return msg;
     }
 }
