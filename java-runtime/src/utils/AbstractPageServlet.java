@@ -301,6 +301,13 @@ public abstract class AbstractPageServlet{
     	  setValidated(false);
     	  throw mve;
       }
+      catch(utils.EntityNotFoundException enfe) {
+        org.webdsl.logging.Logger.error( enfe.getMessage() + ". Transaction is rolled back." );
+        if(hibernateSession.isOpen()){
+          hibernateSession.getTransaction().rollback();
+        }
+        throw enfe;
+      }
       catch (Exception e) {
         String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
         org.webdsl.logging.Logger.error("exception occurred while handling request URL [ " + url + " ]. Transaction is rolled back.");
