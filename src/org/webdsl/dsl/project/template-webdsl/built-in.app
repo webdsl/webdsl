@@ -475,6 +475,7 @@ native class utils.AbstractDispatchServletHelper as DispatchServlet{
   getOutgoingSuccessMessages(): [String]
   clearSuccessMessages()
   getRequest(): HttpServletRequest
+  getRemoteAddress() : String
   static get(): DispatchServlet
   getBaseUrl(): String
   getUrlComponents(): [String]
@@ -492,11 +493,7 @@ function getServerAttribute( name: String ): String {
   return getDispatchServlet().getRequest().getAttribute( name ) as String;
 }
 function remoteAddress(): String{
-  var address := getDispatchServlet().getRequest().getRemoteAddr();
-  if( address == "127.0.0.1" || address == "0:0:0:0:0:0:0:1" || address == "::1" ){  // e.g. Nginx proxying to http port of Tomcat
-    address := getPage().getXForwardedFor();  // only look at header if getRemoteAddr is useless
-  }
-  return address;
+  return getDispatchServlet().getRemoteAddress();
 }
 function baseUrl(): String{
   return getDispatchServlet().getBaseUrl();

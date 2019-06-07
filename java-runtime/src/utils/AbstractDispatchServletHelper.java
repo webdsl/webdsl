@@ -57,6 +57,16 @@ public abstract class AbstractDispatchServletHelper{
   public HttpServletRequest getRequest(){
     return request;
   }
+  public String getRemoteAddress() {
+    String address = getRequest().getRemoteAddr();
+    if( "127.0.0.1".equals(address) || "0:0:0:0:0:0:0:1".equals(address) || "::1".equals(address) ){  // e.g. Nginx proxying to http port of Tomcat
+      String forwardedFor = getRequest().getHeader("x-forwarded-for");
+      if(forwardedFor != null) {
+        address = forwardedFor;
+      }
+    }
+    return address;
+  }
   HttpServletResponse response;
   public HttpServletResponse getResponse(){
     return response;
