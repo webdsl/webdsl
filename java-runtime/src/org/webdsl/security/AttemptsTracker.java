@@ -8,7 +8,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 
 public class AttemptsTracker {
-  private static int maxAttempts = 10;
+//  private static int maxAttempts = 10;
   private static long expiresIn = 10;
   private static TimeUnit expiresUnit = TimeUnit.MINUTES;
   
@@ -31,7 +31,7 @@ public class AttemptsTracker {
    *   ...do login...
    * }
    */
-  public static boolean attempt( String type, String actorID ) {
+  public static boolean attempt( String type, String actorID, int attemptLimit ) {
     AttemptCounter a;
     String key = type + "__" + actorID;
     try {
@@ -46,7 +46,7 @@ public class AttemptsTracker {
       a.attempts++;
     }
     
-    return a == null || a.attempts <= maxAttempts;
+    return a == null || a.attempts <= attemptLimit;
   }
   
   //Only use with care! Resetting the attempts after a successful (login) attempt is a bad idea. Someone can just login to a known user account to reset the counter repeatedly.

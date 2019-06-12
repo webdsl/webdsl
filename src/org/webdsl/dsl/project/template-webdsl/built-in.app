@@ -102,7 +102,7 @@ function internalCleanupSessionManagerEntities(){
 
 // limit attempts
 native class org.webdsl.security.AttemptsTracker as AttemptsTracker{
-  static attempt(String, String) : Bool
+  static attempt(String, String, Int) : Bool
   static reset(String, String)
 }
 
@@ -111,7 +111,11 @@ function mayAttempt( type: String ) : Bool{
 }
 function mayAttempt( type: String, actorId: String ) : Bool{
   //attempts are limited to 10 attempts per 10 minutes per type
-  return AttemptsTracker.attempt( type, actorId );
+  return AttemptsTracker.attempt( type, actorId, 10 );
+}
+function mayAttempt( type: String, actorId: String, tenMinAttemptLim: Int ) : Bool{
+  //attempts are limited to tenMinAttemptLim attempts per 10 minutes per type
+  return AttemptsTracker.attempt( type, actorId, tenMinAttemptLim );
 }
 
 // search
