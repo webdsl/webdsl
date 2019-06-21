@@ -54,10 +54,11 @@ public class EnvironmentExtraLocalTemplateArgs {
 		}
 	}
 
-	public EnvironmentExtraLocalTemplateArgs putExtraLocalTemplateArguments(String key, LocalTemplateArguments value) {
-		name = key;
-		extraLocalTemplateArguments = value;
-		return new EnvironmentExtraLocalTemplateArgs(this);
-	} 
+  public EnvironmentExtraLocalTemplateArgs putExtraLocalTemplateArguments(String key, LocalTemplateArguments value) {
+    EnvironmentExtraLocalTemplateArgs newenv = new EnvironmentExtraLocalTemplateArgs(this);
+    newenv.name = key;
+    newenv.extraLocalTemplateArguments = value;
+    return newenv;
+  }
 
 }
