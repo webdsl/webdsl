@@ -41,6 +41,7 @@ entity PS{
 }
 var ses := PS{}
 template editSession(){
+  elements
   accordionPanels{
     panelBody{
       addMemberToCollection( ses.s )
