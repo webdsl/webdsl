@@ -21,11 +21,11 @@ section principal
     {
       1==1
     }
-    rules page root()
+    rule page root()
     {
       2==2
     }
-    rules page root(*)
+    rule page root(*)
     {
       3==3
     }
@@ -61,11 +61,11 @@ section somesection
     {
       5==5
     }
-    rules page root()
+    rule page root()
     {
       6==6
     }
-    rules page root(*)
+    rule page root(*)
     {
       7==7
     }
