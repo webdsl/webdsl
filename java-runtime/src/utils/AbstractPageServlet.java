@@ -459,7 +459,7 @@ public abstract class AbstractPageServlet{
         StringWriter s = new StringWriter();
         PrintWriter out = new PrintWriter(s);
 
-        if(request.getParameter("dynamicform") == null){
+        if(getParammap().get("dynamicform") == null){
           // regular pages and forms
           if(isNotValid()){
         	clearHibernateCache();
@@ -515,7 +515,7 @@ public abstract class AbstractPageServlet{
     protected StringWriter submitWrapSW;
     protected PrintWriter submitWrapOut;
     public void submitWrapOpenHelper(String submitId){
-    	if( ! inSubmittedForm && validationFormRerender && request != null && request.getParameter(submitId) != null ){
+    	if( ! inSubmittedForm && validationFormRerender && request != null && getParammap().get(submitId) != null ){
     		submittedSubmitId = submitId;
     		submitWrapSW = new java.io.StringWriter();
     		submitWrapOut = new java.io.PrintWriter(submitWrapSW);
