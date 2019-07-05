@@ -42,6 +42,7 @@ public abstract class AbstractPageServlet{
     protected AbstractPageServlet commandingPage = this;
     public boolean isReadOnly = false;
     public boolean isWebService(){ return false; }
+    public String placeholderId = "1";
 
     static{      
     	common_css_link_tag_suffix = "/stylesheets/" + CachedResourceFileNameHelper.getNameWithHash("stylesheets", "common_.css") + "\" rel=\"stylesheet\" type=\"text/css\" />";
@@ -61,12 +62,15 @@ public abstract class AbstractPageServlet{
       this.parammap = parammap;
       this.parammapvalues = parammapvalues;
       this.fileUploads=fileUploads;
+
       
-
       redirectHttpHttps();
-
-      if(parammap.get("__ajax_runtime_request__") != null) {
-        this.setAjaxRuntimeRequest(true);
+      String ajaxParam = parammap.get( "__ajax_runtime_request__" );
+      if( ajaxParam != null ){
+        this.setAjaxRuntimeRequest( true );
+        if( ajaxParam != "1" ){
+          placeholderId = ajaxParam;
+        }
       }
 
       org.webdsl.WebDSLEntity rle = getRequestLogEntry();
@@ -106,13 +110,14 @@ public abstract class AbstractPageServlet{
         ThreadLocalServlet.get().retrieveIncomingMessagesFromHttpSession();
 
         initVarsAndArgs();
-
+        enterPlaceholderIdContext();
+        
         if(isActionSubmit()) {
 
           if(parammap.get("__action__link__") != null) {
             this.setActionLinkUsed(true);
           }
-
+          
           templateservlet.storeInputs(null, args, new Environment(envGlobalAndSession), null);
           clearTemplateContext();
 
@@ -121,11 +126,11 @@ public abstract class AbstractPageServlet{
 
           if (!ignoreValidation){
             templateservlet.validateInputs (null, args, new Environment(envGlobalAndSession), null);
-            ThreadLocalPage.get().clearTemplateContext();
+            clearTemplateContext();
           }
           if(validated){
             templateservlet.handleActions(null, args, new Environment(envGlobalAndSession), null);
-            ThreadLocalPage.get().clearTemplateContext();
+            clearTemplateContext();
           }
         }
 
@@ -197,7 +202,7 @@ public abstract class AbstractPageServlet{
             if( isReRenderPlaceholders() ){
                 response.getWriter().write( "[" );
                 templateservlet.validateInputs (null, args, new Environment(envGlobalAndSession), null);
-                ThreadLocalPage.get().clearTemplateContext();
+                clearTemplateContext();
                 renderDynamicFormWithOnlyDirtyData = true;
                 renderPageOrTemplateContents(); // content of placeholders is collected in reRenderPlaceholdersContent map
                 StringWriter replacements = new StringWriter();
@@ -617,7 +622,7 @@ public abstract class AbstractPageServlet{
     //ajax/js runtime request related
     protected abstract void initializeBasics(AbstractPageServlet ps, Object[] args);
     public boolean isServingAsAjaxResponse = false;
-    public void serveAsAjaxResponse(Object[] args, TemplateCall templateArg)
+    public void serveAsAjaxResponse(Object[] args, TemplateCall templateArg, String placeholderId)
     { 
       AbstractPageServlet ps = ThreadLocalPage.get();
       TemplateServlet ts = ThreadLocalTemplate.get();
@@ -631,6 +636,9 @@ public abstract class AbstractPageServlet{
       //outputstream threadlocal is already set, see to-java-servlet/ajax/ajax.str
 
       this.isServingAsAjaxResponse = true;
+
+      this.placeholderId = placeholderId;
+      enterPlaceholderIdContext();
       templateservlet.render(null, args, Environment.createNewLocalEnvironment(envGlobalAndSession), null); // new clean environment with only the global templates, and global/session vars
 
       ThreadLocalTemplate.set(ts);
@@ -831,6 +839,11 @@ public abstract class AbstractPageServlet{
     public String getTemplateContextString() {
         return templateContext.getTemplateContextString();
     }
+    public void enterPlaceholderIdContext() {
+        if( ! "1".equals( placeholderId ) ){
+            templateContext.enterTemplateContext( placeholderId );
+        }
+    }
     public void enterTemplateContext(String s) {
         templateContext.enterTemplateContext(s);
     }
@@ -842,6 +855,7 @@ public abstract class AbstractPageServlet{
     }
     public void clearTemplateContext(){
         templateContext.clearTemplateContext();
+        enterPlaceholderIdContext();
     }
     public void setTemplateContext(TemplateContext tc){
         templateContext = tc;

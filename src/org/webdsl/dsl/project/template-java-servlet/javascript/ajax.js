@@ -195,14 +195,14 @@ function findTopDown(element, id) {
   return null;
 }
 
-function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfeedback) {
+function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfeedback, placeholderId) {
   var attachObj, loadingimage;
   if (loadfeedback) {
     attachObj = typeof loadImageElem !== 'undefined' ? loadImageElem : thisobject;
     loadImageElem = undefined;
     loadingimage = startLoading(attachObj);
   }
-  serverInvokeCommon(template, action, jsonparams, thisform, thisobject,
+  serverInvokeCommon(template, action, jsonparams, thisform, thisobject, placeholderId,
     function(req) {
       if (req.readyState == 4) {
         if (req.status == 200) {
@@ -239,7 +239,7 @@ function doShowError(msg) {
 
 var __requestcount = 0;
 
-function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, callback) {
+function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, placeholderId, callback) {
   var supportsFormData = window.FormData !== undefined;
   __requestcount++;
 
@@ -251,7 +251,7 @@ function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
       contentType: false,
       processData: false,
       url: template,
-      data: createFormData(action, jsonparams, thisform, thisobject),
+      data: createFormData(action, jsonparams, thisform, thisobject, placeholderId),
       complete: callback
     });
   } else {
@@ -264,13 +264,13 @@ function serverInvokeCommon(template, action, jsonparams, thisform, thisobject, 
       callback(this);
     };
 
-    data = createData(action, jsonparams, thisform, thisobject);
+    data = createData(action, jsonparams, thisform, thisobject, placeholderId);
 
     req.send(data);
   }
 }
 
-function createFormData(action, jsonparams, thisform, thisobject) {
+function createFormData(action, jsonparams, thisform, thisobject, placeholderId) {
   var theForm = (thisform != '') ? findElementById(thisobject, thisform) : null;
   var formdata = theForm ? new FormData(theForm) : new FormData();
   $.each(jsonparams, function(key, val) {
@@ -279,7 +279,7 @@ function createFormData(action, jsonparams, thisform, thisobject) {
 
   if (action != '') {
     formdata.append(action, "1");
-    formdata.append("__ajax_runtime_request__", 1);
+    formdata.append("__ajax_runtime_request__", placeholderId);
   } else {
     formdata.append("post-request-no-action", 1);
   }
@@ -287,7 +287,7 @@ function createFormData(action, jsonparams, thisform, thisobject) {
 }
 
 function replaceWithoutAction(serviceURL, jsonData, idOfElemToReplace) {
-  serverInvokeCommon(serviceURL, '', jsonData, '', '',
+  serverInvokeCommon(serviceURL, '', jsonData, '', '', '',
     function(req) {
       if (req.readyState == 4) {
         if (req.status == 200) {
@@ -325,10 +325,10 @@ function stopLoading(thisobject, loadingimage) {
 
 
 
-function createData(action, jsonparams, thisform, thisobject) {
+function createData(action, jsonparams, thisform, thisobject, placeholderId) {
   if (action != '') {
     data = action + "=1&";
-    data += "__ajax_runtime_request__=1&";
+    data += "__ajax_runtime_request__="+placeholderId+"&";
   } else {
     data = "post-request-no-action=1&";
   }
@@ -349,7 +349,7 @@ function createData(action, jsonparams, thisform, thisobject) {
   return data;
 }
 
-function serverInvokeDownloadCompatible(template, action, jsonparams, thisform, thisobject) {
+function serverInvokeDownloadCompatible(template, action, jsonparams, thisform, thisobject, placeholderId) {
   // Create an IFRAME.
   var iframe = document.createElement("iframe");
 
@@ -357,7 +357,7 @@ function serverInvokeDownloadCompatible(template, action, jsonparams, thisform, 
   iframe.style.display = "none";
 
   //encode form data
-  data = createData(action, jsonparams, thisform, thisobject);
+  data = createData(action, jsonparams, thisform, thisobject, placeholderId);
 
   // Point the IFRAME to the action invoke
   iframe.src = template + "?action-call-with-get-request-type=1&" + data;
