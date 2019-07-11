@@ -29,7 +29,7 @@ test headless{
 	p1.ident := "2";
 	var errors := p1.validateSave().exceptions;
 	assert(errors.length==1);
-	assert(errors[0].message == "Identity is already used.");
+	assert(errors[0].message == "Identity '2' is already used.");
 
 	p11.ident := "2";
 	var errors1 := p11.validateSave().exceptions;
