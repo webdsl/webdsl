@@ -27,12 +27,14 @@ import org.apache.lucene.search.spell.SpellChecker;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
+import org.hibernate.TransientObjectException;
 import org.hibernate.search.FullTextSession;
 import org.hibernate.search.SearchFactory;
 import org.hibernate.search.reader.ReaderProvider;
 import org.hibernate.search.store.DirectoryProvider;
 import org.hibernate.search.store.FSDirectoryProvider;
 import org.webdsl.WebDSLEntity;
+import org.webdsl.logging.Logger;
 
 public abstract class AbstractIndexManager {
 	protected static String currentNamespace = null;
@@ -322,7 +324,11 @@ public abstract class AbstractIndexManager {
 
 	public static void reindex(WebDSLEntity ent) {
 	  if(ent != null){
-	    getFullTextSession().index(ent);
+	    try{
+	      getFullTextSession().index(ent);
+	    } catch (TransientObjectException toe) {
+	      Logger.warn("Error during reindex of " + ent.get_WebDslEntityType() + " with id " + ent.getNaturalId() + " - " + toe.getMessage());
+	    }
 	  }
 	}
 
