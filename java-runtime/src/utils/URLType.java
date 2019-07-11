@@ -29,7 +29,7 @@ public class URLType {
 		Accepts any protocol (required)
 	*/
     public static Boolean isValid(String s){
-      if(s != null && s.equals("") || s.matches("^(([a-zA-Z]+:\\/\\/)|mailto:)(-\\.)?(([^\\s\\/?\\.#\\-]+|([^\\s\\/?\\.#\\-]-[^\\s\\/?\\.#\\-]))\\.?)+(\\/[^\\s]*)?$")) {
+      if(s != null && s.equals("") || s.matches("^(([a-zA-Z]+:\\/\\/)|mailto:)(-\\.)?([^\\s\\/?\\.#\\-](-*[^\\s\\/?\\.#\\-])*\\.?)+(\\/[^\\s]*)?$")) {
         return true;
       }
       return false;
