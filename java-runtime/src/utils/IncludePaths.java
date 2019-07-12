@@ -57,7 +57,7 @@ public class IncludePaths {
 	
 	public static void initialize(){
 		try{
-			String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
+			String url = ThreadLocalServlet.get().getRequestURL();
 			if( !( url.contains("localhost") || url.contains("127.0.0.1") || url.contains("::1") ) ){
 				jQueryJSPath = JQUERY_JS_CDN;
 				jQueryUIJSPath = JQUERYUI_JS_CDN;

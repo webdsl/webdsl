@@ -51,10 +51,7 @@ public class Logger {
     private static String addURLSuffix( String msg ) {
       AbstractDispatchServletHelper dsh = ThreadLocalServlet.get();
       if(dsh != null) {
-        HttpServletRequest req = dsh.getRequest();
-        if(req != null) {
-          return msg + " [" + req.getRequestURL().toString() + "]";
-        }
+          return msg + " [" + dsh.getRequestURL() + "]";
       }
       //else
       return msg;

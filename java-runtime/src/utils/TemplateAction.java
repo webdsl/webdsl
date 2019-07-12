@@ -68,7 +68,7 @@ public class TemplateAction{
 				if(!threadLocalPageCached.isRedirected() && !threadLocalPageCached.isDownloadSet() && threadLocalPageCached.isValid()){
 					try{
 						if(!threadLocalPageCached.isAjaxActionExecuted()){
-							threadLocalPageCached.setRedirectUrl(threadLocalPageCached.getPageUrlWithParams() + threadLocalPageCached.getExtraQueryAruments("?"));
+							threadLocalPageCached.setRedirectUrl(threadLocalPageCached.getPageUrlWithParams() + threadLocalPageCached.getExtraQueryArguments("?"));
 							if(!threadLocalPageCached.isActionLinkUsed()){ 
 								threadLocalPageCached.getResponse().sendRedirect(threadLocalPageCached.getRedirectUrl());
 							}

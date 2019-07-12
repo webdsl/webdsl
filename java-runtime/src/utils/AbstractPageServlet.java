@@ -167,7 +167,7 @@ public abstract class AbstractPageServlet{
             }
             // action called but no action found
             else if( !isWebService() && isValid() && isActionSubmit() ){
-              org.webdsl.logging.Logger.error("Error: server received POST request but was unable to dispatch to a proper action (" + request.getRequestURL() + ")" );
+              org.webdsl.logging.Logger.error("Error: server received POST request but was unable to dispatch to a proper action (" + getRequestURL() + ")" );
               httpServletResponse.setStatus( 404 );
               response.getWriter().write("404 \n Error: server received POST request but was unable to dispatch to a proper action");
             }
@@ -297,7 +297,7 @@ public abstract class AbstractPageServlet{
       }
 
       catch(utils.MultipleValidationExceptions mve){
-    	  String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
+    	  String url = getRequestURL();
     	  org.webdsl.logging.Logger.error("Validation exceptions occurred while handling request URL [ " + url + " ]. Transaction is rolled back.");
     	  for(utils.ValidationException vex : mve.getValidationExceptions()){
     		  org.webdsl.logging.Logger.error( "Validation error: " + vex.getErrorMessage() , vex );
@@ -314,7 +314,7 @@ public abstract class AbstractPageServlet{
         throw enfe;
       }
       catch (Exception e) {
-        String url = ThreadLocalServlet.get().getRequest().getRequestURL().toString();
+        String url = getRequestURL();
         org.webdsl.logging.Logger.error("exception occurred while handling request URL [ " + url + " ]. Transaction is rolled back.");
         org.webdsl.logging.Logger.error("exception message: "+e.getMessage(), e);
         if(hibernateSession.isOpen()){
@@ -385,7 +385,7 @@ public abstract class AbstractPageServlet{
     }
 
     public void renderOrInitAction() throws IOException{
-    	String key = request.getRequestURL().toString();
+    	String key = getRequestURL();
     	String s = "";
     	Cache<String, CacheResult> cache = null;
     	AbstractDispatchServletHelper servlet = ThreadLocalServlet.get();
@@ -667,7 +667,7 @@ public abstract class AbstractPageServlet{
     protected boolean isOptimizationEnabled = true;
     public boolean isOptimizationEnabled() { return isOptimizationEnabled; }
 
-    public String getExtraQueryAruments(String firstChar) { // firstChar is expeced to be ? or &, depending on wether there are more query aruments
+    public String getExtraQueryArguments(String firstChar) { // firstChar is expected to be ? or &, depending on whether there are more query arguments
         String res = "";
         if(!isOptimizationEnabled || isLogSqlEnabled) {
             res = firstChar;
@@ -713,7 +713,7 @@ public abstract class AbstractPageServlet{
         }
         else{
             //this doesn't work with ajax template render from action, since an ajax template needs to submit to a different page than the original request
-            return request.getRequestURL().toString();
+            return getRequestURL();
         }
     }
 
@@ -1027,6 +1027,20 @@ public abstract class AbstractPageServlet{
 
     public HttpServletRequest getRequest() {
         return request;
+    }
+    private String requestURLCached = null;
+    private String requestURICached = null; 
+    public String getRequestURL(){
+      if(requestURLCached == null) {
+        requestURLCached = AbstractDispatchServletHelper.get().getRequestURL();
+      }
+      return requestURLCached;
+    }
+    public String getRequestURI(){
+      if(requestURICached == null) {
+        requestURICached = AbstractDispatchServletHelper.get().getRequestURI();
+      }
+      return requestURICached;
     }
 
     public ResponseWrapper getResponse() {

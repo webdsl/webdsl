@@ -57,6 +57,27 @@ public abstract class AbstractDispatchServletHelper{
   public HttpServletRequest getRequest(){
     return request;
   }
+  private String requestURLCached = null;
+  private String requestURICached = null; 
+  public String getRequestURL(){
+    if(requestURLCached == null) {
+      String url = getRequest().getRequestURL().toString();
+      requestURLCached = replaceProtoInURI(url);      
+    }
+    return requestURLCached;
+  }
+  public String getRequestURI(){
+    if(requestURICached == null) {
+      String uri = getRequest().getRequestURI();
+      requestURICached = replaceProtoInURI(uri);
+    }
+    return requestURICached;
+  }
+  private String replaceProtoInURI( String u ) {
+    String proto = getRequest().getHeader("x-forwarded-proto");
+    return proto == null ? u : u.replaceFirst("\\w+://", proto + "://");
+  }
+  
   public String getRemoteAddress() {
     String address = getRequest().getRemoteAddr();
     if( "127.0.0.1".equals(address) || "0:0:0:0:0:0:0:1".equals(address) || "::1".equals(address) ){  // e.g. Nginx proxying to http port of Tomcat
