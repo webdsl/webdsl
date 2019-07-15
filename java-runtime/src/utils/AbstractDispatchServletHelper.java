@@ -60,14 +60,14 @@ public abstract class AbstractDispatchServletHelper{
   private String requestURLCached = null;
   private String requestURICached = null; 
   public String getRequestURL(){
-    if(requestURLCached == null) {
+    if(requestURLCached == null && getRequest() != null) {
       String url = getRequest().getRequestURL().toString();
-      requestURLCached = replaceProtoInURI(url);      
+      requestURLCached = replaceProtoInURI(url);
     }
     return requestURLCached;
   }
   public String getRequestURI(){
-    if(requestURICached == null) {
+    if(requestURICached == null && getRequest() != null) {
       String uri = getRequest().getRequestURI();
       requestURICached = replaceProtoInURI(uri);
     }
