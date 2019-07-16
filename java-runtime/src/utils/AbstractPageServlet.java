@@ -669,7 +669,7 @@ public abstract class AbstractPageServlet{
 
     public String getExtraQueryArguments(String firstChar) { // firstChar is expected to be ? or &, depending on whether there are more query arguments
       HttpServletRequest req = getRequest();
-      return (req != null) ? (firstChar + req.getQueryString()) : "";
+      return (req != null && req.getQueryString() != null) ? (firstChar + req.getQueryString()) : "";
     }
 
     public abstract String getPageName();
