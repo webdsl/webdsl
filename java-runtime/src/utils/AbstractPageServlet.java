@@ -668,14 +668,8 @@ public abstract class AbstractPageServlet{
     public boolean isOptimizationEnabled() { return isOptimizationEnabled; }
 
     public String getExtraQueryArguments(String firstChar) { // firstChar is expected to be ? or &, depending on whether there are more query arguments
-        String res = "";
-        if(!isOptimizationEnabled || isLogSqlEnabled) {
-            res = firstChar;
-            if(isLogSqlEnabled) res += "logsql";
-            if(isLogSqlEnabled && !isOptimizationEnabled) res += "&";
-            if(!isOptimizationEnabled) res += "disableopt";
-        }
-        return res;
+      HttpServletRequest req = getRequest();
+      return (req != null) ? (firstChar + req.getQueryString()) : "";
     }
 
     public abstract String getPageName();
