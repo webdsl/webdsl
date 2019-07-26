@@ -40,7 +40,6 @@ test/run-test-fail.sh
 test/run-test-succeed-all-servlet.sh
 test/run-test-succeed-all.sh
 test/run-test-succeed-web-all.sh
-test/generatenix.sh
 ],
 [ chmod +x src/org/webdsl/dsl/project/testnewproject.sh
   chmod +x test/run
@@ -49,7 +48,6 @@ test/generatenix.sh
   chmod +x test/run-test-succeed-all-servlet.sh
   chmod +x test/run-test-succeed-all.sh
   chmod +x test/run-test-succeed-web-all.sh
-  chmod +x test/generatenix.sh
 ])
 AC_OUTPUT
 
