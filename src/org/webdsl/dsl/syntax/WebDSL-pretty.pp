@@ -839,23 +839,6 @@
    SearchFieldMapping.3:iter-star                         -- _1,
    FullTextAnalyzer.1:opt                                 -- _1,
 
-%% Recommend
-   RecommendSchedule                                      -- _1,
-   RecommendType                                          -- _1,
-   RecommendNeighborSize                                  -- _1,
-   RecommendNeighborAlg                                   -- _1,
-   RecommendAlgorithm                                     -- _1,
-   RecommendValue                                         -- _1,
-   RecommendItem                                          -- _1,
-   RecommendUser                                          -- _1,
-   RecommendConfigStaticOrder                             -- KW["recommenderStaticOrder"] _1 KW["{"] _2 _3 _4 _5 _6 _7 _8 _9 KW["}"],
-   RecommendArgument                                      -- _1 KW["="] _2,
-   RecommendConfig.2:iter-star                            -- _1,
-   RecommendConfig                                        -- KW["recommend"] _1 KW["{"] _2 KW["}"],
-   RecommendConfig.2:iter-star                            -- _1,
-   RecommendConfigStaticOrder                             -- KW["recommenderStaticOrder"] _1 KW["{"] _2 _3 _4 _5 _6 _7 _8 _9 KW["}"],
-
-
 %% Webdsl-Regex
 
    RegexId                   -- H hs=0 [ _1],
