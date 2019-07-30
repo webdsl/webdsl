@@ -477,6 +477,7 @@ type File{
 }
 type String{
   utils.File.createFromString as asFile( String ): File
+  utils.File.createFromFilePath as pathToFile() : File
 }
 type Image{
   getContentAsString(): String

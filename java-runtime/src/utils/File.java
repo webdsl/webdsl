@@ -1,9 +1,11 @@
 package utils;
 
 import java.io.ByteArrayInputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -75,6 +77,26 @@ import javax.persistence.Transient;
   
   public void setContentFromString(String s) throws java.io.IOException{
     setContentStream(new ByteArrayInputStream(s.getBytes(StandardCharsets.UTF_8)));
+  }
+  
+  public static File createFromFilePath(String fullPath) {
+    File file = null;
+    try {
+        java.io.File fileOnDisk = new java.io.File(fullPath);
+        if(!fileOnDisk.exists()) {
+          return null;
+        } else {
+          file = new utils.File();
+          file.setContentStream(new FileInputStream(fileOnDisk));
+          String contentType = Files.probeContentType( fileOnDisk.toPath() );
+          file.setContentType(contentType);
+          file.setFileName( fileOnDisk.getName() );
+        }  
+    } catch (IOException e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+    return file;
   }
   
   public static File createFromString(String s, String fileName){
