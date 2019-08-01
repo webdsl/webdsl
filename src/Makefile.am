@@ -224,7 +224,7 @@ STRJFLAGS=-I . \
   -I org/webdsl/dsl/syntax/ \
   -D PACKAGE_VERSION_TERM=\"`git rev-parse HEAD`\"
   
-JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 5 -target 5 -nowarn
+JAVAC=`if which ecj >/dev/null; then echo ecj; else echo javac; fi` -J-Xmx512m -J-Xms100m -J-server -J-XX:+UseParallelGC -source 8 -target 8 -nowarn
 JAR=`if which fastjar >/dev/null; then echo fastjar; else echo jar; fi`
 
 JAVAS= \
