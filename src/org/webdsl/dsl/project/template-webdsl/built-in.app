@@ -1164,7 +1164,10 @@ template input( d: ref Date ){
   input( d, now().addYears( -50 ), now().addYears( 10 ) )[ all attributes ]{elements}
 }
 template input( d: ref Date, minYear: Int, maxYear: Int ){
- input(d, DateTime("01/01/" + minYear + " 0:00"), DateTime("31/12/" + maxYear + " 23:59") )
+ var minY := if(d != null && d.getYear() < minYear) d.getYear() else minYear
+ var maxY := if(d != null && d.getYear() > maxYear) d.getYear() else maxYear
+ 
+ input(d, DateTime("01/01/" + minY + " 0:00"), DateTime("31/12/" + maxY + " 23:59") )
 }
 
 template dateinputgeneric( d: ref Date, visibleJavaDateFormat: String, options: String ){
