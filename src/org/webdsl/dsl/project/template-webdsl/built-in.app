@@ -3425,7 +3425,7 @@ template messages(){
 template postProcess(jsAsString : String){
   <script>
   (function(){
-    var post_process_function = function(n){ var node=(n&&n instanceof HTMLElement)?n:document; ~jsAsString };
+    var post_process_function = function(n){ var node=(n&&n.nodeType === 1)?n:document; ~jsAsString };
     var original_post_process_func = ajax_post_process;
     ajax_post_process = function(){
       original_post_process_func.apply(this,arguments);
