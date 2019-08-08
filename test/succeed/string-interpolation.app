@@ -15,6 +15,10 @@ entity Tmp {
     return "~i~this.i~n~this.n~this.n.n~get()~this.get()";
   }
   derived : String := "~i~this.i~n~this.n~this.n.n~get()~this.get()"
+  function navfun: String {
+  log(navigate( navfun( this ) ));
+    return "~navigate( navfun( this ) )";
+  }
 }
 
 var t1 := Tmp { name := "t1" i := 1 }
@@ -49,6 +53,19 @@ template testtemplate() {
 
   output( t1.interpInEntity() )
   output( t1.derived )
+  
+  wrapper1(){ 
+    "~n1.name" //bug: String interpolation in elements of call causes javac error: non-static variable n1_ cannot be referenced from a static context
+  }
+  
+  javaclassrefs
+  "~t1.navfun()"
+}
+template wrapper1(){
+  "wrapper1[" elements "]"
+}
+template wrapper2(s : String){
+  "~s"
 }
 
 function testfun(): String{
@@ -62,8 +79,17 @@ function broken(): String{
   return "~tmp.n";
 }
 
-test {
-  log( rendertemplate( testtemplate() ));
-  assert( rendertemplate( testtemplate() ) == "[no-interp]t1blat1.foo1\~escape\\\\\~[no-interp]t1blat1.foo1\~t1t11test[]test[]test1211t1t111t1t1" );
+template javaclassrefs {
+  "~StringFunction.format( "%.02f", 0.12345f )"
+}
+native class java.lang.String as StringFunction { 
+  static format(String, Float): String
 }
 
+page navfun( t: Tmp ){}
+
+test {
+  log( rendertemplate( testtemplate() ));
+  assert( rendertemplate( testtemplate() ) == "[no-interp]t1blat1.foo1\~escape\\\\\~[no-interp]t1blat1.foo1\~t1t11test[]test[]test1211t1t111t1t1wrapper1[]0.12" + navigate( navfun( t1 ) ) );
+  assert( rendertemplate( wrapper2("hey") ) == "hey" );
+}

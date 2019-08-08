@@ -20,13 +20,24 @@ rules
 
   string-interp-to-java-servlet =
     map( is-string; string-replace(|"\\~","~"); { ?x; !expr|[ "~x" ]| }
-      <+ ?InterpExp(<!ExceptionIsEmptyString(<expression-to-java-servlet>, <extract-var-types-for-function-lifting>)>)
+      <+ ?InterpExp(<!ExceptionIsEmptyString(<prepare-string-interp-expression-for-function-lifting>, <extract-var-types-for-function-lifting>)>)
       <+ InterpTilde; !expr|[ "~" ]|
     )
   ; foldl(\(x,y) -> Plus(y,x)\ | expr|[ "" ]|)
 
+rules
+  // the var analysis for string interpolation expression exception handling is done on the WebDSL code and inserted in the generated Java fragment
+  // the actual helper function gets generated when the Java classes are created in java-transformations/merge.str
+
+  prepare-string-interp-expression-for-function-lifting =
+    alltd(\ v@Var(x){anno*} -> ExceptionIsEmptyStringFunArg(x, v){anno*} where get-type-anno; not(?ClassSort(_)) \)  // copy anno*, contains type anno which guides correct code generation in expression-to-java-servlet
+  ; expression-to-java-servlet
+
+  expression-to-java-servlet :
+    ExceptionIsEmptyStringFunArg(x, v) -> ExceptionIsEmptyStringFunArg(x, <expression-to-java-servlet> v)
+
   extract-var-types-for-function-lifting =
-    collect(\ v@Var(_) -> <get-type-anno;java-type-name> v \)
+    collect(\ v@Var(_) -> <get-type-anno; not(?ClassSort(_)); java-type-name> v \)
 
 rules //native java operations
 
