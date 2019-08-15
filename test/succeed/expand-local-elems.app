@@ -31,7 +31,8 @@ template test( f: Foo ) {
   <div expand a s d to x { x = "x" } ></div>   // html element attributes
   t3( expand f g h to x { "x" } )  // template call args
   output( f3( expand j k l to x { "x" } ) )  // function call args
-
+  testMultipleInt
+  testMultipleFoo
 }
 
 template t3( s1: String, s2: String, s3: String ){ ~s1 ~s2 ~s3 }
@@ -49,7 +50,7 @@ var f := Foo {
 test {
   var s := rendertemplate( test( f ) );
   log( s );
-  assert( s.contains( "foo123fooCache456fooInt9bar123barCache456barInt9y123yCache456yInt9qwerty<div u=\"u\" i=\"i\" o=\"o\"></div><div a=\"a\" s=\"s\" d=\"d\"></div>fghjkl" ) );
+  assert( s.contains( "foo123fooCache456fooInt9bar123barCache456barInt9y123yCache456yInt9qwerty<div u=\"u\" i=\"i\" o=\"o\"></div><div a=\"a\" s=\"s\" d=\"d\"></div>fghjklIntStringFooBar" ) );
 }
 
 expand Int String to Type {
@@ -57,5 +58,11 @@ expand Int String to Type {
     output( label )
     output( s )
     elements
+  }
+}
+
+expand Int String Foo Bar to Type1 Type2 {
+  template testMultipleType1 {
+    "Type1Type2"
   }
 }
