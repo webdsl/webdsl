@@ -3,15 +3,23 @@ module org/webdsl/dsl/transformation/derive-templates
 imports
   libstrategolib
   libwebdsl-front
-  //org/webdsl/dsl/typechecker/-
+
+signature constructors
+  FlattenDeriveList : Term -> Term
 
 strategies
 
   derive-templates =
-    repeat( {| DeriveTemplateCall:
-      alltd(register-derive)
-    ; apply-derive
-    |} )
+    {| DeriveLocalFound:
+      repeat( {| DeriveTemplateCall:
+        alltd(register-derive)
+      ; apply-derive
+      |} )
+    ; if where(DeriveLocalFound) then
+        alltd(derive-local)
+      ; topdown(try(fetch(?FlattenDeriveList(_)); map(try(?FlattenDeriveList(<id>))); flatten-list))
+      end
+    |}
 
 rules
 
@@ -36,7 +44,7 @@ rules
     ?(<id>, vars)
   ; DeriveTemplateDefinition
   ; ?(tvars, body)
-  ; <zip; foldr(\ ((tvar,var), b) -> <handle-string-var(|tvar,var)> b \ | body) <+ debug(!"derive-template failed")> (tvars, vars)
+  ; <zip; foldr(\ ((tvar,var), b) -> <handle-string-var(|tvar,var)> b \ | body) <+ debug(|"derive-template failed")> (tvars, vars)
 
   handle-string-var(|tvar,var) =
     where(tvar-lower := <lower-case> tvar; var-lower := <lower-case> var)
@@ -45,3 +53,14 @@ rules
     <+ \x -> <where(is-string; is-substring(!tvar)); string-replace(|tvar, var)> x\ // construct name like Person -> createPerson
     <+ \x -> var-lower where <?tvar-lower> x\ // replace lowercase occurrence, construct name like Person -> person
     <+ \x -> <where(is-string; is-substring(!tvar-lower)); string-replace(|tvar-lower, var-lower)> x\) // construct name like Person -> createperson
+
+rules
+
+  register-derive:
+    dl@DeriveLocal(tvar, vals, elems) -> dl
+    where not(DeriveLocalFound)
+    with  rules(DeriveLocalFound := 1)
+
+  derive-local :
+    DeriveLocal(tvar, vals, elems) -> FlattenDeriveList(body)
+    with  body := <map(\ x -> <handle-string-var(|tvar,x)> elems \ <+ debug(|"derive-local failed"))> vals
