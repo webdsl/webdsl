@@ -1,7 +1,7 @@
-application derivetest
+application expandtest
 
-derivetemplate pages Ent {
-  page ent(x:Ent){
+expandtemplate pages to Ent {
+  page ent( x: Ent ){
     "view page for ents"
     table{
       derive viewRows from x
@@ -18,8 +18,8 @@ derivetemplate pages Ent {
   }
 }
 
-derive pages Person
-derive pages User
+expand Person to pages
+expand User to pages
 
 entity Person{
   name : String
