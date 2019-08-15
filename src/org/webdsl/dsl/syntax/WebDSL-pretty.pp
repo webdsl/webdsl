@@ -391,8 +391,9 @@
    ViewPage                                     -- KW["viewPage"],
    ViewRows                                     -- KW["viewRows"],
 
-   DeriveTemplateCall                           -- KW["derive"] _1 _2,
-   DeriveTemplateDefinition                     -- KW["derivetemplate"] _1 _2 KW["{"] _3 KW["}"],
+   ExpandTemplateCall                           -- KW["expand"] _1 KW["to"] _2,
+   ExpandTemplateDefinition                     -- KW["expandtemplate"] _1 KW["to"] _2 KW["{"] _3 KW["}"],
+   ExpandLocal                                  -- KW["expand"] _1 KW["to"] _2 KW["{"] _3 KW["}"],
 
    ExpEntityDerive                              -- _1 KW["with"] _2 ,
    ExpEntityDeriveProp                          -- _1 KW["("] _2 KW[")"],
