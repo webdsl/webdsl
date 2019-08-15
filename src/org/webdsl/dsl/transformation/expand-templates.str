@@ -12,14 +12,16 @@ strategies
   expand-templates =
     {| ExpandLocalFound:
       repeat( {| ExpandTemplateCall:
-        alltd(register-expand)
+        alltd( register-expand )
       ; apply-expand
       |} )
-    ; if where(ExpandLocalFound) then
-        alltd(expand-local)
-      ; topdown(try(fetch(?FlattenExpandList(_)); map(try(?FlattenExpandList(<id>))); flatten-list))
+    ; if where( ExpandLocalFound ) then
+        alltd( expand-local )
+      ; topdown(try( flatten-expand-list ))
       end
     |}
+
+  flatten-expand-list = fetch( ?FlattenExpandList(_) ); map(try( ?FlattenExpandList(<id>) )); flatten-list
 
 rules
 
@@ -35,24 +37,37 @@ rules
 
   apply-expand =
     ?Application(qid,sections){anno*}
-  ; names := <bagof-ExpandTemplateCall; uniq>
-  ; <not(?[])> names
-  ; newdefs := <mapconcat(inline-expand)> names
+  ; namevals := <bagof-ExpandTemplateCall; uniq>
+  ; <not(?[])> namevals
+  ; newdefs := <map( inline-expand ); flatten-list> namevals
   ; !Application(qid,[Section("expandtemplate", newdefs) | sections]){anno*}
 
   inline-expand =
-    ?(<id>, vars)
+    ?(<id>, vals)
   ; ExpandTemplateDefinition
   ; ?(tvars, body)
-  ; <zip; foldr(\ ((tvar,var), b) -> <handle-string-var(|tvar,var)> b \ | body) <+ debug(|"expand-template failed")> (tvars, vars)
+  ; tlen := <length> tvars
+  ; len := <length> vals
+  ; if <?tlen> len
+    then <inline-expand-helper(| tvars, body )> vals          // list of definitions
+    else <inline-expand-multiple(| tlen, tvars, body )> vals  // list of expanded templates with lists of definitions
+    end
 
-  handle-string-var(|tvar,var) =
-    where(tvar-lower := <lower-case> tvar; var-lower := <lower-case> var)
+  inline-expand-multiple(| tlen, tvars, body ) :
+    vals -> [ expanded | <try(<inline-expand-multiple(| tlen, tvars, body )> rest)> ]
+    where (curvals, rest) := <split-at(| tlen )> vals
+        ; expanded := <inline-expand-helper(| tvars, body )> curvals
+
+  inline-expand-helper(| tvars, body ) :
+    vals -> <zip; foldr(\ ((tvar,val), b) -> <handle-string-var(| tvar, val )> b \ | body ) <+ debug(| "expand-template failed" )> (tvars, vals)
+
+  handle-string-var(| tvar, val ) =
+    where(tvar-lower := <lower-case> tvar; val-lower := <lower-case> val)
   ; alltd(
-       \x -> var where <?tvar> x\ // replace any string occurrence, because the expandtemplate definitions are parsed as regular definitions
-    <+ \x -> <where(is-string; is-substring(!tvar)); string-replace(|tvar, var)> x\ // construct name like Person -> createPerson
-    <+ \x -> var-lower where <?tvar-lower> x\ // replace lowercase occurrence, construct name like Person -> person
-    <+ \x -> <where(is-string; is-substring(!tvar-lower)); string-replace(|tvar-lower, var-lower)> x\) // construct name like Person -> createperson
+       \x -> val where <?tvar> x\ // replace any string occurrence, because the expandtemplate definitions are parsed as regular definitions
+    <+ \x -> <where(is-string; is-substring(!tvar)); string-replace(|tvar, val)> x\ // construct name like Person -> createPerson
+    <+ \x -> val-lower where <?tvar-lower> x\ // replace lowercase occurrence, construct name like Person -> person
+    <+ \x -> <where(is-string; is-substring(!tvar-lower)); string-replace(|tvar-lower, val-lower)> x\) // construct name like Person -> createperson
 
 rules
 
