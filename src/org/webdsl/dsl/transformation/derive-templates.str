@@ -5,62 +5,62 @@ imports
   libwebdsl-front
 
 signature constructors
-  FlattenDeriveList : Term -> Term
+  FlattenExpandList : Term -> Term
 
 strategies
 
-  derive-templates =
-    {| DeriveLocalFound:
-      repeat( {| DeriveTemplateCall:
-        alltd(register-derive)
-      ; apply-derive
+  expand-templates =
+    {| ExpandLocalFound:
+      repeat( {| ExpandTemplateCall:
+        alltd(register-expand)
+      ; apply-expand
       |} )
-    ; if where(DeriveLocalFound) then
-        alltd(derive-local)
-      ; topdown(try(fetch(?FlattenDeriveList(_)); map(try(?FlattenDeriveList(<id>))); flatten-list))
+    ; if where(ExpandLocalFound) then
+        alltd(expand-local)
+      ; topdown(try(fetch(?FlattenExpandList(_)); map(try(?FlattenExpandList(<id>))); flatten-list))
       end
     |}
 
 rules
 
-  register-derive :
-    DeriveTemplateDefinition(name, vars, defs) -> RemoveMe()
-    with  rules(DeriveTemplateDefinition : name -> (vars, defs))
+  register-expand :
+    ExpandTemplateDefinition(name, vars, defs) -> RemoveMe()
+    with  rules(ExpandTemplateDefinition : name -> (vars, defs))
 
-  register-derive :
-    DeriveTemplateCall(name, vars) -> RemoveMe()
-    with  rules(DeriveTemplateCall :+= (name, vars))
+  register-expand :
+    ExpandTemplateCall(vars, name) -> RemoveMe()
+    with  rules(ExpandTemplateCall :+= (name, vars))
 
 rules
 
-  apply-derive =
+  apply-expand =
     ?Application(qid,sections){anno*}
-  ; names := <bagof-DeriveTemplateCall; uniq>
+  ; names := <bagof-ExpandTemplateCall; uniq>
   ; <not(?[])> names
-  ; newdefs := <mapconcat(inline-derive)> names
-  ; !Application(qid,[Section("derivetemplate", newdefs) | sections]){anno*}
+  ; newdefs := <mapconcat(inline-expand)> names
+  ; !Application(qid,[Section("expandtemplate", newdefs) | sections]){anno*}
 
-  inline-derive =
+  inline-expand =
     ?(<id>, vars)
-  ; DeriveTemplateDefinition
+  ; ExpandTemplateDefinition
   ; ?(tvars, body)
-  ; <zip; foldr(\ ((tvar,var), b) -> <handle-string-var(|tvar,var)> b \ | body) <+ debug(|"derive-template failed")> (tvars, vars)
+  ; <zip; foldr(\ ((tvar,var), b) -> <handle-string-var(|tvar,var)> b \ | body) <+ debug(|"expand-template failed")> (tvars, vars)
 
   handle-string-var(|tvar,var) =
     where(tvar-lower := <lower-case> tvar; var-lower := <lower-case> var)
   ; alltd(
-       \x -> var where <?tvar> x\ // replace any string occurrence, because the derivetemplate definitions are parsed as regular definitions
+       \x -> var where <?tvar> x\ // replace any string occurrence, because the expandtemplate definitions are parsed as regular definitions
     <+ \x -> <where(is-string; is-substring(!tvar)); string-replace(|tvar, var)> x\ // construct name like Person -> createPerson
     <+ \x -> var-lower where <?tvar-lower> x\ // replace lowercase occurrence, construct name like Person -> person
     <+ \x -> <where(is-string; is-substring(!tvar-lower)); string-replace(|tvar-lower, var-lower)> x\) // construct name like Person -> createperson
 
 rules
 
-  register-derive:
-    dl@DeriveLocal(tvar, vals, elems) -> dl
-    where not(DeriveLocalFound)
-    with  rules(DeriveLocalFound := 1)
+  register-expand:
+    dl@ExpandLocal(vals, tvar, elems) -> dl
+    where not(ExpandLocalFound)
+    with  rules(ExpandLocalFound := 1)
 
-  derive-local :
-    DeriveLocal(tvar, vals, elems) -> FlattenDeriveList(body)
-    with  body := <map(\ x -> <handle-string-var(|tvar,x)> elems \ <+ debug(|"derive-local failed"))> vals
+  expand-local :
+    ExpandLocal(vals, tvar, elems) -> FlattenExpandList(body)
+    with  body := <map(\ x -> <handle-string-var(|tvar,x)> elems \ <+ debug(|"expand-local failed"))> vals

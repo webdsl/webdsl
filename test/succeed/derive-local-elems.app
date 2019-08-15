@@ -1,15 +1,15 @@
-application derivetest
+application expandtest
 
 page root {}
 
 entity Foo {
-  derive x in foo bar y {  // entity body declarations
+  expand foo bar y to x {  // entity body declarations
     x: String
     xCache: String
     xInt: Int
   }
   function x {
-    derive x in foo bar y {  // statements
+    expand foo bar y to x {  // statements
       log( x );
       log( xCache );
       log( xInt );
@@ -18,19 +18,19 @@ entity Foo {
 }
 
 template test( f: Foo ) {
-  derive x in foo bar y {  // template elements
+  expand foo bar y to x {  // template elements
     output( "x", f.x )
     output( "xCache", f.xCache )
     output( "xInt", f.xInt )
   }
-  var list := [ derive x in q w e { "x" } ]  // list elems
+  var list := [ expand q w e to x { "x" } ]  // list elems
   for( i in list ){ ~i }
-  var set := { derive x in r t y { "x" } }  // set elems
+  var set := { expand r t y to x { "x" } }  // set elems
   for( i in set ){ ~i }
-  div[ derive x in u i o { x = "x" } ]    // template call attributes
-  <div derive x in a s d { x = "x" } ></div>   // html element attributes
-  t3( derive x in f g h { "x" } )  // template call args
-  output( f3( derive x in j k l { "x" } ) )  // function call args
+  div[ expand u i o to x { x = "x" } ]    // template call attributes
+  <div expand a s d to x { x = "x" } ></div>   // html element attributes
+  t3( expand f g h to x { "x" } )  // template call args
+  output( f3( expand j k l to x { "x" } ) )  // function call args
 
 }
 
@@ -39,7 +39,7 @@ function f3( s1: String, s2: String, s3: String ): String { return "~s1~s2~s3"; 
 
 
 var f := Foo {
-  derive x in foo bar y {  // object creation set properties
+  expand foo bar y to x {  // object creation set properties
     x := "123"
     xCache := "456"
     xInt := 9
@@ -52,7 +52,7 @@ test {
   assert( s.contains( "foo123fooCache456fooInt9bar123barCache456barInt9y123yCache456yInt9qwerty<div u=\"u\" i=\"i\" o=\"o\"></div><div a=\"a\" s=\"s\" d=\"d\"></div>fghjkl" ) );
 }
 
-derive Type in Int String {
+expand Int String to Type {
   template output( label: String, s: ref Type ){  // top-level elements
     output( label )
     output( s )

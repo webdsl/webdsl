@@ -1,8 +1,8 @@
-application derivetest
+application expandtest
 
 page root(){}
 
-derivetemplate mult First second third fourth {
+expandtemplate mult to First second third fourth {
   template first(){
     "first"
     "second"
@@ -12,8 +12,8 @@ derivetemplate mult First second third fourth {
   }
 }
 
-derive mult Testone 2 3 Varname4
-derive mult testtwo 5 6 varname7
+expand Testone 2 3 Varname4 to mult
+expand testtwo 5 6 varname7 to mult
 
 test {
   log( rendertemplate( testone() ) );
