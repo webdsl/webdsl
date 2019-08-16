@@ -35,8 +35,8 @@ template test( f: Foo ) {
   testMultipleFoo
 }
 
-template t3( s1: String, s2: String, s3: String ){ ~s1 ~s2 ~s3 }
-function f3( s1: String, s2: String, s3: String ): String { return "~s1~s2~s3"; }
+template t3( expand s1 s2 s3 to x { x: String } ){ expand s1 s2 s3 to x { ~x } }
+function f3( expand s1 s2 s3 to x { x: String } ): String { return "~s1~s2~s3"; }
 
 
 var f := Foo {
@@ -61,7 +61,10 @@ expand Int String to Type {
   }
 }
 
-expand Int String Foo Bar to Type1 Type2 {
+expand
+  Int String
+  Foo Bar
+  to Type1 Type2 {
   template testMultipleType1 {
     "Type1Type2"
   }
