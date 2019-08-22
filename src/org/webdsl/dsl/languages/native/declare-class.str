@@ -10,7 +10,7 @@ imports
 
 strategies
 
-  declare-native = declare-native-class  
+  declare-native = declare-native-class
 
   IsNativeClass = where(?SimpleSort(<id>); NativeClassDecl)
   NativeClassQualifiedName = NativeClassDecl; ?NativeClass(<id>, _, _, _) 
@@ -18,11 +18,15 @@ strategies
   // native class without super extends 'Object'
   Extends = NativeClassDecl; ?NativeClass(_,_,None(),_); !"Object"
 
+  is-native-class-property = ?NativeClassProperty(_, _)
+  is-native-class-function = ?NativeClassFunction(_, _, _, _) <+ ?NativeClassFunctionFromStatic(_, _)
+  is-native-class-constructor = ?NativeClassConstructor(_) <+ ?NativeClassConstructorFromStatic(_, _)
+
   declare-native-class :
     def@NativeClass(javaclassqname,as,super,elems) -> def
-    with  props := <filter(?NativeClassProperty(_,_))> elems
-        ; funcs := <filter(?NativeClassFunction(_,_,_,_)<+?NativeClassFunctionFromStatic(_,_))> elems
-        ; cons  := <filter(?NativeClassConstructor(_))> elems
+    with  props := <filter(is-native-class-property)> elems
+        ; funcs := <filter(is-native-class-function)> elems
+        ; cons  := <filter(is-native-class-constructor)> elems
         ; if alias := <?NativeClassAlias(<id>)> as
           then webdslname := alias
           else webdslname := javaclassqname end 
@@ -31,25 +35,37 @@ strategies
         ; <map(\prop -> <rules(Properties :+ webdslname -> prop); declare-native-class-prop(|webdslname)> \)> props
         ; <map(\func -> <rules(Functions :+ webdslname -> func); declare-native-class-func(|webdslname)> \)> funcs
         ; <map(normalize-native-constructor(|javaclassqname,webdslname); declare-global-func)> cons
-       
-  normalize-declare: 
-    NativeClass(javaclassqname,as,super,elems) -> NativeClass(javaclassqname,as,super,newelems)
-    with  elems1* := <remove-all(?NativeClassConstructor(_))> elems
+
+  normalize-declare :
+    NativeClass(javaclassqname,as,super,elems) ->
+    NativeClass(javaclassqname,as,super,newelems)
+    with  elems1* := <remove-all(is-native-class-constructor)> elems
         ; webdslname := <try(?NativeClassAlias(<id>))> as
-        ; elems2* := <filter(?NativeClassConstructor(_); normalize-native-constructor(|javaclassqname,webdslname))> elems
+        ; elems2* := <filter(is-native-class-constructor; normalize-native-constructor(|javaclassqname,webdslname))> elems
         ; newelems := [elems1*, elems2*]
     where not([] := elems2*)    // avoid infinite loop
-    
-  normalize-native-constructor(|javaclassqname,webdslname): 
-    ncf@NativeClassConstructor(args) -> Function(webdslname, farg*, SimpleSort(webdslname), None()){NativeClassConstructorAnnotation(javaclassqname,webdslname)}
+
+  normalize-native-constructor(|javaclassqname, webdslname) :
+    ncf@NativeClassConstructor(args) ->
+    Function(webdslname, farg*, SimpleSort(webdslname), None()){NativeClassConstructorAnnotation(javaclassqname,webdslname)}
     with  farg* := <map(native-type-to-webdsl-type; !Arg("dummy", <id>))> args
 
-  desugar-data : 
-    ThisCall(x1{anno1*}, arg*){anno*} -> 
-    NativeClassConstructorCall(javaclassqname,webdslname,arg*){anno*}
-    where <CallToFunctionGetDecl; has-anno(?NativeClassConstructorAnnotation(javaclassqname, webdslname))> x1
+  normalize-native-constructor(|javaclassqname,webdslname):
+    ncf@NativeClassConstructorFromStatic(staticfuncname, args) ->
+    Function(webdslname, farg*, SimpleSort(webdslname), None()){NativeClassConstructorAnnotation(javaclassqname,webdslname), StaticFunctionNameForNativeFunction(staticfuncname)}
+    with  farg* := <map(native-type-to-webdsl-type; !Arg("dummy", <id>))> args
 
-  eq-type-of : 
+  desugar-data :
+    ThisCall(x1{anno1*}, arg*){anno*} ->
+    NativeClassConstructorCall(javaclassqname,webdslname,arg*){annoresult*}
+    where decl := <CallToFunctionGetDecl> x1
+        ; <has-anno(?NativeClassConstructorAnnotation(javaclassqname, webdslname))> decl
+    with  if <has-anno(?StaticFunctionNameForNativeFunction(staticfuncname))> decl
+          then annoresult* := [ TypeNativeFunction(staticfuncname) | anno*]
+          else annoresult* := anno*
+          end
+
+  eq-type-of :
     NativeClassConstructorCall(javaclassqname, webdslname, arg*){anno*} -> SimpleSort(webdslname)
 
   declare-native-class-static-functions(|name,class) =
@@ -58,10 +74,10 @@ strategies
       TypeOf : Var(name) -> ClassSort(name){NativeClassAnno(name,class)}
     )
 
-  normalize-declare: 
+  normalize-declare :
     NativeClassProperty(name,type) -> Property(name, Simple(), <native-type-to-webdsl-type> type, [])
-        
-  declare-native-class-prop(|class):
+
+  declare-native-class-prop(|class) :
     ncp@NativeClassProperty(name,type) -> ncp
     with  webdsltype := <native-type-to-webdsl-type> type
         ; prop := <with-origin(normalize-declare)> ncp
@@ -70,37 +86,37 @@ strategies
             IsProperty     : (class,name)
             PropertyDecl   : (class,name) -> prop
           )
-          
+
   native-type-to-webdsl-type :
     NativeSimpleType(a) -> SimpleSort(a)
   native-type-to-webdsl-type :
     NativeGenericType(a,b) -> GenericSort(a,<map(native-type-to-webdsl-type)> b)
-  
-  normalize-declare: 
+
+  normalize-declare :
     NativeClassFunction(static,name,args1,ret1){anno*} -> Function(name, args2, ret2, None()){anno*}
     with  args2 := <map(native-type-to-webdsl-type; !Arg("dummy", <id>))> args1
         ; ret2 := <?NativeClassFunctionReturn(<native-type-to-webdsl-type>) <+ !SimpleSort("Void")> ret1
-  
-  declare-native-class-func(|class):
+
+  declare-native-class-func(|class) :
     NativeClassFunctionFromStatic(staticfuncqid,ncf) -> <declare-type-def-native-class-func-helper(|class, staticfuncqid)> ncf
-  
-  declare-native-class-func(|class):
+
+  declare-native-class-func(|class) :
     ncf@NativeClassFunction(static,name,args,return) -> ncf
     with  t1* := <map(native-type-to-webdsl-type)> args
         ; if staticfunction := <?NativeClassFunctionStatic()> static
           then  callee := ClassSort(class)
-          else  callee := SimpleSort(class) 
+          else  callee := SimpleSort(class)
           end
         ; f := <with-origin(normalize-declare)> ncf
         ; rules( 
             CheckNativeFunctionSignatureArgumentTypes :+
               (callee, name, t2*) -> t1* where <zip(type-compatible)> (t1*, t2*)
-            
+
             NativeFunctionDecl : (callee, name, t1*) -> f
           )
 
   type-exists-native = IsNativeClass
-  
-  type-default-value = 
+
+  type-default-value =
      IsNativeClass
     ; !exp |[ null ]|

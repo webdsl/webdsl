@@ -2,44 +2,61 @@ module org/webdsl/dsl/to-java-servlet/native/declare-class
 
 rules
 
-  native-class-java-type: 
+  native-class-java-type :
     sort -> type|[ x ]|
     where x := <native-class-name-from-type; pp-qualified>
- 
-  pp-qualified: 
+
+  pp-qualified :
     x -> x where is-string
   pp-qualified:
     Qualified(q,name) -> res
     with res := <concat-strings> [<pp-qualified> q,".",name]
- 
-  //static function
+
+  // static function
   call-to-java-servlet :
     Call(e,x_funcname,args) -> java |[ x_classname.x_funcname(e*) ]|
     where <is-native-class-is-class-sort> e
-    with   x_classname := <native-class-name; pp-webdsl-to-string> e
+    where not(has-anno(?TypeNativeFunction(_)))
+    with  x_classname := <native-class-name; pp-webdsl-to-string> e
         ; e* := <map(expression-to-java-servlet)> args
-  
+
+  // static function implemented with static function in other class, e.g. x.y as static y()
+  call-to-java-servlet :
+    Call(e,x_funcname,args) -> java |[ x_staticmethod(e*) ]|
+    where <is-native-class-is-class-sort> e
+    where get-anno(?TypeNativeFunction(staticfuncname))
+    with  e* := <map(expression-to-java-servlet)> args
+        ; x_staticmethod := <pp-webdsl-to-string> staticfuncname
+
   call-to-java-servlet :
     Call(e,x,args) ->   java |[ e1.x(e*) ]|
     where <is-native-class> e
-    where not(get-anno(?TypeNativeFunction(staticfuncname)))
+    where not(has-anno(?TypeNativeFunction(_)))
     with  e1 := <expression-to-java-servlet> e 
-        ; e* := <map(expression-to-java-servlet)> args      
-          
+        ; e* := <map(expression-to-java-servlet)> args
+
   call-to-java-servlet :
     Call(e,x,args) -> result
     where get-anno(?TypeNativeFunction(staticfuncname))
+    where <not(is-native-class-is-class-sort)> e
     with  e1 := <expression-to-java-servlet> e 
-        ; e* := <map(expression-to-java-servlet)> args      
+        ; e* := <map(expression-to-java-servlet)> args
     with  if <?None()> staticfuncname
           then result := java |[ e1.x(e*) ]|
           else x_staticmethod := <pp-webdsl-to-string> staticfuncname
              ; result := java |[ x_staticmethod(e1,e*) ]|
           end
-          
+
   call-to-java-servlet :
     NativeClassConstructorCall(javaclassqname, webdslname, arg*) -> java |[ new x_cons(e*) ]|
+    where not(get-anno(?TypeNativeFunction(_)))
     with  x_cons := <pp-webdsl-to-string> javaclassqname
+        ; e* := <map(expression-to-java-servlet)> arg*
+
+  call-to-java-servlet :
+    NativeClassConstructorCall(javaclassqname, webdslname, arg*) -> java |[ x_staticmethod(e*) ]|
+    where get-anno(?TypeNativeFunction(staticfuncname))
+    with  x_staticmethod := <pp-webdsl-to-string> staticfuncname
         ; e* := <map(expression-to-java-servlet)> arg*
 
   assignment-to-java-servlet-specific :
@@ -47,12 +64,8 @@ rules
     where <is-native-class> qid
     with  e2 := <expression-to-java-servlet> qid
         ; e3 := <expression-to-java-servlet> e1
-        
+
   field-access-to-java-servlet :
     FieldAccess(e1, x) -> expr|[ e2.x ]|
     where <is-native-class> e1
     with  e2 := <expression-to-java-servlet> e1
-    
-    
-    
-    

@@ -646,45 +646,64 @@ type String{
 
 //  section JSON for services
 
-native class org.json.JSONObject as JSONObject{
+native class com.google.gson.JsonObject as JSONObject {
   constructor()
-  constructor( String )
-  NULL: Object
-  get( String ): Object
-  getBoolean( String ): Bool
-  getDouble( String ): Double
-  getInt( String ): Int
-  getLong( String ): Long
-  getJSONArray( String ): JSONArray
-  getJSONObject( String ): JSONObject
-  getString( String ): String
+  utils.JSONType.parseJsonObject as constructor( String )
+  utils.JSONType.getString as getString( String ): String
+  utils.JSONType.getBoolean as getBoolean( String ): Bool
+  utils.JSONType.getInt as getInt( String ): Int
+  utils.JSONType.getLong as getLong( String ): Long
+  utils.JSONType.getDouble as getDouble( String ): Double
+  utils.JSONType.getJSONObject as getJSONObject( String ): JSONObject
+  utils.JSONType.getJSONArray as getJSONArray( String ): JSONArray
+  utils.JSONType.getJSONNull as getNullValue( String ): JSONNull
   has( String ): Bool
-  names(): JSONArray
-  put( String, Object )
-  toString(): String
-  toString( Int ): String
+  utils.JSONType.put as put( String, String )
+  utils.JSONType.put as put( String, Bool )
+  utils.JSONType.put as put( String, Int )
+  utils.JSONType.put as put( String, Long )
+  utils.JSONType.put as put( String, Float )
+  utils.JSONType.put as put( String, Double )
+  utils.JSONType.put as put( String, JSONObject )
+  utils.JSONType.put as put( String, JSONArray )
+  utils.JSONType.put as put( String, JSONNull )
+  utils.JSONType.put as put( String, UUID )
+  utils.JSONType.toString as toString(): String
+  utils.JSONType.nullValue as static nullValue(): JSONNull
 }
 
-native class org.json.JSONArray as JSONArray{
+native class com.google.gson.JsonNull as JSONNull {}
+
+native class com.google.gson.JsonArray as JSONArray {
   constructor()
-  constructor( String )
-  get( Int ): Object
-  getBoolean( Int ): Bool
-  getDouble( Int ): Double
-  getInt( Int ): Int
-  getJSONArray( Int ): JSONArray
-  getJSONObject( Int ): JSONObject
-  getString( Int ): String
-  length(): Int
-  join( String ): String
-  put( Object )
-  remove( Int )
-  toString(): String
-  toString( Int ): String
+  utils.JSONType.parseJsonArray as constructor( String )
+  utils.JSONType.getString as getString( Int ): String
+  utils.JSONType.getBoolean as getBoolean( Int ): Bool
+  utils.JSONType.getInt as getInt( Int ): Int
+  utils.JSONType.getLong as getLong( Int ): Long
+  utils.JSONType.getDouble as getDouble( Int ): Double
+  utils.JSONType.getJSONObject as getJSONObject( Int ): JSONObject
+  utils.JSONType.getJSONArray as getJSONArray( Int ): JSONArray
+  utils.JSONType.getJSONNull as getNullValue( Int ): JSONNull
+  utils.JSONType.length as length(): Int
+  utils.JSONType.put as put( String )
+  utils.JSONType.put as put( Bool )
+  utils.JSONType.put as put( Int )
+  utils.JSONType.put as put( Long )
+  utils.JSONType.put as put( Float )
+  utils.JSONType.put as put( Double )
+  utils.JSONType.put as put( JSONObject )
+  utils.JSONType.put as put( JSONArray )
+  utils.JSONType.put as put( JSONNull )
+  utils.JSONType.put as put( UUID )
+  utils.JSONType.toString as toString(): String
 }
+
+
 
 native class java.lang.Double as Double{
     constructor( Double )
+    constructor( Float )
     constructor( String )
     floatValue(): Float
 }
@@ -2713,7 +2732,7 @@ type String{
 
 native class org.spoofax.interpreter.terms.IStrategoTerm as ATerm{
   org.webdsl.tools.strategoxt.ATerm.subterms as subterms(): [ATerm]
-  org.webdsl.tools.strategoxt.ATerm.constructor as constructor(): String
+  org.webdsl.tools.strategoxt.ATerm.constructor as construct(): String
   org.webdsl.tools.strategoxt.ATerm.stringValue as stringValue(): String
   org.webdsl.tools.strategoxt.ATerm.get as get( Int ): ATerm
   org.webdsl.tools.strategoxt.ATerm.length as length(): Int

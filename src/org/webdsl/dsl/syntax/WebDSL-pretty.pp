@@ -1137,6 +1137,7 @@
    NativeClassFunction --H[ _1 _2 KW["("] _3 KW[")"] _4],
    NativeClassFunctionReturn -- KW[":"] _1,
    NativeClassConstructor -- KW["constructor"] KW["("] _1 KW[")"],
+   NativeClassConstructorFromStatic -- H[ _1 KW["as"] KW["constructor"] KW["("] _2 KW[")"] ],
    NativeClassSuper -- KW[":"] _1,
    NativeClassFunctionStatic -- KW["static"],
    NativeSimpleType -- _1,
