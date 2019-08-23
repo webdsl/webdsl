@@ -14,6 +14,8 @@ entity Foo {
       log( xCache );
       log( xInt );
     }
+    case( "b" ){ expand a b c to x { "x" { log("x"); } } }
+    typecase( this as t ){ expand Foo to x { x { log( t.bar ); } } }
   }
 }
 
@@ -33,6 +35,8 @@ template test( f: Foo ) {
   output( f3( expand j k l to x { "x" } ) )  // function call args
   testMultipleInt
   testMultipleFoo
+  case( "b" ){ expand a b c to x { "x" { "x" } } }
+  typecase( f as t ){ expand Foo to x { x { ~t.bar } } }
 }
 
 template t3( expand s1 s2 s3 to x { x: String } ){ expand s1 s2 s3 to x { ~x } }
@@ -50,7 +54,7 @@ var f := Foo {
 test {
   var s := rendertemplate( test( f ) );
   log( s );
-  assert( s.contains( "foo123fooCache456fooInt9bar123barCache456barInt9y123yCache456yInt9qwerty<div u=\"u\" i=\"i\" o=\"o\"></div><div a=\"a\" s=\"s\" d=\"d\"></div>fghjklIntStringFooBar" ) );
+  assert( s.contains( "foo123fooCache456fooInt9bar123barCache456barInt9y123yCache456yInt9qwerty<div u=\"u\" i=\"i\" o=\"o\"></div><div a=\"a\" s=\"s\" d=\"d\"></div>fghjklIntStringFooBarb123" ) );
 }
 
 expand Int String to Type {
