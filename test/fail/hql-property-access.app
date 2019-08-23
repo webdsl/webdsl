@@ -10,6 +10,7 @@
 //warning: No property 'e' defined for entity type 'A'. However, it is defined for subtype 'E' which is supported in HQL because they map to the same table
 //warning: No property 'f' defined for entity type 'A'. However, it is defined for subtype 'F' which is supported in HQL because they map to the same table
 //warning: No property 'g' defined for entity type 'A'. However, it is defined for subtype 'G' which is supported in HQL because they map to the same table
+//Derived property 'TestEnt.derived' not allowed in query
 
 application test
 
@@ -19,6 +20,7 @@ entity TestEnt {
   set : {TestEnt}
   list : [TestEnt]
   string : String
+  derived : String := ""
 }
 
 entity Assignment {}
@@ -41,4 +43,5 @@ template tmp(){
   var d := from TestEnt as te, TestEnt as te2 where te2 in elements(te.set) or te member of te2.list and te.string = '1' and te.str = '1' and te2.str = '1'
   var e := from Assignment as a where a.question.version != a.version and 2 = a.subprop
   var f := from A as a where a.id = a.b.id and a.c.id = a.d.id and a.e.id = a.f.id and a.g.id = a.id
+  var h := from TestEnt as x where x.derived is null
 }
