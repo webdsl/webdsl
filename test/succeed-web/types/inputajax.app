@@ -23,7 +23,6 @@ application test
     s2::URL
     s3::Text
     s4::WikiText
-    s5::Text // to hold inputsdf result
     list -> List<SomeEntity>
     set -> Set<SomeEntity>
     ent -> SomeEntity
@@ -45,7 +44,6 @@ application test
       inputajax(t.s2)[class="s2"+t.name]
       inputajax(t.s3)[class="s3"+t.name]
       inputajax(t.s4)[class="s4"+t.name]
-      inputSDFajax(t.s5,"sdfinputexamplelang")[class="s5"+t.name]
       inputajax(t.list)[class="list"+t.name]
       inputajax(t.set)[class="set"+t.name]
       inputajax(t.ent)[class="ent"+t.name]
@@ -60,7 +58,6 @@ application test
     output(t.s2)
     output(t.s3)
     output(t.s4)
-    output(t.s5)
     output(t.list)
     output(t.set)
     output(t.ent)  	
@@ -80,10 +77,6 @@ application test
     }
     for(s:String in "345".split()){
       d.findElement(SelectBy.className("l1")).sendKeys(s);
-      sleep(1000);
-    }
-    for(s:String in "abc".split()){
-      d.findElement(SelectBy.className("s51")).sendKeys(s);
       sleep(1000);
     }
     d.findElement(SelectBy.className("button1")).click();
