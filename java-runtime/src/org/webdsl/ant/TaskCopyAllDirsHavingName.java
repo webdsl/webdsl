@@ -5,6 +5,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
+import java.util.Arrays;
+import java.util.List;
 import java.util.ArrayList;
 import org.apache.tools.ant.Task;
 
@@ -16,6 +18,7 @@ public class TaskCopyAllDirsHavingName  extends Task {
     private String Name;
     private ArrayList<String> Exclude;
     private String To;
+    private List<String> Extension;
     private String nameWindows;
     private String nameUNIX;
     private int numberOfFiles;
@@ -40,6 +43,10 @@ public class TaskCopyAllDirsHavingName  extends Task {
 
     public void setTo(String to) {
         To = to;
+    }
+
+    public void setExtension(String extension) {
+        Extension = Arrays.asList(extension.split(","));
     }
 
     public void execute() {
@@ -70,7 +77,7 @@ public class TaskCopyAllDirsHavingName  extends Task {
                     continue;
                 }
                 else if(newFile.getAbsolutePath().endsWith(nameUNIX) || newFile.getAbsolutePath().endsWith(nameWindows)) {
-                    copyDirectory(newFile, new File (To));
+                    copyDirectory(file, newFile, new File (To));
                 } else {
                     findDirectoryAndCopy(newFile);
                 }
@@ -78,7 +85,7 @@ public class TaskCopyAllDirsHavingName  extends Task {
         }
     }
 
-    private void copyDirectory(File src, File dest) throws IOException {
+    private void copyDirectory(String name, File src, File dest) throws IOException {
         if(src.isDirectory()) {
             if(!dest.exists()) {
                  dest.mkdir();
@@ -87,9 +94,9 @@ public class TaskCopyAllDirsHavingName  extends Task {
             for(String file : src.list()) {
                 File from = new File(src, file);
                 File to = new File(dest, file);
-                copyDirectory(from, to);
+                copyDirectory(file, from, to);
             }
-        } else {
+        } else if(Extension == null || (name.contains(".") && Extension.contains(name.substring(name.lastIndexOf(".")+1)))) {
 //        	if(dest.exists() && src.lastModified() <= dest.lastModified()){
 //        		return; //skip when files are the same
 //            } else {
