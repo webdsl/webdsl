@@ -14,6 +14,7 @@ import com.vladsch.flexmark.ast.HtmlBlock;
 import com.vladsch.flexmark.ast.HtmlInline;
 import com.vladsch.flexmark.ast.Link;
 import com.vladsch.flexmark.ast.Node;
+import com.vladsch.flexmark.ext.anchorlink.AnchorLinkExtension;
 import com.vladsch.flexmark.ext.wikilink.WikiLinkExtension;
 import com.vladsch.flexmark.html.AttributeProvider;
 import com.vladsch.flexmark.html.AttributeProviderFactory;
@@ -63,10 +64,16 @@ public final class WikiFormatter {
 		whitelist.addProtocols("a", "href", "#");
 		whitelist.addEnforcedAttribute("a", "rel", "nofollow");
 		
-		MutableDataSet defaultOptions = new MutableDataSet( PegdownOptionsAdapter.flexmarkOptions(true, Extensions.ALL & ~Extensions.HARDWRAPS & ~Extensions.ANCHORLINKS) );
+		
+		int pegdownOptions = Extensions.ALL & ~Extensions.HARDWRAPS;
+		if(!BuildProperties.isWikitextAnchorsEnabled()) {
+		  pegdownOptions &= ~Extensions.ANCHORLINKS; 
+		}
+		MutableDataSet defaultOptions = new MutableDataSet( PegdownOptionsAdapter.flexmarkOptions(true, pegdownOptions) );
 		defaultOptions.set(WikiLinkExtension.LINK_PREFIX, "");
 		defaultOptions.set(HtmlRenderer.FENCED_CODE_LANGUAGE_CLASS_PREFIX, "line-numbers language-");
-
+		defaultOptions.set(AnchorLinkExtension.ANCHORLINKS_ANCHOR_CLASS, "anchor-link");
+		
 		/*
 		 * rel=no-follow is handled by jsoup for now (so it does not apply to unsafe wikitexts) For more finer grained behavior, e.g. only adding rel="no-follow" to external links,
 		 * we probably need to process links in the markdown parser/renderer, which works like below, but not yet for links entered as HTML (<a href...) in the markdown source,

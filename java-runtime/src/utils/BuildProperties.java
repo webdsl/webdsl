@@ -21,6 +21,11 @@ public class BuildProperties {
     	return wikitext_hardwraps;
     }
     
+    protected static boolean wikitext_anchors = false;
+    public static boolean isWikitextAnchorsEnabled(){
+      return wikitext_anchors;
+    }
+    
     protected static int numcachedpages = 250; // default value, used for both anonymous and logged in page cache
     public static int getNumCachedPages(){
     	return numcachedpages;
@@ -47,6 +52,10 @@ public class BuildProperties {
             String hardwraps = props.getProperty("webdsl.wikitext_hardwraps");
             if("true".equals(hardwraps)){
             	wikitext_hardwraps = true; 
+            }
+            String anchors = props.getProperty("webdsl.wikitext_anchors");
+            if("true".equals(anchors)){
+              wikitext_anchors = true; 
             }
             String numcached = props.getProperty("webdsl.numcachedpages");
             try{
