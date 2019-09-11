@@ -27,8 +27,8 @@ section datamodel
     output(u.children)
     form{
       input(u.name)
-      select(u.child from uset.users)
-      select(u.children from uset.users)
+      input(u.child, uset.users)
+      input(u.children, uset.users)
       ac()
       submitlink("savelink", action{})[ajax]
     }

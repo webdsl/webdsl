@@ -1325,6 +1325,9 @@ template input( set: ref {Entity} ){
 template input( set: ref {Entity}, from: [Entity] ){
   selectcheckbox( set, from )[ all attributes ]{ elements }
 }
+template input( set: ref {Entity}, from: {Entity} ){
+  selectcheckbox( set, [ e in from order by e.name ] )[ all attributes ]{ elements }
+}
 
 //input( {Entity} ) selectcheckbox
 
@@ -1505,6 +1508,9 @@ template input( ent: ref Entity ){
 }
 template input( ent: ref Entity, from: [Entity] ){
   select( ent, from )[ all attributes ]{ elements }
+}
+template input( ent: ref Entity, from: {Entity} ){
+  select( ent, [ e in from order by e.name ] )[ all attributes ]{ elements }
 }
 
 //input(e:Entity) select
@@ -1719,6 +1725,9 @@ template output( list: [Entity] ){
 
 template input( list: ref [Entity] ){
   input( list, list.getAllowed() )[ all attributes ]{ elements }
+}
+template input( list: ref [Entity], from: {Entity} ){
+  input( list, [ e in from order by e.name ] )[ all attributes ]{ elements }
 }
 template input( list: ref [Entity], from: [Entity] ){
   request var errors: [String] := null
@@ -3057,6 +3066,9 @@ template inputajax( set: ref {Entity} ){
 template inputajax( set: ref {Entity}, from: [Entity] ){
   selectcheckboxajax( set, from )[ all attributes ]{ elements }
 }
+template inputajax( set: ref {Entity}, from: {Entity} ){
+  selectcheckboxajax( set, [ e in from order by e.name ] )[ all attributes ]{ elements }
+}
 template selectcheckboxajax( set: ref {Entity} ){
   selectcheckboxajax( set, set.getAllowed() )[ all attributes ]{ elements }
 }
@@ -3141,6 +3153,9 @@ template inputajax( ent: ref Entity ){
 template inputajax( ent: ref Entity, from: [Entity] ){
   selectajax( ent, from )[ all attributes ]{ elements }
 }
+template inputajax( ent: ref Entity, from: {Entity} ){
+  selectajax( ent, [ e in from order by e.name ] )[ all attributes ]{ elements }
+}
 template selectajax( ent: ref Entity ){
   selectajax( ent, ent.getAllowed() )[ all attributes ]{ elements }
 }
@@ -3221,6 +3236,9 @@ template radioajax( ent1: ref Entity, ent2: [Entity] ){
 
 template inputajax( ent: ref [Entity] ){
   inputajax( ent, ent.getAllowed() )[ all attributes ]{ elements }
+}
+template inputajax( ent: ref [Entity], from: {Entity} ){
+  inputajax( ent, [ e in from order by e.name ] )[ all attributes ]{ elements }
 }
 template inputajax( list: ref [Entity], from: [Entity] ){
   var req := getRequestParameter( id )

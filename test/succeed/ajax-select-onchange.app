@@ -25,8 +25,8 @@ application test
     output(u.children)
     form{
       input(u.name)
-      select(u.child from uset.users)[onchange = action{}]
-      select(u.children from uset.users)[onchange = action{}]
+      input(u.child, uset.users)[onchange = action{}]
+      input(u.children, uset.users)[onchange = action{}]
     }
     
     break

@@ -32,9 +32,9 @@ application test
     }
     <br/>
     form{
-      select(t_1.set from [s_2,s_1])
-      select(t_1.list from [s_2,s_1])
-      select(t_1.ent from [s_2,s_1])
+      input(t_1.set, [s_2,s_1])
+      input(t_1.list, [s_2,s_1])
+      input(t_1.ent, [s_2,s_1])
       submit action{} {"save"}
     }/*
     <br/>

@@ -36,7 +36,7 @@ application test
       form{
         "citedBy: " 
         //input(p.citedBy)
-        select(p.citedBy from {p1,p2})
+        input(p.citedBy, {p1,p2})
         break
         action("save",save(p))
       }

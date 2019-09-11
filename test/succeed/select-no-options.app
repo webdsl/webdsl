@@ -14,7 +14,7 @@ section datamodel
   
     var u := User { name := "default" } 
     form{
-      select(u.child from List<User>())
+      input(u.child, List<User>())
       input(u.name)
       action("save",save())
     }

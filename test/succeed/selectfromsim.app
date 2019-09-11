@@ -27,7 +27,7 @@ section datamodel
    */ 
     form{
       input(u.name)
-      select(u.child from uset.users)
+      input(u.child, uset.users)
       action("save",save())
     }
          

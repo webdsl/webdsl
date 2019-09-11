@@ -41,8 +41,8 @@ define page root(){
     table{
       for(u:User){
         output(u.username)
-        select(u.teammate from teammates)
-        select(u.group from groups)
+        input(u.teammate, teammates)
+        input(u.group, groups)
       }
     }
     submit("save",action{})
@@ -64,7 +64,7 @@ define page root(){
       for(u:User){
         output(u.username)
         input(u.teammate)[not null]
-        select(u.teammate from teammates)[not null]
+        input(u.teammate, teammates)[not null]
         
       }
     }
