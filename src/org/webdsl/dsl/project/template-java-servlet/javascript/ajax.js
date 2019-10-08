@@ -62,14 +62,20 @@ function formToPost(formObj) {
       }
       //exclude submit/button
       else if ((formObj.elements[i].nodeName.toLowerCase() == "input" && (formObj.elements[i].type == "submit" || formObj.elements[i].type == "button")) ||
-        formObj.elements[i].nodeName.toLowerCase() == "button") {} else if (formObj.elements[i].nodeName.toLowerCase() == "input" && formObj.elements[i].type == "file") {
-        showFileUploadNotSupported = true;
+        formObj.elements[i].nodeName.toLowerCase() == "button") {
+      } else if (formObj.elements[i].nodeName.toLowerCase() == "input" && formObj.elements[i].type == "file") {
+        showFileUploadNotSupported = formObj.elements[i].value != "";
       } else
         request = request + formObj.elements[i].name + "=" + encodePost(formObj.elements[i].value) + "&";
     }
 
   if (showFileUploadNotSupported) {
-    doShowError('You are using an (older) browser that does not support file uploads in this form');
+	var browserSupportsFormData = window.FormData !== undefined;
+	if( browserSupportsFormData ){
+      doShowError('Something went wrong. The files could not be uploaded through this action.');
+	} else {
+	  doShowError('You are using an (older) browser that does not support file uploads in this form');
+	}
   }
   //alert(request);
   return request;
