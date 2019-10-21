@@ -73,9 +73,11 @@ public final class HTMLFilter {
             case '\\':
                 result.append("\\\\");
                 break;
+/* HTML escaping should (and does) apply escaping for ampersand in later stages
             case '&':
                 result.append("&amp;");
                 break;
+*/
             default:
                 result.append(content[i]);
             }
