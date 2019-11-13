@@ -1304,12 +1304,14 @@ public abstract class AbstractPageServlet{
         }
         catch(java.sql.SQLException ex)
         {
-            org.webdsl.logging.Logger.error("exception in download serve");
-            org.webdsl.logging.Logger.error("EXCEPTION",ex);
+            org.webdsl.logging.Logger.error("exception in download serve", ex);
         }
         catch (IOException ex) {
-            org.webdsl.logging.Logger.error("exception in download serve");
-            org.webdsl.logging.Logger.error("EXCEPTION",ex);
+            if(ex.getClass().getName().equals("org.apache.catalina.connector.ClientAbortException")) {
+              org.webdsl.logging.Logger.error( "ClientAbortException - " + ex.getMessage() );
+            } else {
+              org.webdsl.logging.Logger.error("exception in download serve",ex);
+            }
         }
         /*
   hibSession.flush();
