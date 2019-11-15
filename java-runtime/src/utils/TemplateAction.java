@@ -52,7 +52,7 @@ public class TemplateAction{
 					if(threadLocalPageCached.isAjaxRuntimeRequest()){  // only important thing for redirects is the current request type (through ajax.js or regular form submit),
 							                                           // to determine whether to do a response.sendRedirect or a command for ajax.js (relocate)
 						// it was an action submit through ajax.js runtime
-						ThreadLocalOut.peek().print("{ action: \"relocate\", value: \""+threadLocalPageCached.getRedirectUrl()+"\" },\n");
+						ThreadLocalOut.peek().print("{\"action\":\"relocate\",\"value\":\""+threadLocalPageCached.getRedirectUrl()+"\"},\n");
 					}
 					else{
 						// regular submit button form submit
@@ -74,7 +74,7 @@ public class TemplateAction{
 							}
 						}
 						if(!threadLocalPageCached.actionHasAjaxPageUpdates){
-							ThreadLocalOut.peek().print("{ action: \"refresh\" },");
+							ThreadLocalOut.peek().print("{\"action\":\"refresh\"},");
 						}
 					}
 					catch(java.io.IOException ioe){

@@ -154,10 +154,10 @@ public abstract class AbstractPageServlet{
               response.getWriter().write(outstream);
               if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
                 if(logSqlCheckAccess()){
-                  response.getWriter().write("{action: \"logsql\", value: \"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
+                  response.getWriter().write("{\"action\":\"logsql\",\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
                 }
                 else{
-                  response.getWriter().write("{action: \"logsql\", value: \"Access to SQL logs was denied.\"}");
+                  response.getWriter().write("{\"action\":\"logsql\",\"value\":\"Access to SQL logs was denied.\"}");
                 }
                 response.getWriter().write(",");
               }
@@ -172,17 +172,17 @@ public abstract class AbstractPageServlet{
             // action inside ajax template called and failed
             else if( isAjaxTemplateRequest() && isActionSubmit() ){
               StringWriter s1 = renderPageOrTemplateContents();
-              response.getWriter().write("[{action:\"replace\", id:{type:'enclosing-placeholder'}, value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) + "\"}]");
+              response.getWriter().write("[{\"action\":\"replace\",\"id\":{\"type\":\"enclosing-placeholder\"},\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) + "\"}]");
             }
             //actionLink or ajax action used (request came through js runtime), and action failed
             else if( isActionLinkUsed() || isAjaxRuntimeRequest() ){
               validationFormRerender = true;
               renderPageOrTemplateContents();
               if(submittedFormId != null){
-                response.getWriter().write("[{action:\"replace\", id:\"" + submittedFormId + "\", value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");
+                response.getWriter().write("[{\"action\":\"replace\",\"id\":\"" + submittedFormId + "\",\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");
               }
               else{
-            	response.getWriter().write("[{action:\"replace\", id:{submitid:'" + submittedSubmitId + "'}, value:\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");  
+            	response.getWriter().write("[{\"action\":\"replace\",\"id\":{submitid:'" + submittedSubmitId + "'},\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");  
               }
             }
             // 1 regular render without any action being executed
@@ -208,7 +208,7 @@ public abstract class AbstractPageServlet{
                 for(String ph : reRenderPlaceholders){
                     if(addComma){ replacements.write(","); }
                     else { addComma = true; }
-                	replacements.write("{action:\"replace\", id:\""+ph+"\", value:\""
+                	replacements.write("{\"action\":\"replace\",\"id\":\""+ph+"\",\"value\":\""
                             + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(reRenderPlaceholdersContent.get(ph))
                             + "\"}");
                 }
@@ -226,10 +226,10 @@ public abstract class AbstractPageServlet{
               response.getWriter().write(outstream);
               if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
                     if(logSqlCheckAccess()){
-                      response.getWriter().write("{action: \"logsql\", value: \"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
+                      response.getWriter().write("{\"action\":\"logsql\",\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
                     }
                     else{
-                      response.getWriter().write("{action: \"logsql\", value: \"Access to SQL logs was denied.\"}");
+                      response.getWriter().write("{\"action\":\"logsql\",\"value\":\"Access to SQL logs was denied.\"}");
                     }
                 response.getWriter().write(",");
               }
@@ -239,7 +239,7 @@ public abstract class AbstractPageServlet{
               //action link also uses ajax when ajax is not enabled
               //, send only redirect location, so the client can simply set
               // window.location = req.responseText;
-              response.getWriter().write("[{action:\"relocate\", value:\""+this.getRedirectUrl() + "\"}]");
+              response.getWriter().write("[{\"action\":\"relocate\",\"value\":\""+this.getRedirectUrl() + "\"}]");
             } else {
               isAjaxResponse = false;
             }
