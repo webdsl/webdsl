@@ -86,6 +86,7 @@ public class CachedResourceFileNameHelper {
   /* Watch for changes */
 
   private static WatchService watcher;
+  private static Thread dirWatcherThread;
 
   public static void invalidateOnChanges(String resourcePathRoot) {
     // Path rootPath = Paths.get(resourcePathRoot);
@@ -118,10 +119,10 @@ public class CachedResourceFileNameHelper {
     // changes in deployed war file, watching dirs (recursively): ["
     // + jsPath + "] and [" + cssPath + "]");
 
-    Thread thread = new Thread() {
+    dirWatcherThread = new Thread() {
       public void run() {
 
-        while (true) {
+        while (!this.isInterrupted()) {
           WatchKey key;
           try {
             // wait for a key to be available
@@ -152,7 +153,11 @@ public class CachedResourceFileNameHelper {
 
       }
     };
-    thread.start();
+    dirWatcherThread.start();
+  }
+  
+  public static void cleanupOnServletDestroy() {
+    dirWatcherThread.interrupt();
   }
 
 }
