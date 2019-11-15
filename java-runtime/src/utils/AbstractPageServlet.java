@@ -44,9 +44,7 @@ public abstract class AbstractPageServlet{
     public boolean isWebService(){ return false; }
     public String placeholderId = "1";
 
-    static{      
-    	common_css_link_tag_suffix = "/stylesheets/" + CachedResourceFileNameHelper.getNameWithHash("stylesheets", "common_.css") + "\" rel=\"stylesheet\" type=\"text/css\" />";
-    	fav_ico_link_tag_suffix =  "/" + CachedResourceFileNameHelper.getNameWithHash("", "favicon.ico") + "\" rel=\"shortcut icon\" type=\"image/x-icon\" />";
+    static{
     	ajax_js_include_name = "ajax.js";
     }
     
@@ -352,6 +350,16 @@ public abstract class AbstractPageServlet{
     private void shouldTryCleanPageCachesInternal(){
     	shouldTryCleanPageCaches = true;
     }
+    
+    public static void doInvalidateAllPageCache( String triggerReason ) {
+      Logger.info( "All page caches invalidated, triggered by: " + triggerReason );
+      cacheAnonymousPages.invalidateAll();
+      cacheUserSpecificPages.invalidateAll();
+    }
+    public static void doInvalidateUserSpecificPageCache( String triggerReason ) {
+      Logger.info( "User-specific page caches invalidated, triggered by: " + triggerReason );
+      cacheUserSpecificPages.invalidateAll();
+    }
 
     public static Cache<String, CacheResult> cacheUserSpecificPages =
     		CacheBuilder.newBuilder()
@@ -373,13 +381,10 @@ public abstract class AbstractPageServlet{
     public void invalidatePageCacheIfNeeded(){
     	if(pageCacheEnabled && shouldTryCleanPageCaches){
 	    	if(invalidateAllPageCache){
-	    		Logger.info("All page caches invalidated, triggered by change in: "+invalidateAllPageCacheMessage);
-	    		cacheAnonymousPages.invalidateAll();
-	    		cacheUserSpecificPages.invalidateAll();
+	    	  doInvalidateAllPageCache("change in: "+invalidateAllPageCacheMessage);
 	    	}
 	    	else if(invalidateUserSpecificPageCache){
-	    		Logger.info("user-specific page cache invalidated, triggered by change in: "+invalidateUserSpecificPageCacheMessage);
-	    		cacheUserSpecificPages.invalidateAll();
+	    		doInvalidateUserSpecificPageCache("change in: "+invalidateUserSpecificPageCacheMessage);
 	    	}
     	}
     }
@@ -536,9 +541,6 @@ public abstract class AbstractPageServlet{
     		submitWrapSW = null;
     	}
     }
-
-	private static String common_css_link_tag_suffix;
-	private static String fav_ico_link_tag_suffix;
 	private static String ajax_js_include_name;
 	
     public String renderResponse(StringWriter s) {
@@ -556,8 +558,8 @@ public abstract class AbstractPageServlet{
         sout.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1\">");
         sout.println("<title>"+getPageTitle().replaceAll("<[^>]*>","")+"</title>");
 
-        sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+fav_ico_link_tag_suffix);
-        sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+common_css_link_tag_suffix);
+        sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+ CachedResourceFileNameHelper.fav_ico_link_tag_suffix);
+        sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+ CachedResourceFileNameHelper.common_css_link_tag_suffix);
 
         renderDebugJsVar(sout);
         sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalPage.get().getAbsoluteLocation()+"\";</script>");
