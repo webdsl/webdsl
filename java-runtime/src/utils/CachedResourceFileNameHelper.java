@@ -2,6 +2,7 @@ package utils;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.ClosedWatchServiceException;
 import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
@@ -89,7 +90,12 @@ public class CachedResourceFileNameHelper {
   private static Thread dirWatcherThread;
 
   public static void invalidateOnChanges(String resourcePathRoot) {
-    // Path rootPath = Paths.get(resourcePathRoot);
+    
+    if(resourcePathRoot == null || ! (new File(resourcePathRoot).exists()) ) {
+      //don't start watcher when path root is empty or does not exists
+      return;
+    }
+    
     String jsDir = resourcePathRoot + File.separator + "javascript";
     String cssDir = resourcePathRoot + File.separator + "stylesheets";
     Path jsPath = Paths.get(jsDir);
@@ -115,10 +121,6 @@ public class CachedResourceFileNameHelper {
       return;
     }
 
-    // Logger.info("Started watcher service for cache busting resource files
-    // changes in deployed war file, watching dirs (recursively): ["
-    // + jsPath + "] and [" + cssPath + "]");
-
     dirWatcherThread = new Thread() {
       public void run() {
 
@@ -127,7 +129,7 @@ public class CachedResourceFileNameHelper {
           try {
             // wait for a key to be available
             key = watcher.take();
-          } catch (InterruptedException ex) {
+          } catch (InterruptedException | ClosedWatchServiceException ex) {
             return;
           }
 
@@ -153,11 +155,21 @@ public class CachedResourceFileNameHelper {
 
       }
     };
+    dirWatcherThread.setDaemon(true);
+    dirWatcherThread.setName("Watcher thread for changes in js/css resources");
     dirWatcherThread.start();
   }
   
   public static void cleanupOnServletDestroy() {
-    dirWatcherThread.interrupt();
+    if(watcher == null) {
+      return;
+    }
+    try {
+      watcher.close();
+    } catch (IOException e) {
+      Logger.error(e);
+    }
+//    dirWatcherThread.interrupt();
   }
 
 }
