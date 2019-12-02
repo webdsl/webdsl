@@ -1829,9 +1829,9 @@ template inputListInternal( list: ref [Entity], selectfrom: [Entity], tname: Str
   </ul>
 
   //@TODO should become possible to re-use render of template in client
-  var p1 := "<li id=\""
-  var p2 := "\" class=\"ui-state-default\"><span class=\"ui-icon ui-icon-arrowthick-2-n-s\"></span>"
-  var p3 := "<span class=\"ui-icon ui-icon-close\" onclick=\""+deletejsfuncname+"($(this));\"></span></li>"
+  var itempart1 := "<li id=\""
+  var itempart2 := "\" class=\"ui-state-default\"><span class=\"ui-icon ui-icon-arrowthick-2-n-s\"></span>"
+  var itempart3 := "<span class=\"ui-icon ui-icon-close\" onclick=\""+deletejsfuncname+"($(this));\"></span></li>"
 
   if( selectfrom.length > 0 ){
     <select id = selectid>
@@ -1842,9 +1842,28 @@ template inputListInternal( list: ref [Entity], selectfrom: [Entity], tname: Str
     }
     </select>
 
-    <input type="button"
-           value="add"
-           onclick="$('select#"+selectid+" option:selected').each(function(){ $('#"+sortableid+"').append('"+p1+"'+$(this).attr('value')+'"+p2+"'+$(this).html()+'"+p3+"');}); $('#"+hiddenid+"').attr('value', $('#"+sortableid+"').sortable('toArray')); "+onchange+"return false;" />
+    <input
+      type = "button"
+      value = "add"
+      onclick =
+        "$('select#"
+      + selectid
+      + " option:selected').each(function(){ $('#"
+      + sortableid
+      + "').append('"
+      + itempart1
+      + "'+$(this).attr('value')+'"
+      + itempart2
+      + "'+$(this).html()+'"
+      + itempart3
+      + "');}); $('#"
+      + hiddenid
+      + "').attr('value', $('#"
+      + sortableid
+      + "').sortable('toArray')); "
+      + onchange
+      + "return false;"
+    />
   }
 }
 
