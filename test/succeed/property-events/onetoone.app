@@ -13,12 +13,12 @@ section datamodel
   }
   
   extend entity User{
-    extend function setRelation(u:User) {
+    extend function setRelation(user:User) {
       if(relation != null) {
         relation.relation := null;
       }
-      if(u != null) {
-        u.relation := this;
+      if(user != null) {
+        user.relation := this;
       }
     }   
     extend function setName(new:String) {
@@ -36,8 +36,8 @@ section datamodel
   var u2:User := User{name := "Charlie"};
   var u3:User := User{name := "Dave"};
   
-  define page user(u:User){
-    derive viewPage from u
+  define page user(user:User){
+    derive viewPage from user
   }
     
   define page root(){

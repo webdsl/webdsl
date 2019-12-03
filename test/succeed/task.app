@@ -3,26 +3,26 @@ application testapp
     entity Test {
     	others -> List<Test>
     	function addstuff(){
-    		others.add(Test{ others := [t]});
+    		others.add(Test{ others := [globalt]});
     		log(bla.name);
     	}
     	extend function addToOthers(test:Test){
-    		log(t.toString());
+    		log(globalt.toString());
     		//log(bla.toString());
     	}
     }
     
     session bla { name :: String }
     
-    var t := Test{}
+    var globalt := Test{}
 
     define page root(){
-    	output(t.others)
-    	submit action{ t.addstuff(); return root(); } { "add" }
+    	output(globalt.others)
+    	submit action{ globalt.addstuff(); return root(); } { "add" }
     }
 
     function someFunction() {
-      t.addstuff();
+      globalt.addstuff();
       log("I was executed!");
     }
 

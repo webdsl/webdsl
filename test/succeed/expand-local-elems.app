@@ -43,7 +43,7 @@ template t3( expand s1 s2 s3 to x { x: String } ){ expand s1 s2 s3 to x { ~x } }
 function f3( expand s1 s2 s3 to x { x: String } ): String { return "~s1~s2~s3"; }
 
 
-var f := Foo {
+var globalFoo := Foo {
   expand foo bar y to x {  // object creation set properties
     x := "123"
     xCache := "456"
@@ -52,7 +52,7 @@ var f := Foo {
 }
 
 test {
-  var s := rendertemplate( test( f ) );
+  var s := rendertemplate( test( globalFoo ) );
   log( s );
   assert( s.contains( "foo123fooCache456fooInt9bar123barCache456barInt9y123yCache456yInt9qwerty<div u=\"u\" i=\"i\" o=\"o\"></div><div a=\"a\" s=\"s\" d=\"d\"></div>fghjklIntStringFooBarb123" ) );
 }

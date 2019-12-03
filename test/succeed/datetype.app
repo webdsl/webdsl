@@ -8,23 +8,23 @@ section datamodel
     datetime :: DateTime 
   }
   
-  var dt : DateTest := DateTest{};
+  var globalDT : DateTest := DateTest{};
   
   define page root(){
-    " date: " output(dt.date) 
-    " date as time: " output(dt.date as Time)
-    " date as datetime: " output(dt.date as DateTime)
-    " time: " output(dt.time) 
-    " time as date: " output(dt.time as Date)
-    " time as datetime: " output(dt.time as DateTime)
-    " datetime: " output(dt.datetime) 
-    " datetime as date: " output(dt.datetime as Date)
-    " datetime as time: " output(dt.datetime as Time)
+    " date: " output(globalDT.date) 
+    " date as time: " output(globalDT.date as Time)
+    " date as datetime: " output(globalDT.date as DateTime)
+    " time: " output(globalDT.time) 
+    " time as date: " output(globalDT.time as Date)
+    " time as datetime: " output(globalDT.time as DateTime)
+    " datetime: " output(globalDT.datetime) 
+    " datetime as date: " output(globalDT.datetime as Date)
+    " datetime as time: " output(globalDT.datetime as Time)
 
     form{
-      input(dt.date)
-      input(dt.time)
-      input(dt.datetime)
+      input(globalDT.date)
+      input(globalDT.time)
+      input(globalDT.datetime)
       
       action("save",action{})
     }

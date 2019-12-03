@@ -9,7 +9,7 @@ section datamodel
     text :: Text
     wiki :: WikiText
   }
-    var u : User := User{
+    var u1 : User := User{
       name := "bob"  
       bool := true
       rank := 3
@@ -29,17 +29,17 @@ section datamodel
     "test page"
 
     form{
-      input(u.name)
-      input(u.rank)
-      input(u.bool)
-      input(u.text)
-      input(u.wiki)
+      input(u1.name)
+      input(u1.rank)
+      input(u1.bool)
+      input(u1.text)
+      input(u1.wiki)
       
       action("save",save())
     }
     action save()
     {
-      u.save();
+      u1.save();
     }
 
   }

@@ -12,7 +12,7 @@ section datamodel
     childrenset -> Set<User>
     self     -> User
   }
-  var u:User := User{name := "bob" }
+  var u0:User := User{name := "bob" }
   var u1:User := User{name := "alice"}
   var u2:User := User{name := "charlie"}
   var u3:User := User{name := "dave"}
@@ -24,11 +24,11 @@ section datamodel
       var u11:User := User{name := "alice" self := u1};
       var u22:User := User{name := "charlie" self := u2};
       var u33:User := User{name := "dave" self := u3};
-      u.childrenset := {u1,u2};
-      u.children := [fr.self | fr : User in [u11,u22,u33]];
+      u0.childrenset := {u1,u2};
+      u0.children := [fr.self | fr : User in [u11,u22,u33]];
     }
 
-    if(u1 in u.children)
+    if(u1 in u0.children)
     {
       "test ok"
     }
@@ -37,9 +37,9 @@ section datamodel
       "test fail"
     }
 
-    output(u.children)
+    output(u0.children)
     "-"
-    output(u.childrenset)
+    output(u0.childrenset)
     }
   }
 

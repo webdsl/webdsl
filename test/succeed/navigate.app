@@ -7,30 +7,30 @@ section datamodel
 
   }
   
-  var l : Link := Link { url := "http://webdsl.org" };
+  var globalLink : Link := Link { url := "http://webdsl.org" };
   
   define page root(){
     
-    output(l.url)
+    output(globalLink.url)
     
-    navigate(testpage(45,"bla",l)){"link to testpage"} 
-    navigate testpage(45,"bla",l) {"link to testpage"} 
+    navigate(testpage(45,"bla",globalLink)){"link to testpage"} 
+    navigate testpage(45,"bla",globalLink) {"link to testpage"} 
     
-    navigate("link to testpage", testpage(45,"bla",l)) //sugar for button, syntax like action button
+    navigate("link to testpage", testpage(45,"bla",globalLink)) //sugar for button, syntax like action button
        
-    navigatebutton(testpage(45,"bla",l),"link to testpage") 
+    navigatebutton(testpage(45,"bla",globalLink),"link to testpage") 
     
     form{
-      input(l.url)
+      input(globalLink.url)
       action("save",save())
     }
     form{
-      input(l.url)
+      input(globalLink.url)
       action("save",save())
     }
     action save()
     {
-      l.save();
+      globalLink.save();
     }
     
     
@@ -39,11 +39,11 @@ section datamodel
     }
     action save2()
     {
-      return testpage(43,"bla1",l);
+      return testpage(43,"bla1",globalLink);
     }
     
     
-    navigate(home2("bla2",l,42)){"test redirect"} 
+    navigate(home2("bla2",globalLink,42)){"test redirect"} 
     navigate(root()){"root"}
     navigate(testpagenoarg()){"testpagenoarg"}
 

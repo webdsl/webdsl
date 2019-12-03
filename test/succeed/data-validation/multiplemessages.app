@@ -7,8 +7,8 @@ application messages
   var u1 : User := User{ name := "alice" };
   
   define page root(){
-    for(u:User) {
-      output(u.name)
+    for(user:User) {
+      output(user.name)
     }
     
     navigate(somepage()){"link"}

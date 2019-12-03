@@ -47,8 +47,8 @@ application test
 		//var c1 : Bool := false;
 		//var lst00 := lst0;
 		var loop : Int;
-		for (f1 : Int from 3 to 10){
-		  loop := loop + f1;
+		for (foo : Int from 3 to 10){
+		  loop := loop + foo;
 		}
 		var z2 := z;
 		return z2+q+j+loop;

@@ -39,12 +39,12 @@ test{
 entity PS{
   s : String
 }
-var ses := PS{}
+var ses1 := PS{}
 template editSession(){
   elements
   accordionPanels{
     panelBody{
-      addMemberToCollection( ses.s )
+      addMemberToCollection( ses1.s )
     }
   }
 }

@@ -54,6 +54,6 @@ section datamodel
     body()
   }
   
-  define page user(u:User){
-    derive viewPage from u
+  define page user(user:User){
+    derive viewPage from user
   }
