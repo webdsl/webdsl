@@ -1,15 +1,15 @@
 application test
 
 page root(){
-  placeholder "checklist" checkListEdit(a)
+  placeholder "checklist" checkListEdit(a1)
 }
 
 page test2(){
-  placeholder "checklist" checkListEdit(b)
+  placeholder "checklist" checkListEdit(b1)
 }
 
-var a := Assignment{ checkList := CheckList{} }
-var b := Assignment{ checkList := CheckList{} }
+var a1 := Assignment{ checkList := CheckList{} }
+var b1 := Assignment{ checkList := CheckList{} }
 
 entity Assignment{
   checkList : CheckList

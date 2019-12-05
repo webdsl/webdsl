@@ -10,11 +10,11 @@ application withtest4
          output(s) input(s2)[class:="input1"] input(s3)[class:="input2"] output(i)
        } 
      }
-     output(result.s)
+     output(globalResult.s)
   }   
   
   entity Result { s::String}
-  var result := Result{}
+  var globalResult := Result{}
       
   define template helloowner(s1:Ref<String>, s2:Ref<String>) requires hello(Ref<String>,Ref<String>) {
     var s3 := "3"
@@ -22,7 +22,7 @@ application withtest4
     
     form{
       hello(s3, s4) output(s1) output(s2)
-      submit action{ result.s := "s3:"+s3+",s4:"+s4; } [class:="savebutton"]{"save"} 
+      submit action{ globalResult.s := "s3:"+s3+",s4:"+s4; } [class:="savebutton"]{"save"} 
     }
   } 
   

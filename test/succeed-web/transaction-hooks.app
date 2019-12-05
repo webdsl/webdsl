@@ -14,31 +14,31 @@ entity Test{
 }
 entity Submission{}
 
-request var s : String
+request var globalrv : String
 request var testSet := Set<Submission>()
 
 function check(){
-  log(s);
+  log(globalrv);
   testSet.add(Submission{});
 }
 
 function afterTransactionBegin(){
-  s := "begin.";
+  globalrv := "begin.";
   check();
 }
  
 function afterTransactionCompletionCommitted(){
-  s := "committed.";
+  globalrv := "committed.";
   check();
 }
 
 function afterTransactionCompletionRolledBack(){
-  s := "rolledback.";
+  globalrv := "rolledback.";
   check();
 }
 
 function beforeTransactionCompletion(){
-  s := "beforecompletion.";
+  globalrv := "beforecompletion.";
   check();
 }
 

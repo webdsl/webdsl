@@ -3,7 +3,7 @@ application messages
   entity User{
     name :: String
   }
-  var u : User := User{ name := "bob" };
+  var u0 : User := User{ name := "bob" };
   var u1 : User := User{ name := "alice" };
   
   define page root(){
@@ -14,13 +14,13 @@ application messages
     navigate(somepage()){"link"}
     
     form {
-      input(u.name)
+      input(u0.name)
       action("save",save())
     }
     action save() {
-      u.save();
-      message("1: username: "+u.name);
-      message("2: username: "+u.name);
+      u0.save();
+      message("1: username: "+u0.name);
+      message("2: username: "+u0.name);
 
       return somepage();
     }

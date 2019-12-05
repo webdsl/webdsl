@@ -83,13 +83,13 @@ test entityreftemplates {
     ent -> Ent (not null)
   }
   
-  var ent2 := Ent2{ }
+  var globalEnt2 := Ent2{ }
   
   define page testnotnull(){
     form{
       input(e1.ent)[class = "elem-test-1",not null]
-      input(ent2.ent)[class = "elem-test-2"]
-      input(ent2.ent)[class = "elem-test-3"]
+      input(globalEnt2.ent)[class = "elem-test-2"]
+      input(globalEnt2.ent)[class = "elem-test-3"]
     }	
   }
   

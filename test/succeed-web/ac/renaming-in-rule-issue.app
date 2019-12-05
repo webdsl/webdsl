@@ -3,10 +3,10 @@
 application test
 
   define page root() {
-     showCourseEvaluation(course)
+     showCourseEvaluation(globalCourse)
   }
   
-  var course := Course{evaluations := [Evaluation{}] }
+  var globalCourse := Course{evaluations := [Evaluation{}] }
   
   entity Course{
     name :: String
@@ -32,7 +32,7 @@ access control rules
 section
   
   test{
-    assert( Or[eval.bla()| eval : Evaluation in course.evaluations] == true );
+    assert( Or[eval.bla()| eval : Evaluation in globalCourse.evaluations] == true );
     
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));

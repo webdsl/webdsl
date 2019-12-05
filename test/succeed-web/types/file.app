@@ -52,8 +52,8 @@ application exampleapp
     assert(d.getPageSource().contains(teststring));
 
     var teststring2 := "webdsl-test-image-file";
-    var e1 := d.findElement(SelectBy.className("image-input"));
-    e1.sendKeys(createTempFile(teststring2));
+    var elem1 := d.findElement(SelectBy.className("image-input"));
+    elem1.sendKeys(createTempFile(teststring2));
     d.findElement(SelectBy.className("image-input-button")).click();
     assert(d.getPageSource().contains(teststring));
   }
