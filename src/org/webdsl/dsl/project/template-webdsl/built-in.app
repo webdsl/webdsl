@@ -1615,8 +1615,6 @@ template radio( ent: ref Entity ){
   radio( ent, ent.getAllowed() )[ all attributes ]{ elements }
 }
 template radio( ent1: ref Entity, ent2: [Entity] ){
-  var req := getRequestParameter( id )
-
   request var errors: [String] := null
 
   if( errors != null && errors.length > 0 ){
@@ -2144,8 +2142,6 @@ template output( s: Secret ){
 }
 
 template input( s: ref Secret ){
-  var req := getRequestParameter( id )
-
   request var errors: [String] := null
 
   if( errors != null && errors.length > 0 ){
@@ -2207,8 +2203,6 @@ template output( s: String ){
 }
 
 template input( s: ref String ){
-  var req := getRequestParameter( id )
-
   request var errors: [String] := null
 
   if( errors != null && errors.length > 0 ){
@@ -2270,8 +2264,6 @@ template output( s: Text ){
 }
 
 template input( s: ref Text ){
-  var req := getRequestParameter( id )
-
   request var errors: [String] := null
 
   if( errors != null && errors.length > 0 ){
@@ -2393,8 +2385,6 @@ template rawoutput( t: WikiText ){
 }
 
 template input( s: ref WikiText ){
-  var req := getRequestParameter( id )
-
   request var errors: [String] := null
 
   if( errors != null && errors.length > 0 ){
@@ -2566,7 +2556,6 @@ template inputBoolInternal( b: ref Bool, rname: String ){
   />
 
   databind{
-    var tmp: String := getRequestParameter( rname );
     var tmphidden := getRequestParameter( rnamehidden );
     if( tmphidden != null ){
       if( getRequestParameter( rname ) != null ){
@@ -2582,7 +2571,6 @@ template inputBoolInternal( b: ref Bool, rname: String ){
 //input File
 
 template input( f: ref File ){
-  var req := getRequestParameter( id )
   request var errors: [String] := null
   if( errors != null ){
     errorTemplateInput( errors ){
@@ -2632,7 +2620,6 @@ template inputFileInternal( f: ref File, tname: String ){
 }
 
 template input( f: ref [File] ){
-  var req := getRequestParameter( id )
   request var errors: [String] := null
   if( errors != null ){
     errorTemplateInput( errors ){
@@ -2723,7 +2710,6 @@ ajax template showMessages( list: [String] ){
 ajax template noMessages(){}
 
 template inputajax( b: ref Bool ){
-  var req := getRequestParameter( id )
   request var errors: [String] := null
   inputBoolInternal( b, id )[ onchange = validator(); "" + attribute("onchange")
                             , all attributes except "onchange" ]
@@ -2992,7 +2978,6 @@ template inputajax( s: ref WikiText ){
   inputajax( s as ref String )[ all attributes ]{ elements }
 }
 template inputajax( s: ref String ){
-  var req := getRequestParameter( id )
   request var errors: [String] := null
   inputStringInternal( s, id )[ oninput = validator(); "" + attribute("oninput")
                               , all attributes except "oninput" ]
@@ -3092,7 +3077,6 @@ template selectcheckboxajax( set: ref {Entity} ){
   selectcheckboxajax( set, set.getAllowed() )[ all attributes ]{ elements }
 }
 template selectcheckboxajax( set: ref {Entity}, from: [Entity] ){
-  var req := getRequestParameter( id )
   request var errors: [String] := null
   inputCheckboxSetInternal( set, from, id )[ onclick = validator(); "" + attribute("onclick")
                                            , all attributes except "onclick" ]
@@ -3131,7 +3115,6 @@ template selectajax( ent: ref {Entity} ){
   selectajax( ent, ent.getAllowed() )[ all attributes ]{ elements }
 }
 template selectajax( set: ref {Entity}, from: [Entity] ){
-  var req := getRequestParameter( id )
   request var errors: [String] := null
   inputSelectMultipleInternal( set, from, id )[ onchange = validator(); "" + attribute("onchange")
                                               , all attributes except "onchange" ]
@@ -3179,7 +3162,6 @@ template selectajax( ent: ref Entity ){
   selectajax( ent, ent.getAllowed() )[ all attributes ]{ elements }
 }
 template selectajax( ent: ref Entity, from: [Entity] ){
-  var req := getRequestParameter( id )
   request var errors: [String] := null
   inputEntityInternal( ent, from, id )[ onchange = validator(); "" + attribute("onchange")
                                       , all attributes except "onchange" ]
@@ -3218,7 +3200,6 @@ template radioajax( ent: ref Entity ){
   radioajax( ent, ent.getAllowed() )[ all attributes ]{ elements }
 }
 template radioajax( ent1: ref Entity, ent2: [Entity] ){
-  var req := getRequestParameter( id )
   request var errors: [String] := null
   radioInternal( ent1, ent2, id )[ onchange = validator(); "" + attribute("onchange")
                                  , all attributes except "onchange" ]
@@ -3260,7 +3241,6 @@ template inputajax( ent: ref [Entity], from: {Entity} ){
   inputajax( ent, [ e in from order by e.name ] )[ all attributes ]{ elements }
 }
 template inputajax( list: ref [Entity], from: [Entity] ){
-  var req := getRequestParameter( id )
   request var errors: [String] := null
   inputListInternal( list, from, id )[ onchange = validator(); "" + attribute("onchange")
                                      , all attributes except "onchange" ]

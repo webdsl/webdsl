@@ -23,19 +23,21 @@ rules
   type-case-add-var-and-rename(|x, e) :
     TypeCaseStmtAlt(srt, Block(stat1*)){anno*} -> TypeCaseStmtAlt(srt, Block(stat2*)){TypeCaseAddVarsOnce(), anno*}
     where has-no-anno(|TypeCaseAddVarsOnce())
-    with  (y, stat2*) := <type-case-add-var-and-rename-helper(|x, e, srt, stat1*)>
+    with  stat2* := <type-case-add-var-and-rename-helper( fail | x, e, srt, stat1*)>
 
   type-case-add-var-and-rename(|x, e) :
     TypeCaseStmtDefault(Block(stat1*)){anno*} -> TypeCaseStmtDefault(Block(stat2*)){TypeCaseAddVarsOnce(), anno*}
     where has-no-anno(|TypeCaseAddVarsOnce())
     with  srt := <type-of;add-immutable-anno> e
-        ; (y, stat2*) := <type-case-add-var-and-rename-helper(|x, e, srt, stat1*)>
+        ; stat2* := <type-case-add-var-and-rename-helper( id | x, e, srt, stat1*)>
 
-  type-case-add-var-and-rename-helper(|x, e, srt, stat1*) :
-    _ -> (y, [stat | stat2*])
-    with  y := <newname-webdsl> x
-        ; stat := stat|[ var y : srt := e as srt; ]|
-        ; stat2* := <alltd(\Var(tmp) -> Var(y) where x := tmp\)> stat1*
+  type-case-add-var-and-rename-helper( mark-var | x1, e, srt1, stat1*) :
+    t -> [stat | stat2*]
+    with  x2 := <newname-webdsl> x1
+        ; (x3, srt2) := <vardecl-rename-common> (t, x2, srt1)
+        ; stat := <add-anno(|OriginalTypeCaseVarName(x1))> stat|[ var x3 : srt2 := e as srt2; ]|
+        ; if mark-var then rules( VarIsUsed : x3 ) end
+        ; stat2* := <alltd(\Var(tmp) -> Var(x3) where x1 := tmp; rules( VarIsUsed : x3 )\)> stat1*
 
   signature constructors
     TypeCaseAddVarsOnce : Term
