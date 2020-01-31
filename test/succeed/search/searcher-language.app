@@ -27,8 +27,8 @@ entity User {
 
 entity Genre{
     name   :: String
-    desc   :: String
-    movies -> Set<Movie> (inverse = Movie.genres)
+    desc   : String
+    movies : Set<Movie> (inverse = Movie.genres)
 
     search mapping{
         name
@@ -38,7 +38,7 @@ entity Genre{
 entity Material{
     name :: String
     alias :: String
-    desc :: Text
+    desc : Text
     search mapping{
         name
         alias
