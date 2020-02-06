@@ -242,11 +242,14 @@ public abstract class TemplateServlet {
     }
     
     protected boolean isAjaxSubmitRequired(boolean ajaxmod){
-      return threadLocalPageCached.isServingAsAjaxResponse //template is rendered in an action, e.g. with replace(placeholder,templatecall())
-        || threadLocalPageCached.isAjaxRuntimeRequest() //current request came from ajax runtime
+      return
+        (  threadLocalPageCached.isServingAsAjaxResponse     // template is rendered in an action, e.g. with replace(placeholder,templatecall())
+        || threadLocalPageCached.isAjaxRuntimeRequest()      // current request came from ajax runtime
         || threadLocalPageCached.passedThroughAjaxTemplate() // passed through template defined with ajax modifier 'define ajax'
-        || ajaxmod //submit buttons is defined with ajax modifier '[ajax]'
-        || threadLocalPageCached.getFormIdent().equals(""); //submit is not in a form (normal browser submit won't work)
+        || ajaxmod                                           // submit buttons is defined with ajax modifier '[ajax]'
+        || threadLocalPageCached.getFormIdent().equals("")   // submit is not in a form (normal browser submit won't work)
+        )
+        && ! threadLocalPageCached.formRequiresMultipartEnc; // if there is a file input, only implemented for regular submit (this allows forms with files inside placeholder refresh)
     }
     
     
