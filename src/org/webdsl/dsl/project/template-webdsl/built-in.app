@@ -1995,6 +1995,10 @@ template inputIntInternal( i: ref Int, tname: String ){
   }
 }
 
+template output( d : Double ){
+	text( d.toString() )
+}
+
 //input/output Float
 
 template output( i: Float ){
