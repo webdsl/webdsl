@@ -1,0 +1,234 @@
+module org/webdsl/dsl/write-files/pp-java-to-stream/main
+
+imports
+  libstratego-lib
+  libjava-front
+
+imports
+  org/webdsl/dsl/write-files/pp-java-to-stream/-
+  org/webdsl/dsl/write-files/pp-java-to-stream/class/-
+  org/webdsl/dsl/write-files/pp-java-to-stream/interface/-
+  org/webdsl/dsl/write-files/pp-java-to-stream/type/-
+
+rules
+
+// a pretty printer for Java AST that receives a strategy s to put string content in file stream
+// only implemented for the elements that WebDSL uses
+// minimize overloaded rules, specific to the sorts that are expected
+// minimize intermediate list and string allocations
+// print directly to stream
+// prints newlines (so stacktraces are still useful) but not indentation, use IDE autoformatting to make it readable when inspecting code
+// encountered some generated incorrect Java AST fragments, marked with 'codegen issue' comment
+
+  cunit-to-stream(s) =
+    ?CompilationUnit(package, imports, types)
+  ; <if-some(pkgdec-to-stream(s))> package
+  ; <map(importdec-to-stream(s))> imports
+  ; <map(classdec-to-stream(s))> types
+
+  pkgdec-to-stream(s) =
+    ?PackageDec(annos, pname)
+  ; <?[]> annos
+  ; <s> "package "
+  ; <pkgname-to-stream(s)> pname
+  ; <s> ";\n"
+
+rules
+
+  importdec-to-stream(s) =
+    ?TypeImportDec(tname)
+  ; <s> "import "
+  ; <typename-to-stream(s)> tname
+  ; <s> ";\n"
+
+  importdec-to-stream(s) =
+    ?TypeImportOnDemandDec(pname)
+  ; <s> "import "
+  ; <pkgname-to-stream(s)> pname
+  ; <s> ".*;"
+
+  importdec-to-stream(s) =
+    ?StaticImportDec(tname, Id(x))
+  ; <s> "import static "
+  ; <typename-to-stream(s)> tname
+  ; <s> "."
+  ; <s> x
+  ; <s> ";\n"
+
+  importdec-to-stream(s) =
+    ?StaticImportOnDemandDec(tname)
+  ; <s> "import static "
+  ; <typename-to-stream(s)> tname
+  ; <s> ".*;"
+
+rules
+
+  java-to-stream(s) =
+    ?Semicolon()
+  ; <s> ";\n"
+
+  classdec-to-stream(s) =
+    ?InterfaceDec(InterfaceDecHead(mods, Id(name), type-args, implements), body)
+  ; <map(mod-to-stream(s))> mods
+  ; <s> "interface "
+  ; <s> name
+  ; <if-some(typeparams-to-stream(s))> type-args
+  ; <if-some(implements-to-stream(s))> implements
+  ; <classbody-to-stream(s)> body
+
+  classdec-to-stream(s) =
+    ?ClassDec(ClassDecHead(mods, Id(name), type-args, extends, implements), body)
+  ; <map(mod-to-stream(s))> mods
+  ; <s> "class "
+  ; <s> name
+  ; <if-some(typeparams-to-stream(s))> type-args
+  ; <if-some(extends-to-stream(s))> extends
+  ; <if-some(implements-to-stream(s))> implements
+  ; <classbody-to-stream(s)> body
+
+  body-to-stream(s) = classdec-to-stream(s)
+
+/*
+ClassDec(
+  ClassDecHead(
+    [Private(), Static()]
+  , Id(FacetRenewerThread())
+  , None()
+  , Some(SuperDec(ClassType(TypeName(Id(Thread())), None())))
+  , None()
+  )
+, ClassBody(
+*/
+
+  classbody-to-stream(s) =
+    ?ClassBody(decs)
+  ; <block-structure-stream(s,body-to-stream(s))> (1, decs)
+
+  extends-to-stream(s) =
+    ?SuperDec(c)
+  ; <s> " extends "
+  ; <classtype-to-stream(s)> c
+
+  implements-to-stream(s) =
+    ?ImplementsDec(is)
+  ; <s> " implements "
+  ; <print-comma-sep(s,interfacetype-to-stream(s))> is
+
+  java-to-stream(s) =
+    ?ExtendsInterfaces(is)
+  ; <s> " extends "
+  ; <print-comma-sep(s,interfacetype-to-stream(s))> is
+
+rules
+
+  body-to-stream(s) =
+    ?StaticInit(b)
+  ; <s> "static "
+  ; <block-to-stream(s)> b
+
+  body-to-stream(s) =
+    ?InstanceInit(b)
+  ; <s> b
+
+rules
+
+  body-to-stream(s) =
+    ?AbstractMethodDec(mods, type-params, type, Id(n), params, throws)
+  ; <body-to-stream(s)> MethodDecHead(mods, type-params, type, Id(n), params, throws)
+  ; <s> ";\n"
+
+  body-to-stream(s) =
+    ?ConstrDec(ConstrDecHead(mods, type-params, Id(class), params, throws), body)
+  ; <map(mod-to-stream(s))> mods
+  ; <if-some(typeparams-to-stream(s))> type-params
+  ; <s> " "
+  ; <s> class
+  ; <params-to-stream(s)> params
+  ; <throws-to-stream(s)> throws
+  ; <body-to-stream(s)> body
+
+  body-to-stream(s) =
+    ?ConstrBody(None(), stms)
+  ; <block-structure-stream(s,stmt-to-stream(s))> (0, stms)
+
+  body-to-stream(s) =
+    ?ConstrBody(Some(cinvoke), stms)
+  ; <block-structure-stream(s,stmt-to-stream(s))> (0, [cinvoke | stms])
+
+  body-to-stream(s) = fielddec-to-stream(s)
+  stmt-to-stream(s) = fielddec-to-stream(s)
+
+// FieldDec([Private],ClassOrInterfaceType(TypeName(Id("String")),None),[VarDec(Id("showURL"),Lit(String([Chars("")])))])
+
+  fielddec-to-stream(s) =
+    ?FieldDec(mods, type, ds)
+  ; <map(mod-to-stream(s))> mods
+  ; <type-to-stream(s)> type
+  ; <s> " "
+  ; <map(vardec-to-stream(s))> ds
+  ; <s> ";\n"
+
+  body-to-stream(s) =
+    ?ConstantDec(mods, type, ds)
+  ; <body-to-stream(s)> FieldDec(mods, type, ds)
+
+  body-to-stream(s) = vardec-to-stream(s)
+
+  vardec-to-stream(s) =
+    ?VarDec(Id(i))
+  ; <s> i
+
+  vardec-to-stream(s) =
+    ?VarDec(Id(i), init)
+  ; <s> i
+  ; <s> "="
+  ; <expr-to-stream(s)> init
+
+  body-to-stream(s) =
+    ?Id(x)
+  ; <s> x
+
+  body-to-stream(s) =
+    ?ArrayVarDecId(Id(x), b*)
+  ; <s> x
+  ; <s> b*
+
+  body-to-stream(s) =
+    ?Dim()
+  ; <s> "[]"
+
+  body-to-stream(s) =
+    ?Dim(e)
+  ; <s> "["
+  ; <expr-to-stream(s)> e
+  ; <s> "]"
+
+  expr-to-stream(s) =
+    ?ArrayInit(exprs)
+  ; <s> "{"
+  ; <print-comma-sep(s,expr-to-stream(s))> exprs
+  ; <s> "}"
+
+  stmt-to-stream(s) =
+    ?AltConstrInv(type-args, exprs)
+  ; <typeargs-to-stream(s)> type-args
+  ; <s> "this"
+  ; <list-to-args-stream(s)> exprs
+  ; <s> ";\n"
+
+  stmt-to-stream(s) =
+    ?SuperConstrInv(type-args, exprs)
+  ; <typeargs-to-stream(s)> type-args
+  ; <s> "super"
+  ; <list-to-args-stream(s)> exprs
+  ; <s> ";\n"
+
+  stmt-to-stream(s) =
+    ?QSuperConstrInv(b0, type-args, exprs)
+  ; <s> b0
+  ; <s> "."
+  ; <typeargs-to-stream(s)> type-args
+  ; <s> "super"
+  ; <list-to-args-stream(s)> exprs
+  ; <s> ";\n"
+

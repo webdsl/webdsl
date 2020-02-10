@@ -1,0 +1,274 @@
+module org/webdsl/dsl/write-files/pp-java-to-stream/statement
+
+imports
+  libstratego-lib
+  libjava-front
+
+rules
+
+  stmt-to-stream(s) =
+    is-list  // existence of this indicates a codegen issue
+  ; map(stmt-to-stream(s))
+
+  stmt-to-stream(s) = block-to-stream(s)
+
+  block-to-stream(s) =
+    ?Block(stms)
+  ; <block-structure-stream(s,stmt-to-stream(s))> (0, stms)
+
+  stmt-to-stream(s) =
+    ?ClassDecStm(classdec)
+  ; <s> classdec
+
+  stmt-to-stream(s) =
+    ?Return(None())
+  ; <s> "return;"
+
+  stmt-to-stream(s) =
+    ?Return(Some(e))
+  ; <s> "return "
+  ; <expr-to-stream(s)> e
+  ; <s> ";\n"
+
+  stmt-to-stream(s) =
+    (?ExprStm(<expr-to-stream(s)>)
+    <+ ?ExprStm(ExprStm(<expr-to-stream(s)>)))  // codegen issue?
+  ; <s> ";\n"
+
+  stmt-to-stream(s) =
+    ?ExprStm(list@[ x | xs ])  // ExprStm([ ExprStm, ExprStm ])  codegen issue?
+  ; <map(stmt-to-stream(s))> list
+
+  stmt-to-stream(s) =
+    ?Empty()
+  ; <s> ";\n"
+
+rules
+
+  stmt-to-stream(s) =
+    ?LocalVarDecStm(lvardec)
+  ; <localvardec-to-stream(s)> lvardec
+  ; <s> ";\n"
+
+  localvardec-to-stream(s) =
+    ?LocalVarDec(mods, type, ds)
+  ; <map(mod-to-stream(s))> mods
+  ; <type-to-stream(s)> type
+  ; <s> " "
+  ; <print-comma-sep(s,vardec-to-stream(s))> ds
+
+rules
+
+  stmt-to-stream(s) =
+    ?Try(block, catches)
+  ; <s> "try"
+  ; <block-to-stream(s)> block
+  ; <map(catch-to-stream(s))> catches
+
+  stmt-to-stream(s) =
+    ?Try(block, catches, finally)
+  ; <s> "try"
+  ; <block-to-stream(s)> block
+  ; <map(catch-to-stream(s))> catches
+  ; <s> "finally"
+  ; <block-to-stream(s)> finally
+
+  catch-to-stream(s) =
+    ?Catch(param, block)
+  ; <s> "catch("
+  ; <param-to-stream(s)> param
+  ; <s> ")"
+  ; <block-to-stream(s)> block
+
+  stmt-to-stream(s) =
+    ?Throw(e)
+  ; <s> "throw "
+  ; <expr-to-stream(s)> e
+  ; <s> ";\n"
+
+/**
+ * if and if-else
+ */
+rules
+
+  stmt-to-stream(s) =
+    ?If(_, _)
+  ; if-then-to-stream(s)
+
+  stmt-to-stream(s) =
+    ?If(b1, b2, b3)
+  ; <if-then-to-stream(s)> If(b1, b2)
+  ; <if-else-to-stream(s)> If(b1, b2, b3)
+
+  if-then-to-stream(s) =
+    ?If(b1, b2)
+  ; not(!b2 => Block(_))
+  ; <s> "if("
+  ; <expr-to-stream(s)> b1
+  ; <s> ")"
+  ; <stmt-to-stream(s)> b2
+
+  if-then-to-stream(s) =
+    ?If(b1, b2)
+  ; !b2 => Block(_)
+  ; <s> "if("
+  ; <expr-to-stream(s)> b1
+  ; <s> ")"
+  ; <block-to-stream(s)> b2
+
+  if-else-to-stream(s) =
+    ?If(b1, b2, b3)
+  ; not(!b3 => Block(_))
+  ; <s> "else "
+  ; <stmt-to-stream(s)> b3
+
+  if-else-to-stream(s) =
+    ?If(b1, b2, b3)
+  ; !b3 => Block(_)
+  ; <s> "else "
+  ; <block-to-stream(s)> b3
+
+/**
+ * While Statements
+ */
+rules
+
+  stmt-to-stream(s) =
+    ?While(cond, b)
+  ; <s> "while("
+  ; <expr-to-stream(s)> cond
+  ; <s> ")"
+  ; <block-to-stream(s)> b
+
+  stmt-to-stream(s) =
+    ?DoWhile(b, cond)
+  ; <s> "do"
+  ; <block-to-stream(s)> b
+  ; <s> "while("
+  ; <expr-to-stream(s)> cond
+  ; <s> ");"
+
+/**
+ * For Statements
+ */
+rules
+
+  stmt-to-stream(s) =
+    ?f@For(init, cond, update, b2)
+  ; not(!b2 => Block(_))  // check before starting to put in stream
+  ; <for-head-stream(s)> f
+  ; <stmt-to-stream(s)> b2
+
+  stmt-to-stream(s) =
+    ?f@For(init, cond, update, b2)
+  ; !b2 => Block(_)
+  ; <for-head-stream(s)> f
+  ; <block-to-stream(s)> b2
+
+  for-head-stream(s) =
+    ?For(init, cond, update, body)
+  ; <s> "for("
+  ; <localvardec-to-stream(s) <+ print-comma-sep(s,expr-to-stream(s))> init
+  ; <s> ";\n"
+  ; <if-some(expr-to-stream(s))> cond
+  ; <s> ";\n"
+  ; <print-comma-sep(s,expr-to-stream(s))> update
+  ; <s> ")"
+
+/**
+ * For Each Statements
+ */
+rules
+
+  stmt-to-stream(s) =
+    ?f@ForEach(param, source, b2)
+  ; not(!b2 => Block(_))
+  ; <for-each-head-stream(s)> f
+  ; <stmt-to-stream(s)> b2
+
+  stmt-to-stream(s) =
+    ?f@ForEach(param, source, b2)
+  ; !b2 => Block(_)
+  ; <for-each-head-stream(s)> f
+  ; <block-to-stream(s)> b2
+
+  for-each-head-stream(s) =
+    ?ForEach(param, source, body)
+  ; <s> "for("
+  ; <param-to-stream(s)> param
+  ; <s> ":"
+  ; <expr-to-stream(s)> source
+  ; <s> ")"
+
+rules
+
+  stmt-to-stream(s) =
+    ?Synchronized(e, b)
+  ; <s> "synchronized("
+  ; <expr-to-stream(s)> e
+  ; <s> ")"
+  ; <block-to-stream(s)> b
+
+  stmt-to-stream(s) =
+    ?Break(Some(Id(x)))
+  ; <s> "break "
+  ; <s> x
+  ; <s> ";\n"
+
+  stmt-to-stream(s) =
+    ?Break(None())
+  ; <s> "break;"
+
+  stmt-to-stream(s) =
+    ?Continue(Some(Id(x)))
+  ; <s> "continue "
+  ; <s> x
+  ; <s> ";\n"
+
+  stmt-to-stream(s) =
+    ?Continue(None())
+  ; <s> "continue;"
+
+  stmt-to-stream(s) =
+    ?Labeled(Id(x), stm)
+  ; <s> x
+  ; <s> ":"
+  ; <stmt-to-stream(s)> stm
+
+  stmt-to-stream(s) =
+    ?AssertStm(e)
+  ; <s> "assert "
+  ; <expr-to-stream(s)> e
+  ; <s> ";\n"
+
+  stmt-to-stream(s) =
+    ?AssertStm(e1, e2)
+  ; <s> "assert "
+  ; <expr-to-stream(s)> e1
+  ; <s> ":"
+  ; <expr-to-stream(s)> e2
+  ; <s> ";\n"
+
+  stmt-to-stream(s) =
+    ?Switch(b1, SwitchBlock(groups, labels))
+  ; <s> "switch("
+  ; <expr-to-stream(s)> b1
+  ; <s> "){"
+  ; <map(switchgroup-to-stream(s))> groups
+  ; <map(switch-label-to-stream(s))> labels
+  ; <s> "}"
+
+  switchgroup-to-stream(s) =
+    ?SwitchGroup(labels, stms)
+  ; <map(switch-label-to-stream(s))> labels
+  ; <map(stmt-to-stream(s))> stms
+
+  switch-label-to-stream(s) =
+    ?Case(e)
+  ; <s> "case "
+  ; <expr-to-stream(s)> e
+  ; <s> ":"
+
+  switch-label-to-stream(s) =
+    ?Default()
+  ; <s> "default:"

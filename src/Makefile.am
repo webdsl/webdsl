@@ -150,6 +150,10 @@ GENSTRFILES =    $(wildcard ./org/webdsl/dsl/analysis/*.str) \
                  $(wildcard ./org/webdsl/dsl/transformation/*.str) \
                  $(wildcard ./org/webdsl/dsl/typechecker/*.str)
 
+WRITE_FILES_FILES = $(wildcard ./org/webdsl/dsl/write-files/*.str) \
+                    $(wildcard ./org/webdsl/dsl/write-files/*/*.str) \
+                    $(wildcard ./org/webdsl/dsl/write-files/*/*/*.str)
+
 JAVA_TRANS_FILES = $(wildcard ./org/webdsl/dsl/java-transformations/*.str)
 
 BACKEND_TRANS_FILES = \
@@ -262,7 +266,7 @@ src-gen/org/webdsl/java_transformations/Main.java : $(TBLS) $(SIGS) $(PPTABLES) 
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.java_transformations -i $(srcdir)/org/webdsl/dsl/java-transformations/java-transformations.str -o src-gen/org/webdsl/java_transformations/Main.java -la org.webdsl.webdsl-front
 	cp src-gen/org/webdsl/java_transformations/Main.rtree libjava-transformations.rtree
 
-src-gen/org/webdsl/write_files/Main.java : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) libwebdsl-front.rtree
+src-gen/org/webdsl/write_files/Main.java : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(WRITE_FILES_FILES) libwebdsl-front.rtree
 	mkdir -p src-gen/org/webdsl/write_files
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.write_files -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o src-gen/org/webdsl/write_files/Main.java -la org.webdsl.webdsl-front
 	cp src-gen/org/webdsl/write_files/Main.rtree libwrite-files.rtree
