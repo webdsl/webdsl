@@ -187,7 +187,7 @@ rules // desugar 'elements' template argument for defined template calls
               ; <emit-webdsl-code> Define([TemplateDefineNameBeforeLifting("internal-NoEnclosingDefine"),IgnoreAccessControl()], x_newtempl, farg*, [], elem*){positionanno*}
               ; extra-anno* := [NoEnclosingDefine()]
             else // regular handling of elements
-                (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper> (x,elem*)
+                (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper(id)> (x,elem*)
               ; EnclosingDefine(_, encltemplatename, encltemplateargs, _, encltemplatemods) := <DefinedTemplateGetEnclosingDefine> x
               ; enclname := <generate-template-name-fargs> (encltemplatename, encltemplateargs, encltemplatemods)
               ; <emit-webdsl-code> Define([TemplateDefineNameBeforeLifting(enclname)|mod*], x_newtempl, farg*, requires*, defelem*){positionanno*}
@@ -215,17 +215,9 @@ rules // desugar 'elements' template argument for defined template calls
     where types := <CallToRequiredTemplate> x
     with  genname := <generate-template-name> (x,types)
 
-  emit-top-level-template-contents-helper:
-    (x,elem*) -> (farg*, requires*, defelem*, var*, mod*)
+  emit-top-level-template-contents-helper(filter):
+    (x,elem*) -> (farg*, requires*, defelem*, varfiltered*, mod*)
     with  var* := <CallContextVars; reverse> x  // reverse names from closure to get same order for template arguments as enclosing definition, relevant for template-elements-argument desugaring
-        ; farg* := <map(?Var(
-          	              <!Arg(
-          	              	<id>
-          	                // make all 'elements' arguments Ref args, unless the type has ImmutableReference annotation (e.g. because it belong to a for loop iterator)
-          	              , <type-of; if where({?_{anno_type*};<fetch(ImmutableReference)>anno_type*}) then strip-annos else strip-annos;!RefSort(<id>) end> Var(<id>)
-          	              )>
-          	            ) 
-          	         <+ debug(|"Internal error: Expected Var(_) with type information: "); fail)> var* 
         ; EnclosingDefine(templatekey, encltemplatename, encltemplateargs, in-email, _) := <DefinedTemplateGetEnclosingDefine> x
         ; if <False> in-email
           then
@@ -238,6 +230,37 @@ rules // desugar 'elements' template argument for defined template calls
           ; defelem* := elem*
           ; mod* := [IgnoreAccessControl()]
           end
+        ; varfiltered* := <if filter; where(not(<oncetd(?ActionCall(_,_))> elem*)) then var-filter-template-contents-helper(|defelem*) end> var*
+        ; farg* := <get-fargs-template-contents-helper> varfiltered*
+
+  var-filter-template-contents-helper(|elems) =
+    filter(
+      //debug(|"filter");
+      {x,y,ystripped:
+        ?x@Var(y)
+      ; where(
+          (type-of; ?TemplateVarArgSortInner(_))  // template var arg usage tabs( content: [label:String, elems:TemplateElements] )
+       <+ ystripped := <strip-annos> y
+        ; !elems
+        ; oncetd(
+            ?x
+         <+ ?TemplateCall(<strip-annos; ?ystripped>,_,_,_))  // TemplateElements arg usage (string with anno matching is confusing in stratego)
+        )
+      }
+      //;debug(|"found")
+    )
+
+  get-fargs-template-contents-helper =
+    map(
+      ?Var(
+        <!Arg(
+          <id>
+          // make all 'elements' arguments Ref args, unless the type has ImmutableReference annotation (e.g. because it belong to a for loop iterator)
+        , <type-of; if where({?_{anno_type*};<fetch(ImmutableReference)>anno_type*})   then strip-annos else strip-annos;!RefSort(<id>) end> Var(<id>)
+        )>
+      )
+   <+ debug(|"Internal error: Expected Var(_) with type information: "); fail
+    )
 
 rules
 
@@ -300,7 +323,7 @@ rules
   desugar-argdef(|templatename) :
     ArgDefine(x,origfarg*,elem*) -> renamedtopleveltemplatecall
     with x_newtempl := <conc-strings; toplevel-rename> (x,"_ad")
-        ; (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper> (templatename,elem*)
+        ; (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper(fail)> (templatename,elem*)
         ; <enable-elements-lifting-in-with; emit-webdsl-code> Define([TemplateDefineNameBeforeLifting(x)|mod*], x_newtempl, [origfarg*, farg*], requires*, defelem*)
          // a special templatecall that only needs resolving by name, since the name is uniquely generated
          //  produces the name that should be used to look up the template in the hashmap
