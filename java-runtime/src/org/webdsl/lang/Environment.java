@@ -64,8 +64,12 @@ public class Environment {
 	//When elements cannot be found, return the dummy EmptyElementsCall
 	//This might happen when a template call, that had no elements in its call, is optimized, but the template definition does expect elements
 	public utils.TemplateCall getElementscall(String key){
-	  utils.TemplateCall tc = getWithcall(key);
-	  return tc != null ? tc : utils.TemplateCall.EmptyElementsCall;
+	  if(key == utils.TemplateCall.SkipElementsMarker) {
+	    return utils.TemplateCall.EmptyElementsCall;
+	  } else {
+	    utils.TemplateCall tc = getWithcall(key);
+	    return tc != null ? tc : utils.TemplateCall.EmptyElementsCall;
+	  }
 	}
 	
 	public utils.TemplateCall getWithcall(String key) {
