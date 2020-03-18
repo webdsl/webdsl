@@ -9,14 +9,14 @@ imports
 
 overlays
 
-  e_HibSession =
+  e_HibSession() =
     java:expr |[ utils.HibernateUtil.getCurrentSession() ]|
 
 rules
 
   hibernate-forall-criteria :
     (term{anno*}, t, x, srt, fltr, prefetch) -> e_criteria
-    with e_basecriteria := <try(hibernate-add-cacheable(|anno*))> expr|[ e_HibSession.createCriteria(t.class) ]|
+    with e_basecriteria := <try(hibernate-add-cacheable(|anno*))> expr|[ ~e:(e_HibSession()).createCriteria(t.class) ]|
     ; toonejoins := <is-guided-batching-no-joins < get-alias-joins + get-to-one-joins> prefetch
     ; QueryCondition(querycondition) := <fetch-elem(?QueryCondition(_)) <+ !QueryCondition(True())> anno*
     ; e_criteria := <foldr(!e_basecriteria,hibernate-criteria-join); hibernate-criteria-add-condition(|querycondition,x,srt)> toonejoins
@@ -40,9 +40,9 @@ rules
   try-get-query-condition-filter = get-anno(get-query-condition-filter) <+ !([], [])
 
   get-query-condition-filter :
-    QueryConditionFilter(name, vars, types) -> (bstm* |[ e_expr; ]|, bstm* |[ e_HibSession.disableFilter("~name"); ]|)
+    QueryConditionFilter(name, vars, types) -> (bstm* |[ e_expr; ]|, bstm* |[ ~e:(e_HibSession()).disableFilter("~name"); ]|)
     with params := <zip>(<length; range> types, <zip> (vars, types))
-    ; e_expr := <foldr(!expr |[ e_HibSession.enableFilter("~name") ]|, add-filter-param)> params
+    ; e_expr := <foldr(!expr |[ ~e:(e_HibSession()).enableFilter("~name") ]|, add-filter-param)> params
 
   add-filter-param :
     ((i, (v, srt)), e) -> expr |[ e.setParameter("~name", new x(e_val)) ]|
@@ -389,7 +389,7 @@ rules
                                             if(e_Cond && utils.QueryOptimization.isOptimizationEnabled()) {
                                               java.util.ArrayList<t> x_list = new java.util.ArrayList<t>();
                                               x_list.add(e_expr);
-                                              utils.QueryOptimization.prefetchEntities(e_HibSession, "~str", x_list, e_joins, false);
+                                              utils.QueryOptimization.prefetchEntities(~e:(e_HibSession()), "~str", x_list, e_joins, false);
                                               ~bstm*:bstm_sub*
                                             }
                                           ]|
@@ -398,7 +398,7 @@ rules
     ; str := <java-type-name> fsrt
     ; x_list := <concat-strings; newname-webdsl>[x, "Lst"]
     ; e_joins := <get-prefetch-children; get-direct-fetches> children
-    ; bstm_sub* := <get-prefetch-children; start-build-sub-batches(|e_HibSession, x_list, fsrt)> children
+    ; bstm_sub* := <get-prefetch-children; start-build-sub-batches(|e_HibSession(), x_list, fsrt)> children
     ; if Some(simplecastsrt@SimpleSort(x_castclass)) := castsrt then
         e_expr := <expression-to-java-servlet> FieldAccess(Cast(v, simplecastsrt), f)
         ; e_Cond := <add-conditions-to-prefetch(|cond, v)> expr |[ this.instanceOf("~x_castclass") && e_expr != null ]|
@@ -417,7 +417,7 @@ rules
     where x := f
     ; t := <java-type> fsimplesrt
     ; x_list := <concat-strings; newname-webdsl>[x, "Lst"]
-    ; bstm_sub* := <get-prefetch-children; start-build-sub-batches(|e_HibSession, x_list, fsimplesrt)> children
+    ; bstm_sub* := <get-prefetch-children; start-build-sub-batches(|e_HibSession(), x_list, fsimplesrt)> children
     ; if Some(simplecastsrt@SimpleSort(x_castclass)) := castsrt then
         e_expr := <expression-to-java-servlet> FieldAccess(Cast(v, simplecastsrt), f)
         ; e_Cond := <add-conditions-to-prefetch(|cond, v)> expr |[ this.instanceOf("~x_castclass") && e_expr != null ]|
@@ -431,7 +431,7 @@ rules
                                             if(x != null) {
                                               java.util.ArrayList<t> x_list = new java.util.ArrayList<t>();
                                               x_list.add(x);
-                                              utils.QueryOptimization.prefetchEntities(e_HibSession, "~str", x_list, e_joins, false);
+                                              utils.QueryOptimization.prefetchEntities(~e:(e_HibSession()), "~str", x_list, e_joins, false);
                                               ~bstm*:bstm_sub*
                                             }
                                           ]|
@@ -439,11 +439,11 @@ rules
     ; str := <java-type-name> srt
     ; e_joins := <get-prefetch-children; get-direct-fetches> tree
     ; x_list := <concat-strings; newname-webdsl>[x, "Lst"]
-    ; bstm_sub* := <get-prefetch-children; start-build-sub-batches(|e_HibSession, x_list, srt)> tree
+    ; bstm_sub* := <get-prefetch-children; start-build-sub-batches(|e_HibSession(), x_list, srt)> tree
 
   get-batch-fetches-single-simple(|x, srt) :
     PrefetchFor(_, _, _, tree) -> bstm* |[
-                                    if(x instanceof org.hibernate.proxy.HibernateProxy) utils.QueryOptimization.prefetchEntity(e_HibSession, "~str", (org.hibernate.proxy.HibernateProxy)x, e_joins);
+                                    if(x instanceof org.hibernate.proxy.HibernateProxy) utils.QueryOptimization.prefetchEntity(~e:(e_HibSession()), "~str", (org.hibernate.proxy.HibernateProxy)x, e_joins);
                                   ]|
     where str := <java-type-name> srt
     ; e_joins := <get-prefetch-children; get-direct-fetches-no-empty-batch; not(?expr |[ (String[])null ]|)> tree // If no joins are present then this would just be a hibSession.get()
