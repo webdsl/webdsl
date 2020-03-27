@@ -4,23 +4,23 @@ rules
 
   get-filters-for-conditions(|srt) :
     cond -> fltr
-    with (strcond, parammap) := <condition-expr-to-filter-condition(get-relative-prop-string)> (cond, [])
+    where (strcond, parammap) := <condition-expr-to-filter-condition(get-relative-prop-string)> (cond, [])
     ; fltr := <common-get-filters(|srt)> (strcond, parammap)
 
   condition-expr-to-filter-condition(dbprop-to-string):
     (Not(expr1), parammap) -> (str, parammap2)
-    with (str1, parammap2) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr1, parammap)
+    where (str1, parammap2) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr1, parammap)
     ; str := <concat-strings> [ "not (", str1, ")" ]
 
   condition-expr-to-filter-condition(dbprop-to-string):
     (Or(expr1, expr2), parammap) -> (str, parammap3)
-    with (str1, parammap2) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr1, parammap)
+    where (str1, parammap2) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr1, parammap)
     ; (str2, parammap3) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr2, parammap2)
     ; str := <concat-strings> [ "(", str1, " or ", str2, ")" ]
 
   condition-expr-to-filter-condition(dbprop-to-string):
     (And(expr1, expr2), parammap) -> (str, parammap3)
-    with (str1, parammap2) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr1, parammap)
+    where (str1, parammap2) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr1, parammap)
     ; (str2, parammap3) := <condition-expr-to-filter-condition(dbprop-to-string)> (expr2, parammap2)
     ; str := <concat-strings> [ "(", str1, " and ", str2, ")" ]
 
@@ -68,11 +68,12 @@ rules
 
   condition-to-filter-string(dbprop-to-string) :
     (e, parammap) -> (str, parammap)
-    where str := <dbprop-to-string> e
+    where str := <is-not-transient-field-access; dbprop-to-string> e
 
   condition-to-filter-string(dbprop-to-string) :
     (e, parammap) -> (paramstr, parammap2)
     where not(Null() := e)
+    ; <is-not-transient-field-access> e
     ; not(<dbprop-to-string> e)
     with srt := <type-of> e
     ; (paramstr, parammap2) := <get-condition-filter-param> (e, srt, parammap)
@@ -110,6 +111,13 @@ strategies
     ; property-to-string
 
 rules
+	
+	is-not-transient-field-access =
+		?RelativeFieldAccess(_, e){anno*}
+		; if <fetch-elem(?PrefetchPropAnno( SimpleSort(x_class) ,fsrt))> anno* then
+        propAnnos := <get-property; get-property-annos <+ ![]> (x_class, e) //transient properties should not get filter
+      ; not( fetch(?SimpleAnno("transient")) )
+    end
 
   get-relative-prop-string :
     RelativeFieldAccess(_, e) -> str
