@@ -550,6 +550,7 @@ native class utils.AbstractPageServlet as PageServlet{
   getXForwardedProto(): String
   getXForwardedFor(): String
   reloadSessionManagerFromExistingSessionId( UUID )
+  addResponseHeader( String, String )
 }
 function getPage(): PageServlet{
   return PageServlet.getRequestedPage();

@@ -1042,6 +1042,11 @@ public abstract class AbstractPageServlet{
     public ResponseWrapper getResponse() {
         return response;
     }
+    public void addResponseHeader(String key, String value) {
+      if( response != null ) {
+        response.setHeader(key, value);
+      }
+    }
 
     protected boolean validated=true;
     /*
