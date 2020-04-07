@@ -587,6 +587,16 @@ function appendLogSql(command) {
   document.body.appendChild(div);
 }
 
+//report error when character is not in Basic Multilingual Plane (BMP), and would encode as 4 bytes UTF-8
+function checkForUnsupportedCharacters( textValue ){
+  for (var i=0; i<textValue.length; i++) {
+    if (textValue.codePointAt(i) > 65533) {
+      doShowError("You entered text that contains a unicode character '" + String.fromCodePoint( textValue.codePointAt(i) ) + "' which is not supported.");
+      return;
+    }
+  }
+}
+
 var loadingStyle = '\
 <style>\
 .lds-ring {\
