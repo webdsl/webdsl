@@ -100,8 +100,8 @@ import javax.persistence.Transient;
           file.setContentStream(new FileInputStream(fileOnDisk));
           String contentType = Files.probeContentType( fileOnDisk.toPath() );
           file.setContentType(contentType);
-          file.setFileName( fileOnDisk.getName() );
-        }  
+          file.setFileName( filename );
+        }
     } catch (IOException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
