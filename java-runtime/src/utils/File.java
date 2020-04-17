@@ -82,14 +82,13 @@ import javax.persistence.Transient;
   }
 
   /**
-   * Creates a File entity from the file at the specified path,
-   * and gives it the specified filename.
+   * Creates a File entity from the file at the specified path.
+   * The filename of the File entity is the filename of the file.
    *
    * @param fullPath the full path to the file on disk
-   * @param filename the filename to set for the File entity
    * @return the created File entity
    */
-  public static File createFromFilePathAndFilename(String fullPath, String filename) {
+  public static File createFromFilePath(String fullPath) {
     File file = null;
     try {
         java.io.File fileOnDisk = new java.io.File(fullPath);
@@ -100,7 +99,7 @@ import javax.persistence.Transient;
           file.setContentStream(new FileInputStream(fileOnDisk));
           String contentType = Files.probeContentType( fileOnDisk.toPath() );
           file.setContentType(contentType);
-          file.setFileName( filename );
+          file.setFileName( fileOnDisk.getName() );
         }
     } catch (IOException e) {
       // TODO Auto-generated catch block
@@ -110,15 +109,20 @@ import javax.persistence.Transient;
   }
 
   /**
-   * Creates a File entity from the file at the specified path.
-   * The filename of the File entity is the filename of the file.
+   * Creates a File entity from the file at the specified path,
+   * and gives it the specified custom filename and path.
    *
    * @param fullPath the full path to the file on disk
+   * @param path the custom path to save with the file, including the file name
    * @return the created File entity
    */
-  public static File createFromFilePath(String fullPath) {
-    try {
-    	return createFromFilePathAndFilename(fullPath, Paths.get(fullPath).getFileName().toString());
+  public static File createFromFilePath(String fullPath, String path) {
+	try {
+        File file = createFromFilePath(fullPath);
+        file.setPath(path);
+        // Ensure the filename matches the custom path's filename
+        file.setFileName(Paths.get(path).getFileName().toString());
+        return file;
     } catch (InvalidPathException e) {
     	// We cannot convert one of the path strings to a valid Path
     	return null;
@@ -130,12 +134,12 @@ import javax.persistence.Transient;
    * and gives it a filename and path relative to the specified basePath.
    *
    * @param fullPath the full path to the file on disk
-   * @param basePath the base path relative to which to find the filename
+   * @param basePath the base path relative to which the path of the file is determined
    * @return the created File entity
    */
-  public static File createFromFilePath(String fullPath, String basePath) {
+  public static File createFromFilePathRelative(String fullPath, String basePath) {
 	try {
-    	return createFromFilePathAndFilename(fullPath, Paths.get(basePath).relativize(Paths.get(fullPath)).toString());
+		return createFromFilePath(fullPath, Paths.get(basePath).relativize(Paths.get(fullPath)).toString());
     } catch (InvalidPathException e) {
     	// We cannot convert one of the path strings to a valid Path
     	return null;
@@ -174,6 +178,8 @@ import javax.persistence.Transient;
     }
   }
 
+  // Just the filename (e.g., `myfile.txt`)
+
   @org.hibernate.annotations.AccessType(value = "field") protected String fileName = "";
   
   public String getFileName()
@@ -193,6 +199,20 @@ import javax.persistence.Transient;
   
   public void setFileNameForDownload(String name){
     fileNameForDownload = name;
+  }
+
+  // The full path (e.g., `mydir/myfile.txt`)
+
+  @org.hibernate.annotations.AccessType(value = "field") protected String path = null;
+
+  public String getPath()
+  {
+    return this.path != null ? this.path : getFileName();
+  }
+
+  public void setPath(String newPath)
+  {
+	  this.path = newPath;
   }
 
   @org.hibernate.annotations.AccessType(value = "field") protected long sizeInBytes = 0;
@@ -231,6 +251,7 @@ import javax.persistence.Transient;
       utils.File newF = new utils.File();
       newF.setContent(content);
       newF.setFileName(fileName);
+      newF.setPath(path);
       newF.setContentType(contentType);
       return newF;
   }
