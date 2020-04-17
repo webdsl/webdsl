@@ -117,16 +117,9 @@ import javax.persistence.Transient;
    * @return the created File entity
    */
   public static File createFromFilePath(String fullPath, String path) {
-	try {
-        File file = createFromFilePath(fullPath);
-        file.setPath(path);
-        // Ensure the filename matches the custom path's filename
-        file.setFileName(Paths.get(path).getFileName().toString());
-        return file;
-    } catch (InvalidPathException e) {
-    	// We cannot convert one of the path strings to a valid Path
-    	return null;
-    }
+    File file = createFromFilePath(fullPath);
+    file.setPath(path);
+    return file;
   }
 
   /**
@@ -178,18 +171,18 @@ import javax.persistence.Transient;
     }
   }
 
-  // Just the filename (e.g., `myfile.txt`)
-
+  // The field stores the whole path (e.g., `myfir/myfile.txt`) in Unix format (with forward slashes)
   @org.hibernate.annotations.AccessType(value = "field") protected String fileName = "";
-  
+
+  // Just the file name (e.g., `myfile.txt`)
   public String getFileName()
-  { 
-    return fileName;
+  {
+	  return fileName != null ? (fileName.substring(fileName.lastIndexOf('/') + 1)) : null;
   }
-  
-  public void setFileName(String newitem)
-  { 
-    fileName = newitem;
+
+  public void setFileName(String newFileName)
+  {
+	  fileName = fileName != null ? (fileName.substring(0, fileName.lastIndexOf('/') + 1) + newFileName) : newFileName;
   }
   
   @Transient protected String fileNameForDownload = null;
@@ -202,17 +195,14 @@ import javax.persistence.Transient;
   }
 
   // The full path (e.g., `mydir/myfile.txt`)
-
-  @org.hibernate.annotations.AccessType(value = "field") protected String path = null;
-
   public String getPath()
   {
-    return this.path != null ? this.path : getFileName();
+    return fileName;
   }
 
   public void setPath(String newPath)
   {
-	  this.path = newPath;
+	  fileName = newPath;
   }
 
   @org.hibernate.annotations.AccessType(value = "field") protected long sizeInBytes = 0;
