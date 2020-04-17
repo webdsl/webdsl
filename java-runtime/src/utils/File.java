@@ -240,8 +240,7 @@ import javax.persistence.Transient;
   public utils.File makeClone() {
       utils.File newF = new utils.File();
       newF.setContent(content);
-      newF.setFileName(fileName);
-      newF.setPath(path);
+      newF.setPath(fileName);
       newF.setContentType(contentType);
       return newF;
   }
