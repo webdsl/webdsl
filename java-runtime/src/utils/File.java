@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -78,8 +80,16 @@ import javax.persistence.Transient;
   public void setContentFromString(String s) throws java.io.IOException{
     setContentStream(new ByteArrayInputStream(s.getBytes(StandardCharsets.UTF_8)));
   }
-  
-  public static File createFromFilePath(String fullPath) {
+
+  /**
+   * Creates a File entity from the file at the specified path,
+   * and gives it the specified filename.
+   *
+   * @param fullPath the full path to the file on disk
+   * @param filename the filename to set for the File entity
+   * @return the created File entity
+   */
+  public static File createFromFilePathAndFilename(String fullPath, String filename) {
     File file = null;
     try {
         java.io.File fileOnDisk = new java.io.File(fullPath);
@@ -98,7 +108,40 @@ import javax.persistence.Transient;
     }
     return file;
   }
-  
+
+  /**
+   * Creates a File entity from the file at the specified path.
+   * The filename of the File entity is the filename of the file.
+   *
+   * @param fullPath the full path to the file on disk
+   * @return the created File entity
+   */
+  public static File createFromFilePath(String fullPath) {
+    try {
+    	return createFromFilePathAndFilename(fullPath, Paths.get(fullPath).getFileName().toString());
+    } catch (InvalidPathException e) {
+    	// We cannot convert one of the path strings to a valid Path
+    	return null;
+    }
+  }
+
+  /**
+   * Creates a File entity from the file at the specified path,
+   * and gives it a filename and path relative to the specified basePath.
+   *
+   * @param fullPath the full path to the file on disk
+   * @param basePath the base path relative to which to find the filename
+   * @return the created File entity
+   */
+  public static File createFromFilePath(String fullPath, String basePath) {
+	try {
+    	return createFromFilePathAndFilename(fullPath, Paths.get(basePath).relativize(Paths.get(fullPath)).toString());
+    } catch (InvalidPathException e) {
+    	// We cannot convert one of the path strings to a valid Path
+    	return null;
+    }
+  }
+
   public static File createFromString(String s, String fileName){
 	try{
 	  utils.File file = new utils.File();
