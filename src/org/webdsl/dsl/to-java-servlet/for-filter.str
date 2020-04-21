@@ -22,17 +22,17 @@ rules
 
   for-filter-by-code-where(|x, t, x_list) :
     Filter(wherecl, _, _) -> bstm* |[
-      int x_rm = 0;
+      java.util.ArrayList<t> x_filtered = new java.util.ArrayList<t>(x_list.size());
       ~*<wrap-in-for-loop(|x_i,x,t,expr|[ x_list ]|)> bstm*|[
-        if(!e2) {
-          x_list.remove(x_i - x_rm);
-          x_rm++;
+        if(e2) {
+          x_filtered.add(x);
         }
       ]|
+      x_list = x_filtered;
     ]|
     with  e2 := <expression-to-java-servlet> wherecl
         ; x_i := <newname-webdsl> "i"
-        ; x_rm := <newname-webdsl> "removedcount"
+        ; x_filtered := <newname-webdsl> "filtered"
 
   for-filter-by-code-order-by(|x, srt, t, x_list) :
     Filter(wherecl, orderby*, limit) -> bstm* |[
@@ -90,45 +90,41 @@ rules
     f@Filter(_, _, Limit(limit,offset)) -> bstm* |[
       int x_lim = e1;
       int x_off = e2;
-      int x_rm = 0;
+      java.util.ArrayList<t> x_filtered = new java.util.ArrayList<t>( x_list.size() );
       ~*<wrap-in-for-loop(|x_i,x,t,expr|[ x_list ]|)> bstm*|[
-        ~*<for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i)> f
+        ~*<for-filter-by-code-limit-offset(|x, t, x_filtered, x_lim, x_off, x_i)> f
       ]|
+      x_list = x_filtered;
     ]|
     with  e1 := <expression-to-java-servlet> limit
         ; e2 := <expression-to-java-servlet> offset
         ; x_i := <newname-webdsl> "i"
         ; x_lim := <newname-webdsl> "limit"
         ; x_off := <newname-webdsl> "offset"
-        ; x_rm := <newname-webdsl> "removedcount"
+        ; x_filtered := <newname-webdsl> "filtered"
 
-  for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i) :
+  for-filter-by-code-limit-offset(|x, t, x_filtered, x_lim, x_off, x_i) :
     Filter(_, _, Limit(limit,offset)) -> bstm* |[
       if(x_i >= x_off){
-        ~*<for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i)>
-      }
-      else{
-        x_list.remove(x_i - x_rm);
-        x_rm++;
+        ~*<for-filter-by-code-limit-limit(|x, t, x_filtered, x_lim)>
       }
     ]|
     where not(<?Int("0")> offset)
 
-  for-filter-by-code-limit-offset(|x, t, x_list, x_rm, x_lim, x_off, x_i) :
+  for-filter-by-code-limit-offset(|x, t, x_filtered, x_lim, x_off, x_i) :
     Filter(_, _, Limit(limit,offset)) ->
-    <for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i)>
+    <for-filter-by-code-limit-limit(|x, t, x_filtered, x_lim)>
     where <?Int("0")> offset
 
-  for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i) :
+  for-filter-by-code-limit-limit(|x, t, x_filtered, x_lim) :
     Filter(_, _, Limit(limit,offset)) -> bstm* |[
-      if(x_lim <= 0) {
-        x_list.remove(x_i - x_rm);
-        x_rm++;
+      if(x_lim > 0) {
+        x_filtered.add(x);
       }
       x_lim--;
     ]|
     where not(<?Int("-1")> limit)
 
-  for-filter-by-code-limit-limit(|x, t, x_list, x_rm, x_lim, x_i) :
-    Filter(_, _, Limit(limit,offset)) -> []
+  for-filter-by-code-limit-limit(|x, t, x_filtered, x_lim) :
+    Filter(_, _, Limit(limit,offset)) -> bstm* |[ x_filtered.add(x); ]|
     where <?Int("-1")> limit
