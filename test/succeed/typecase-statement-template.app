@@ -29,10 +29,20 @@ function typecasetest( arg: Ent ): String {
   }
 }
 
+function typecasenoalias( arg: Ent ): String {
+  typecase( arg ){
+    Sub2    { return arg.i + "3"; }
+    Sub3    { return arg.i + "4"; }
+    Sub1    { return arg.i + "2"; }
+    Ent     { return arg.i + "1"; }
+    default { return "5"; }
+  }
+}
+
 var testa := Ent{ i := "a" }
-var testb := Sub1{ sub1 := "b" }
-var testc := Sub2{ sub2 := "c" }
-var testd := Sub3{ sub3 := "d" }
+var testb := Sub1{ i := "b" sub1 := "b" }
+var testc := Sub2{ i := "c" sub2 := "c" }
+var testd := Sub3{ i := "d" sub3 := "d" }
 
 test {
   assert( typecasetest( testa ) == "a" );
@@ -40,6 +50,12 @@ test {
   assert( typecasetest( testc ) == "c" );
   assert( typecasetest( testd ) == "d" );
   assert( typecasetest( null as Ent ) == "*" );
+
+  assert( typecasenoalias( testa ) == "a1" );
+  assert( typecasenoalias( testb ) == "b2" );
+  assert( typecasenoalias( testc ) == "c3" );
+  assert( typecasenoalias( testd ) == "d4" );
+  assert( typecasenoalias( null as Ent ) == "5" );
 }
 
 
@@ -53,12 +69,28 @@ template typecasetest( arg: Ent ) {
   }
 }
 
+template typecasetestnoalias( arg: Ent ) {
+  typecase( arg ){
+    Sub2    { output( arg.i + "3" ) }
+    Sub1    { output( arg.i + "4" ) }
+    Sub3    { output( arg.i + "2" ) }
+    Ent     { output( arg.i + "1" ) }
+    default { "5" }
+  }
+}
+
 test {
   assert( rendertemplate( typecasetest( testa ) ) == "a" );
   assert( rendertemplate( typecasetest( testb ) ) == "b" );
   assert( rendertemplate( typecasetest( testc ) ) == "c" );
   assert( rendertemplate( typecasetest( testd ) ) == "d" );
   assert( rendertemplate( typecasetest( null as Ent ) ) == "*" );
+
+  assert( rendertemplate( typecasetestnoalias( testa ) ) == "a1" );
+  assert( rendertemplate( typecasetestnoalias( testb ) ) == "b4" );
+  assert( rendertemplate( typecasetestnoalias( testc ) ) == "c3" );
+  assert( rendertemplate( typecasetestnoalias( testd ) ) == "d2" );
+  assert( rendertemplate( typecasetestnoalias( null as Ent ) ) == "5" );
 }
 
 
