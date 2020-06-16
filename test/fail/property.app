@@ -43,6 +43,9 @@ entity Test {
   ell : [[Test]]
   ess : {{Test}}
   elsls : [{[{Test}]}]
+
+  // allow native class for derived property
+  ratio : Double := Double(0.0)
 }
 
 define page root() { }
