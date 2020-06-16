@@ -66,8 +66,7 @@ rules
     (  ?Property(x, propkind, srt, _)
     <+ ?DerivedProperty(x, propkind, srt, _, _) )
     ; where(
-           check-no-null-attribute(|x, srt)          // check for wrong attribute types
-        <+ check-no-void-attribute(|x, srt)
+           check-disallowed-simplesort(|x, srt)
         <+ check-no-ref-type(|x, srt)
         <+ check-simple-propkind(|propkind, srt)    // check for incompatible propkinds, such as :: Set<User> (which should be -> Set<User>)
         <+ check-complex-propkind(|propkind, srt)
@@ -76,6 +75,13 @@ rules
         <+ check-entity-name-overlap(|x)
       )
     ; fail
+
+  check-disallowed-simplesort(|x, srt) :
+    term -> <map(try(check-disallowed-simplesort-helper(|term, x, srt))); fail> ["Null", "Void", "Entity"]
+
+  check-disallowed-simplesort-helper(|term, x, srt) :
+    name -> <add-error(|["Type '", name, "' is not allowed in property '", x, "'"])> term
+    where srt := SimpleSort(name)
 
   // warning for now, because in some cases it works and it is used in one of the deployed applications
   check-entity-name-overlap(| x ):
@@ -88,43 +94,29 @@ rules
   check-forbidden-property(|x): prop -> <add-error(|["Cannot use the reserved property name '",x,"'"])>
     where <?"class"> x
 
-  check-no-null-attribute(|x, srt) :
-    _ -> <add-error(|["Attribute type Null is not allowed in attribute ", <pp-webdsl> x])>
-    where srt := SimpleSort("Null")
+  check-no-ref-type(|x, srt) :
+    _ -> <add-error(|["Reference type is not allowed in property '", x, "'"])>
+    where <?RefSort(_)>srt
 
-   check-no-ref-type(|x, srt) :
-    _ -> <add-error(|["Reference type is not allowed as type in attribute ", <pp-webdsl> x])>
-    where <?RefSort(_)>srt 
-
-  check-no-void-attribute(|x, srt) :
-    _ -> <add-error(|["Attribute type Void is not allowed in attribute ", <pp-webdsl> x])>
-    where srt := SimpleSort("Void")
-
+  // this rule will never trigger when using ':', because it has is-simple-sort as condition to rewrite to Simple() propkind
   check-simple-propkind(|propkind, srt) :
-    _ -> <add-error(|["Expected: Simple type. Encountered: ", <pp-type> srt])>
+    _ -> <add-error(|["Expected: primitive type. Encountered: ", <pp-type> srt])>
     where <is-webdsl-type> srt
     where not(<is-simple-sort> srt)
         ; Simple() := propkind
 
+  // has a general error message for ':', not just '->' and '<>'
   check-complex-propkind(|propkind, srt) :
-    _ -> <add-error(|["Expected: Reference type or Composite type. Encountered: ", <pp-type> srt])>
+    _ -> <add-error(|["Expected: primitive or Entity type. Encountered: ", <pp-type> srt])>
     where <is-webdsl-type> srt
     where <?Ref() <+ ?Comp()> propkind
-        ; <is-simple-sort> srt
+        ; <is-simple-sort <+ is-native-class-sort> srt
 
   check-complex-propkind(|propkind, srt) :
-    _ -> <add-error(|["Expected: collection of Entity types. Encountered: ", <pp-type> srt])>
+    _ -> <add-error(|["Expected: collection of Entity type. Encountered: ", <pp-type> srt])>
     where <is-webdsl-type> srt
     where <?GenericSort(_, [x])> srt
-        ; <is-simple-sort> x
-
-/*  constraint-error-data =
-    (?Property(_, Simple, srt, _) <+ ?DerivedProperty(_, Simple, srt, _, _)); <check-propkind> srt
-
-  check-propkind-simple :
-    srt -> <add-error(|["Expecting simple type, encountered ", <pp-type> srt])>
-    where not(<is-simple-type> srt)
-*/
+        ; <not(is-defined-entity-type)> x
 
 rules //check for illegal entity names; built-ins are reserved
 
