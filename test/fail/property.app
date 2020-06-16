@@ -1,14 +1,17 @@
-//Cannot override the builtin property 'id'
-//Cannot override the builtin property 'version'
-//Cannot use the reserved property name 'class'
-//Cannot override the builtin property 'created'
-//Cannot override the builtin property 'modified'
+//#2 Cannot override the builtin property 'id'
+//#2 Cannot override the builtin property 'version'
+//#2 Cannot use the reserved property name 'class'
+//#2 Cannot override the builtin property 'created'
+//#2 Cannot override the builtin property 'modified'
+//#2 Property name is not allowed to overlap with entity name
+//#12 is defined multiple times
 //Reference type is not allowed
 //#15 Expected: collection of Entity
 //Type 'Null' is not allowed
 //Type 'Void' is not allowed
 //Type 'Entity' is not allowed
 //#2 Expected: primitive or Entity type
+//#1 Type not defined
 
 application test
 
@@ -18,6 +21,7 @@ entity Test {
   class    : String  // would cause name clash with java's getClass()
   created  : String
   modified : String
+  Test     : String
 
   ref : ref Test
 
@@ -44,8 +48,19 @@ entity Test {
   ess : {{Test}}
   elsls : [{[{Test}]}]
 
-  // allow native class for derived property
-  ratio : Double := Double(0.0)
+  // allow any valid type for derived property, which is transformed to a function
+  r : Double := Double(0.0)
+  r1 :: Double := Double(0.0)
+  dn -> Entity := this as Entity
+
+  id       : Bool := true
+  version  : Bool := true
+  class    : Bool := true
+  created  : Bool := true
+  modified : Bool := true
+  Test     : Bool := true
+
+  error : Unknown := "1"
 }
 
 define page root() { }
