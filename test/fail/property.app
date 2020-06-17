@@ -61,6 +61,11 @@ entity Test {
   Test     : Bool := true
 
   error : Unknown := "1"
+
+  // transient properties also allow any valid type
+  et : Entity (transient)
+  et1 -> Entity (transient)
+  dt : Double (transient)
 }
 
 define page root() { }
