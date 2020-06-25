@@ -13,7 +13,7 @@ public class Logger {
     }
 
     public static final void warn(Object message){
-        logger.warn("WARN  " + message);
+        logger.warn( addURLSuffix("WARN  " + message) );
     }
 
     public static final void debug(Object message){

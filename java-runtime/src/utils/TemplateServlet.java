@@ -319,11 +319,13 @@ public abstract class TemplateServlet {
     }
  
     public void printTemplateCallException(RuntimeException ex, String errormessage){
-    	if(ex instanceof NullPointerException || ex instanceof IndexOutOfBoundsException){
-    	  	org.webdsl.logging.Logger.warn("Skipping (" + ex.getMessage() + "): "+errormessage);
-    	}
-    	else{
-    		throw ex;
-    	}
+      if(ex instanceof NullPointerException || ex instanceof IndexOutOfBoundsException){
+        TemplateServlet curTem = getCurrentTemplate();
+        String tcContext = curTem != null ? curTem.getTemplateSignature() : "n/a";
+        org.webdsl.logging.Logger.warn("Skipping (" + ex.getMessage() + "): "+errormessage + " called template: " + this.getTemplateSignature() + " - in context of template: " + tcContext );
+      }
+      else{
+        throw ex;
+      }
     }
 }
