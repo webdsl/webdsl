@@ -1,15 +1,31 @@
 package utils;
 
+import org.webdsl.logging.Logger;
+
 import com.google.gson.*;
 
 public class JSONType {
 
 	public static JsonObject parseJsonObject(String s) {
-		return new JsonParser().parse(s).getAsJsonObject();
+	  JsonObject obj = null;
+	  try {
+	    JsonElement elem = new JsonParser().parse(s);
+	    obj = elem.getAsJsonObject();
+	  } catch(Exception ex) {
+	    Logger.error("Something went wrong getting json object from string", ex);
+	  }
+		return obj;
 	}
 
 	public static JsonArray parseJsonArray(String s) {
-		return new JsonParser().parse(s).getAsJsonArray();
+    JsonArray arr = null;
+    try {
+      JsonElement elem = new JsonParser().parse(s);
+      arr = elem.getAsJsonArray();
+    } catch(Exception ex) {
+      Logger.error("Something went wrong getting json array from string", ex);
+    }
+    return arr;
 	}
 
 	public static String toString(JsonElement e) {
@@ -19,6 +35,13 @@ public class JSONType {
 	public static JsonNull nullValue() {
 		return JsonNull.INSTANCE;
 	}
+	
+  public static Boolean isJSONArray(JsonElement e) {
+    return e.isJsonArray();
+  }
+  public static Boolean isJSONObject(JsonElement e) {
+    return e.isJsonObject();
+  }
 
 	public static JsonObject getJSONObject(JsonObject o, String key) {
 		return o.get(key).getAsJsonObject();
