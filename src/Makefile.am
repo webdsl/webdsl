@@ -154,6 +154,10 @@ WRITE_FILES_FILES = $(wildcard ./org/webdsl/dsl/write-files/*.str) \
                     $(wildcard ./org/webdsl/dsl/write-files/*/*.str) \
                     $(wildcard ./org/webdsl/dsl/write-files/*/*/*.str)
 
+STATISTICS_FILES  = $(wildcard ./org/webdsl/dsl/statistics/*.str) \
+                    $(wildcard ./org/webdsl/dsl/statistics/*/*.str) \
+                    $(wildcard ./org/webdsl/dsl/statistics/*/*/*.str)
+
 JAVA_TRANS_FILES = $(wildcard ./org/webdsl/dsl/java-transformations/*.str)
 
 BACKEND_TRANS_FILES = \
@@ -236,6 +240,7 @@ JAVAS= \
   src-gen/org/webdsl/webdsl_generator/Main.java \
   src-gen/org/webdsl/java_transformations/Main.java \
   src-gen/org/webdsl/write_files/Main.java \
+  src-gen/org/webdsl/statistics/Main.java \
   src-gen/org/webdsl/back_end_transformations/Main.java \
   src-gen/org/webdsl/to_java_servlet/Main.java \
   src-gen/org/webdsl/webdslc/Main.java
@@ -271,6 +276,11 @@ src-gen/org/webdsl/write_files/Main.java : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXD
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.write_files -i $(srcdir)/org/webdsl/dsl/write-files/write-files.str -o src-gen/org/webdsl/write_files/Main.java -la org.webdsl.webdsl-front
 	cp src-gen/org/webdsl/write_files/Main.rtree libwrite-files.rtree
 
+src-gen/org/webdsl/statistics/Main.java : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(STATISTICS_FILES) libwebdsl-front.rtree libwebdsl-generator.rtree
+	mkdir -p src-gen/org/webdsl/statistics
+	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.statistics -i $(srcdir)/org/webdsl/dsl/statistics/statistics.str -o src-gen/org/webdsl/statistics/Main.java -la org.webdsl.webdsl-front -la org.webdsl.webdsl-generator
+	cp src-gen/org/webdsl/statistics/Main.rtree libstatistics.rtree
+
 src-gen/org/webdsl/back_end_transformations/Main.java : $(TBLS) $(SIGS) $(PPTABLES) $(SYNTAXDEFS) $(BACKEND_TRANS_FILES) libwebdsl-front.rtree libwrite-files.rtree
 	mkdir -p src-gen/org/webdsl/back_end_transformations
 	$(STRJ) $(STRJFLAGS) --library -p org.webdsl.back_end_transformations -i $(srcdir)/org/webdsl/dsl/back-end-transformations/back-end-transformations.str -o src-gen/org/webdsl/back_end_transformations/Main.java -la org.webdsl.webdsl-front -la org.webdsl.write-files
@@ -281,9 +291,9 @@ src-gen/org/webdsl/to_java_servlet/Main.java : $(TBLS) $(SIGS) $(PPTABLES) $(SYN
 	$(STRJ) $(STRJFLAGS) $(STRINCLUDES) --library -p org.webdsl.to_java_servlet -i $(srcdir)/org/webdsl/dsl/to-java-servlet/to-java-servlet.str -o src-gen/org/webdsl/to_java_servlet/Main.java -la org.webdsl.webdsl-front -la org.webdsl.back-end-transformations -la org.webdsl.java_transformations -la org.webdsl.write_files
 	cp src-gen/org/webdsl/to_java_servlet/Main.rtree libto-java-servlet.rtree
 
-src-gen/org/webdsl/webdslc/Main.java : webdslc.str libwebdsl-front.rtree libwebdsl-generator.rtree libjava-transformations.rtree libwrite-files.rtree libback-end-transformations.rtree libto-java-servlet.rtree
+src-gen/org/webdsl/webdslc/Main.java : webdslc.str libwebdsl-front.rtree libwebdsl-generator.rtree libjava-transformations.rtree libwrite-files.rtree libstatistics.rtree libback-end-transformations.rtree libto-java-servlet.rtree
 	mkdir -p src-gen/org/webdsl/webdslc
-	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -p org.webdsl.webdslc -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.write-files -la org.webdsl.back-end-transformations
+	$(STRJ) $(STRJFLAGS) -m webdslc-main -i $< -o $@ -p org.webdsl.webdslc -la org.webdsl.webdsl-generator -la org.webdsl.to-java-servlet -la org.webdsl.webdsl-front -la org.webdsl.java-transformations -la org.webdsl.write-files -la org.webdsl.statistics -la org.webdsl.back-end-transformations
 
 
 # extra files needed to be able to build the Eclipse plugin directly from compiler build output (e.g. using http://hydra.nixos.org/job/webdsl/trunk/buildJavaZip)          
