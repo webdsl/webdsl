@@ -35,17 +35,21 @@ rules
     , totalstats
     ]
 
-  print-statistics-helper(|name, defined*, builtin*) = print-statistics-helper(|name, defined*, builtin*, [])
+  print-statistics-helper(|name, defined*, builtin*) = print-statistics-helper(|name, defined*, builtin*, [], [])
 
-  print-statistics-helper(|name, defined*, builtin*, wrapper*) :
+  print-statistics-helper(|name, defined*, builtin*, wrapper*, unused*) :
     _ -> (stats, detail)
-    with  if   not(wrapper* := [])
-          then wrapstats := <concat-strings> [$[Defined Wrapper [name]: [<length> wrapper*]], "\n\n"]
+    with  if   not(wrapper* := []; unused* := [])
+          then wrapstats := <concat-strings> [ "\n", $[Defined wrapper [name] (not included in defined count): [<length> wrapper*]], "\n\n" ]
              ; wrapheader := <concat-strings> ["------", wrapstats, "\n", $[Wrapper [name]:]]
+             ; unusedstats := <concat-strings> [ "\n", $[Defined unused [name]: [<length> unused*]], "\n\n" ]
+             ; unusedheader := <concat-strings> ["------", unusedstats, "\n", $[Defined Unused [name]:]]
           else wrapstats := ""
-             ; wrapheader := "" end
+             ; wrapheader := ""
+             ; unusedstats := ""
+             ; unusedheader := "" end
         ; builtinstats := $[Built-in [name]: [<length> builtin*]]
-        ; stats := <concat-strings> [$[Defined [name]: [<length> defined*]],"\n",wrapstats,"\n",builtinstats]
+        ; stats := <concat-strings> [$[Defined [name]: [<length> defined*]], wrapstats, unusedstats, "\n", builtinstats]
         ; detail := <separate-by(|"\n"); concat-strings> [
             "======"
           , stats
@@ -54,6 +58,8 @@ rules
           , defined*
           , wrapheader
           , wrapper*
+          , unusedheader
+          , unused*
           , "------"
           , $[Built-in [name]:]
           , builtin*
@@ -68,7 +74,9 @@ rules
 
   partition-pages =
     partition(is-node-defined-in-built-ins)
-  ; (map(?Define(_,<id>,_,_,_)),map(?Define(_,<id>,_,_,_)))
+  ; (map-get-name-from-define,map-get-name-from-define)
+
+  map-get-name-from-define = map(?Define(_,<id>,_,_,_))
 
   is-node-defined-in-built-ins =
     has-anno(?At("../.servletapp/src-webdsl-template/built-in.app",_,_))
@@ -77,16 +85,19 @@ rules
 rules
 
   count-templates :
-    _ ->  <print-statistics-helper(|"templates", defined*, builtin*, wrapper*)>
+    _ ->  <print-statistics-helper(|"templates", defined*, builtin*, wrapper*, unused*)>
     with  t* := <all-keys-CurrentTemplateDecl; map(CurrentTemplateDecl); remove-all(?Define(<fetch(Page()<+Local())>,_,_,_,_))>
-         ; (builtin*, defined*, wrapper*) := <partition-templates> t*
+         ; (builtin*, defined*, wrapper*, unused*) := <partition-templates> t*
 
   partition-templates =
     partition(is-node-defined-in-built-ins)
-  ; ?(builtin*, defined*)
-  ; (wrapper*, defined'*) := <partition(is-wrapper-template-def)> defined*
-  ; !(builtin*, defined'*, wrapper*)
-  ; (map(?Define(_,<id>,_,_,_)),map(?Define(_,<id>,_,_,_)),map(?Define(_,<id>,_,_,_)))
+  ; ?(builtin*, defined1*)
+  ; (unused*, defined2*) := <partition(can-template-be-removed)> defined1*
+  ; (wrapper*, defined3*) := <partition(is-wrapper-template-def)> defined2*
+  ; !( <map-get-name-from-define> builtin*
+     , <map-get-name-from-define> defined3*
+     , <map-get-name-from-define> wrapper*
+     , <map-get-name-from-define> unused*)
 
   // separate single element wrapper templates
   is-wrapper-template-def :
