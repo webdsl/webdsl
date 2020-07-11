@@ -9,244 +9,131 @@ rules
   get-app-statistics =  // assumes all analysis is done and dynamic rules have all the information
     (pagestats, pagedetail) := <count-pages>
   ; (tstats, tdetail) := <count-templates>
-  ; (entstats, entdetail) := <count-entities>
-  ; (propstats, propdetail) := <count-properties>
+  ; {| DefinedEntNameStats :
+      (entstats, entdetail) := <count-entities>
+    ; (propstats, propdetail) := <count-properties>
+    |}
   ; (gfunstats, gfundetail) := <count-global-functions>
   ; (efunstats, efundetail) := <count-entity-functions>
-  ; <separate-by(|"\n\n"); concat-strings> [pagestats, tstats, entstats, propstats, gfunstats, efunstats,
-                                            pagedetail, tdetail, entdetail, propdetail, gfundetail, efundetail]
+  ; totalstats := <separate-by(|"\n\n"); concat-strings> [
+      "==============================================="
+    , pagestats
+    , tstats
+    , entstats
+    , propstats
+    , gfunstats
+    , efunstats
+    ]
+  ; <separate-by(|"\n\n"); concat-strings> [
+      totalstats
+    , pagedetail
+    , tdetail
+    , entdetail
+    , propdetail
+    , gfundetail
+    , efundetail
+    , totalstats
+    ]
 
-  print-statistics-helper(|name, defined*, builtin*) :
+  print-statistics-helper(|name, defined*, builtin*) = print-statistics-helper(|name, defined*, builtin*, [])
+
+  print-statistics-helper(|name, defined*, builtin*, wrapper*) :
     _ -> (stats, detail)
-    with  stats := $[Defined  [name]: [<length> defined*]]
-        ; detail := <separate-by(|"\n"); concat-strings> [$[Defined [name]:], defined*, "\n",  $[Built-in [name]: [<length> builtin*]] , $[Built-in [name]:], builtin*]
+    with  if   not(wrapper* := [])
+          then wrapstats := <concat-strings> [$[Defined Wrapper [name]: [<length> wrapper*]], "\n\n"]
+             ; wrapheader := <concat-strings> ["------", wrapstats, "\n", $[Wrapper [name]:]]
+          else wrapstats := ""
+             ; wrapheader := "" end
+        ; builtinstats := $[Built-in [name]: [<length> builtin*]]
+        ; stats := <concat-strings> [$[Defined [name]: [<length> defined*]],"\n",wrapstats,"\n",builtinstats]
+        ; detail := <separate-by(|"\n"); concat-strings> [
+            "======"
+          , stats
+          , "======"
+          , $[Defined [name]:]
+          , defined*
+          , wrapheader
+          , wrapper*
+          , "------"
+          , $[Built-in [name]:]
+          , builtin*
+          ]
 
 rules
 
   count-pages :
-    _ ->  <print-statistics-helper(|"pages", defined*, [])>
+    _ ->  <print-statistics-helper(|"pages", defined*, builtin*)>
     with  page* := <all-keys-CurrentTemplateDecl; map(CurrentTemplateDecl); filter(where(?Define(<fetch(Page())>,_,_,_,_)))>
-        ; defined* := <map(?Define(_,<id>,_,_,_)); uniq> page* // this treats original and override as one page for counting
+        ; (builtin*, defined*) := <partition-pages> page*
+
+  partition-pages =
+    partition(is-node-defined-in-built-ins)
+  ; (map(?Define(_,<id>,_,_,_)),map(?Define(_,<id>,_,_,_)))
+
+  is-node-defined-in-built-ins =
+    has-anno(?At("../.servletapp/src-webdsl-template/built-in.app",_,_))
+ <+ has-no-anno(?At(_,_,_))
 
 rules
 
   count-templates :
-    _ ->  <print-statistics-helper(|"templates", defined*, builtin*)>
+    _ ->  <print-statistics-helper(|"templates", defined*, builtin*, wrapper*)>
     with  t* := <all-keys-CurrentTemplateDecl; map(CurrentTemplateDecl); remove-all(?Define(<fetch(Page()<+Local())>,_,_,_,_))>
-         ; (builtin*, defined*) := <map(?Define(_,<id>,_,_,_)); partition(built-in-template-name)> t*
+         ; (builtin*, defined*, wrapper*) := <partition-templates> t*
 
-  built-in-template-name =
-     "output"
-  <+ "rawoutput"
-  <+ "dateoutputgeneric"
-  <+ "dateinputgeneric"
-  <+ "datepickerinput"
-  <+ "pageIndexLink"
-  <+ "pageIndex"
-  <+ "pageIndexUpto"
-  <+ "showSearchStats"
-  <+ "highlight"
-  <+ "highlightedSummary"
-  <+ "mimetype"
-  <+ "downloadInline"
-  <+ "internalElementsWrapper"
-  <+ "break"
-  <+ "div"
-  <+ "span"
-  <+ "container"
-  <+ "fieldset"
-  <+ "group"
-  <+ "groupitem"
-  <+ "row"
-  <+ "column"
-  <+ "par"
-  <+ "pre"
-  <+ "spacer"
-  <+ "menubar"
-  <+ "menuspacer"
-  <+ "menu"
-  <+ "menuitems"
-  <+ "menuheader"
-  <+ "menuitem"
-  <+ "wrapsubmit"
-  <+ "elementsempty"
-  <+ "outputLabel"
-  <+ "labelcolumns"
-  <+ "label"
-  <+ "labelInternal"
-  <+ "validate"
-  <+ "showMessages"
-  <+ "noMessages"
-  <+ "templateSuccess"
-  <+ "messages"
-  <+ "description"
-  <+ "brand"
-  <+ "navCollapse"
-  <+ "navItems"
-  <+ "navItem"
-  <+ "navCollapseButton"
-  <+ "small"
-  <+ "theader"
-  <+ "tbody"
-  <+ "th"
-  <+ "inlForm"
-  <+ "controlGroup"
-  <+ "breadcrumbs"
-  <+ "breadcrumbFirst"
-  <+ "subMenu"
-  <+ "well"
-  <+ "wellSmall"
-  <+ "blockquote"
-  <+ "definitionList"
-  <+ "definitionItem"
-  <+ "definitionListDescription"
-  <+ "requireACE"
-  <+ "ace"
-  <+ "aceView"
-  <+ "outputRelaxed"
-  <+ "rssWrapper"
-  <+ "rssDateTime"
-  <+ "rssWrapper"
-  <+ "header1"
-  <+ "header2"
-  <+ "header3"
-  <+ "header4"
-  <+ "hrule"
-  <+ "save"
-  <+ "footer"
-  <+ "appname"
-  <+ "breadcrumb"
-  <+ string-starts-with(|"input")
-  <+ string-starts-with(|"select")
-  <+ string-starts-with(|"selectcheckbox")
-  <+ string-starts-with(|"radio")
-  <+ string-starts-with(|"errorTemplate")
-  <+ string-starts-with(|"grid")
-  <+ string-starts-with(|"form")
-  <+ string-starts-with(|"dropdown")
-  <+ string-starts-with(|"page")
-  <+ string-starts-with(|"tab")
-  <+ string-starts-with(|"horizontal")
-  <+ string-starts-with(|"pull")
-  <+ string-starts-with(|"navbar")
-  <+ string-starts-with(|"button")
-  <+ string-starts-with(|"alert")
-  <+ string-starts-with(|"modal")
-  <+ where(string-starts-with(|"i"); explode-string; ?[_,<is-upper>|_]) // bootstrap library e.g. iArrow
+  partition-templates =
+    partition(is-node-defined-in-built-ins)
+  ; ?(builtin*, defined*)
+  ; (wrapper*, defined'*) := <partition(is-wrapper-template-def)> defined*
+  ; !(builtin*, defined'*, wrapper*)
+  ; (map(?Define(_,<id>,_,_,_)),map(?Define(_,<id>,_,_,_)),map(?Define(_,<id>,_,_,_)))
 
+  // separate single element wrapper templates
+  is-wrapper-template-def :
+    d@Define(_,_,_,_,body) -> d
+    where <  ?[XMLElement(_,_,[TemplateCall("elements",_,_,_)],_)]
+          <+ ?[TemplateCall(_,_,_,TemplateBody([TemplateCall("elements",_,_,_)]))]
+          > body
 
 rules
 
   count-entities :
     _ -> <print-statistics-helper(|"entities", defined*, builtin*)>
-    with  entity* := <all-keys-EntDecl>
-        ; (builtin*, defined*) := <partition(built-in-entity-name)> entity*
+    with  entity* := <all-keys-EntDecl; map(EntDecl)>
+        ; (builtin*, defined*) := <partition-entities> entity*
 
-  built-in-entity-name =
-      "Exception"
-  <+ "QueuedEmail"
-  <+ "RequestLogEntry"
-  <+ "ValidationException"
-  <+ "ValidationExceptionMultiple"
-  <+ "dummy_webdsl_entity"
-  <+ "SessionManager"
-  <+ "SessionMessage"
-  <+ "SecurityContext"
-  <+ "Entity"
-  // below are not entities but Java classes exposed as types through native class mapping
-  <+ "JSONObject"
-  <+ "PageServlet"
+  partition-entities =
+    partition(is-node-defined-in-built-ins)
+  ; (map(?Entity(<id>,_,_)),map(?Entity(<register-defined-entity-stats>,_,_)))
 
+  register-defined-entity-stats :
+    x -> x
+    with  rules( DefinedEntNameStats : x )
 
 rules
 
   count-properties :
     _ -> <print-statistics-helper(|"entity properties", defined*, builtin*)>
     with  prop* := <all-keys-PropertyDecl>
-        ; (builtin*, defined*) := <  partition(where(?(<built-in-entity-name>,_)))
+        ; (builtin*, defined*) := <  partition(where(?(<not(DefinedEntNameStats)>,_)))
                                    ; (map(entity-prop-tuple-to-string),map(entity-prop-tuple-to-string))> prop*
 
   entity-prop-tuple-to-string : (a,b) -> <concat-strings> [a," : ",b]
-
 
 rules
 
   count-global-functions :
     _ -> <print-statistics-helper(|"global functions", defined*, builtin*)>
-    with  fun* := <all-keys-FunctionDecl; map(?(<id>,_))>
-        ; (builtin*, defined*) := <partition(built-in-global-fun-name)> fun*
+    with  fun* := <all-keys-FunctionDecl; map(FunctionDecl)>
+        ; (builtin*, defined*) := <partition-functions> fun*
 
-  built-in-global-fun-name =
-     "handleValidationErrors"
-  <+ "logStatistics"
-  <+ "renewFacetIndexReaders"
-  <+ "optimizeSearchIndex"
-  <+ "updateSuggestionIndex"
-  <+ "baseURL"
-  <+ "getValidationErrorsByName"
-  <+ "attribute"
-  <+ "hasNotNullAttribute"
-  <+ "getHttpMethod"
-  <+ "getRequestParameter"
-  <+ "getRequestParameterList"
-  <+ "readRequestBody"
-  <+ "navigate"
-  <+ "cancel"
-  <+ "rollback"
-  <+ "flush"
-  <+ "requestPage"
-  <+ "getSessionManager"
-  <+ "baseURL"
-  <+ "age"
-  <+ "getDispatchServlet"
-  <+ "remoteAddress"
-  <+ "baseUrl"
-  <+ "urlComponents"
-  <+ "replace"
-  <+ "mimetype"
-  <+ "downloadInline"
-  <+ "getTemplate"
-  <+ "sleep"
-  <+ "createTempFile"
-  <+ "inEmailContext"
-  <+ "convertDateFormatToJQuery"
-  <+ "updateListRequest"
-  <+ "authenticate"
-  <+ "logout"
-  <+ string-starts-with-uppercase
-  <+ string-starts-with(|"createEmpty")
-  <+ string-starts-with(|"getUnique")
-  <+ string-starts-with(|"isUnique")
-  <+ string-starts-with(|"find")
-  <+ string-starts-with(|"internal")
-  <+ string-starts-with(|"validate")
-  <+ string-starts-with(|"load")
-  <+ string-starts-with(|"search")
-  <+ string-starts-with(|"check")
-  <+ string-starts-with(|"debug")
-  <+ string-starts-with(|"assert")
-  <+ string-starts-with(|"getReflection")
-  <+ string-ends-with(|"Searcher")
-  <+ string-ends-with(|"Driver")
-  <+ string-ends-with(|"NewTransaction")
-
+  partition-functions =
+    partition(is-node-defined-in-built-ins)
+  ; (map(?Function(<id>,_,_,_)),map(?Function(<id>,_,_,_)))
 
 rules
 
   count-entity-functions :
     _ -> <print-statistics-helper(|"entity functions", defined*, builtin*)>
-    with  fun* := <all-keys-EntityFunctionDecl; map(?(_,<id>,_))>
-        ; (builtin*, defined*) := <partition(built-in-entity-fun-name)> fun*
-
-  string-starts-with-uppercase = where(explode-string; Hd; is-upper)
-
-  built-in-entity-fun-name =
-     "all"
-  <+ "getName"
-  <+ "dummy_webdsl_entity"
-  <+ string-starts-with-uppercase
-  <+ string-starts-with(|"validate")
-  <+ string-starts-with(|"allowed")
-  <+ string-starts-with(|"set")
-  <+ string-starts-with(|"addTo")
-  <+ string-starts-with(|"removeFrom")
+    with  fun* := <all-keys-EntityFunctionDecl; map(EntityFunctionDecl)>
+        ; (builtin*, defined*) := <partition-functions> fun*
