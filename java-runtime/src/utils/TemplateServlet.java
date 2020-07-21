@@ -323,6 +323,9 @@ public abstract class TemplateServlet {
         TemplateServlet curTem = getCurrentTemplate();
         String tcContext = curTem != null ? curTem.getTemplateSignature() : "n/a";
         org.webdsl.logging.Logger.warn("Skipping (" + ex.getMessage() + "): "+errormessage + " called template: " + this.getTemplateSignature() + " - in context of template: " + tcContext );
+        if(ex.getMessage() == null) {
+          utils.Warning.printSmallStackTrace(ex, 10);
+        }
       }
       else{
         throw ex;
