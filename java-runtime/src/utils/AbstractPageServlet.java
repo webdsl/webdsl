@@ -565,22 +565,12 @@ public abstract class AbstractPageServlet{
         sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalPage.get().getAbsoluteLocation()+"\";</script>");
 
         for(String sheet : this.stylesheets) {
-            if(sheet.startsWith("//") || sheet.startsWith("http://") || sheet.startsWith("https://")){
-                sout.print("<link rel=\"stylesheet\" href=\""+ sheet + "\" type=\"text/css\" />");
-            }
-            else{
-                String hashedName = CachedResourceFileNameHelper.getNameWithHash("stylesheets", sheet); 
-                sout.print("<link rel=\"stylesheet\" href=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/stylesheets/"+hashedName+"\" type=\"text/css\" />");
-            }
+        	String href = computeResourceSrc("stylesheets", sheet);
+            sout.print("<link rel=\"stylesheet\" href=\""+ href + "\" type=\"text/css\" />");
         }
         for(String script : this.javascripts) {
-            if(script.startsWith("//") || script.startsWith("http://") || script.startsWith("https://")){
-                sout.println("<script type=\"text/javascript\" src=\"" + script + "\"></script>");
-            }
-            else{
-                String hashedName = CachedResourceFileNameHelper.getNameWithHash("javascript", script);
-                sout.println("<script type=\"text/javascript\" src=\""+ThreadLocalPage.get().getAbsoluteLocation()+"/javascript/"+hashedName+"\"></script>");
-            }
+        	String src = computeResourceSrc("javascript", script);
+            sout.println("<script type=\"text/javascript\" src=\"" + src + "\"></script>");
         }
         for(Map.Entry<String,String> headEntry : customHeadNoDuplicates.entrySet()) {
 //            sout.println("<!-- " + headEntry.getKey() + " -->");
@@ -614,11 +604,25 @@ public abstract class AbstractPageServlet{
                 sout.print("<hr/><div class=\"logsql\">Access to SQL logs was denied.</div>");
             }
         }
+
+        for(String script : this.tailJavascripts) {
+        	String src = computeResourceSrc("javascript", script);
+            sout.println("<script type=\"text/javascript\" src=\"" + src + "\"></script>");
+        }
         sout.print("</body>");
         sout.println("</html>");
 
         ThreadLocalOut.popChecked(sout);
         return sw.toString();
+    }
+
+    private String computeResourceSrc(String resourceDirName, String url) {
+        if(url.startsWith("//") || url.startsWith("http://") || url.startsWith("https://")) {
+            return url;
+        } else {
+            String hashedName = CachedResourceFileNameHelper.getNameWithHash(resourceDirName, url);
+            return ThreadLocalPage.get().getAbsoluteLocation()+"/"+resourceDirName+"/"+hashedName;
+        }
     }
 
     //ajax/js runtime request related
@@ -940,16 +944,22 @@ public abstract class AbstractPageServlet{
     public boolean hibernateCacheCleared = false;
 
     protected java.util.List<String> javascripts = new java.util.ArrayList<String>();
+    protected java.util.List<String> tailJavascripts = new java.util.ArrayList<String>();
     protected java.util.List<String> stylesheets = new java.util.ArrayList<String>();
     protected java.util.List<String> customHeads = new java.util.ArrayList<String>();
     protected java.util.List<String> bodyAttributes = new java.util.ArrayList<String>();
-    
+
     protected java.util.Map<String,String> customHeadNoDuplicates = new java.util.HashMap<String,String>();
 
     public void addJavascriptInclude(String filename) { commandingPage.addJavascriptIncludeInternal( filename ); }
     public void addJavascriptIncludeInternal(String filename) {
         if(!javascripts.contains(filename))
             javascripts.add(filename);
+    }
+    public void addJavascriptTailInclude(String filename) { commandingPage.addJavascriptTailIncludeInternal( filename ); }
+    public void addJavascriptTailIncludeInternal(String filename) {
+        if(!tailJavascripts.contains(filename))
+        	tailJavascripts.add(filename);
     }
     public void addStylesheetInclude(String filename) { commandingPage.addStylesheetIncludeInternal( filename ); }
     public void addStylesheetIncludeInternal(String filename) {
