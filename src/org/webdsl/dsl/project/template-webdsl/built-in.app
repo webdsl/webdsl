@@ -394,7 +394,10 @@ type String{ //includes other String-based types such as Secret, Patch, Email, U
   org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript as escapeJavaScript(): String
   substring( Int ): String
   substring( Int, Int ): String
-  utils.StringType.similarity as similarity(String) : Float 
+  utils.StringType.similarity as similarity(String) : Float
+  utils.StringType.isNullOrEmpty				as isNullOrEmpty(): Bool
+  utils.StringType.valueOrDefault				as valueOrDefault(String): Bool
+  utils.StringType.valueNonEmptyOrDefault   	as valueNonEmptyOrDefault(String): Bool
 }
 
 type Secret{

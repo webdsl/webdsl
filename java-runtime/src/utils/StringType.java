@@ -71,4 +71,37 @@ public class StringType {
     	return new Float(org.apache.commons.lang3.StringUtils.getJaroWinklerDistance(s1, s2));
     }
 
+    /**
+     * Returns whether the given string is null or empty.
+     *
+     * @param s the string to test
+     * @return {@code true} when the string is null or empty;
+     * otherwise, {@code false}
+     */
+    public static boolean isNullOrEmpty(String s) {
+    	return s == null || s.isEmpty();
+    }
+
+    /**
+     * Returns the value of the given string, or a default value when the string is null.
+     *
+     * @param s the string to test
+     * @param def the default value to return when the string is null
+     * @return the value of the string; or the default value
+     */
+    public static String valueOrDefault(String s, String def) {
+    	return s == null ? def : s;
+    }
+
+    /**
+     * Returns the value of the given string, or a default value when the string is null or empty.
+     *
+     * @param s the string to test
+     * @param def the default value to return when the string is null or empty
+     * @return the value of the string; or the default value
+     */
+    public static String valueNonEmptyOrDefault(String s, String def) {
+    	return isNullOrEmpty(s) ? def : s;
+    }
+
 }
