@@ -44,19 +44,23 @@ public class JSONType {
   }
 
 	public static JsonObject getJSONObject(JsonObject o, String key) {
-		return o.get(key).getAsJsonObject();
+		JsonElement e = o.get(key);
+		return e.isJsonNull() ? null : e.getAsJsonObject();
 	}
 
 	public static JsonObject getJSONObject(JsonArray a, int index) {
-		return a.get(index).getAsJsonObject();
+		JsonElement e = a.get(index);
+		return e.isJsonNull() ? null : e.getAsJsonObject();
 	}
 
 	public static JsonArray getJSONArray(JsonObject o, String key) {
-		return o.get(key).getAsJsonArray();
+		JsonElement e = o.get(key);
+		return e.isJsonNull() ? null : e.getAsJsonArray();
 	}
 
 	public static JsonArray getJSONArray(JsonArray a, int index) {
-		return a.get(index).getAsJsonArray();
+		JsonElement e = a.get(index);
+		return e.isJsonNull() ? null : e.getAsJsonArray();
 	}
 
 	public static JsonNull getJSONNull(JsonObject o, String key) {
@@ -83,12 +87,14 @@ public class JSONType {
 		a.add(value.toString());
 	}
 
-	public static void put(JsonObject o, String key, boolean value) {
-		o.addProperty(key, value);
+	// Boolean instead of boolean, autoboxing causes NPE when a null value of type Boolean is passed to primitive boolean argument
+
+	public static void put(JsonArray a, Boolean value) {
+		a.add(value);
 	}
 
-	public static void put(JsonArray a, boolean value) {
-		a.add(value);
+	public static void put(JsonObject o, String key, Boolean value) {
+		o.addProperty(key, value);
 	}
 
 	public static void put(JsonObject o, String key, Number value) {
@@ -112,43 +118,53 @@ public class JSONType {
 	}
 
 	public static String getString(JsonObject o, String key) {
-		return o.get(key).getAsString();
+		JsonElement e = o.get(key);
+		return e.isJsonNull() ? null : e.getAsString();
 	}
 
 	public static String getString(JsonArray a, int index) {
-		return a.get(index).getAsString();
+		JsonElement e = a.get(index);
+		return e.isJsonNull() ? null : e.getAsString();
 	}
 
-	public static boolean getBoolean(JsonObject o, String key) {
-		return o.get(key).getAsBoolean();
+	public static Boolean getBoolean(JsonObject o, String key) {
+		JsonElement e = o.get(key);
+		return e.isJsonNull() ? null : e.getAsBoolean();
 	}
 
-	public static boolean getBoolean(JsonArray a, int index) {
-		return a.get(index).getAsBoolean();
+	public static Boolean getBoolean(JsonArray a, int index) {
+		JsonElement e = a.get(index);
+		return e.isJsonNull() ? null : e.getAsBoolean();
 	}
 
-	public static int getInt(JsonObject o, String key) {
-		return o.get(key).getAsInt();
+	public static Integer getInt(JsonObject o, String key) {
+		JsonElement e = o.get(key);
+		return e.isJsonNull() ? null : e.getAsInt();
 	}
 
-	public static int getInt(JsonArray a, int index) {
-		return a.get(index).getAsInt();
+	public static Integer getInt(JsonArray a, int index) {
+		JsonElement e = a.get(index);
+		return e.isJsonNull() ? null : e.getAsInt();
 	}
 
-	public static long getLong(JsonObject o, String key) {
-		return o.get(key).getAsLong();
+	public static Long getLong(JsonObject o, String key) {
+		JsonElement e = o.get(key);
+		return e.isJsonNull() ? null : e.getAsLong();
 	}
 
-	public static long getLong(JsonArray a, int index) {
-		return a.get(index).getAsLong();
+	public static Long getLong(JsonArray a, int index) {
+		JsonElement e = a.get(index);
+		return e.isJsonNull() ? null : e.getAsLong();
 	}
 
 	public static Double getDouble(JsonObject o, String key) {
-		return o.get(key).getAsDouble();
+		JsonElement e = o.get(key);
+		return e.isJsonNull() ? null : e.getAsDouble();
 	}
 
 	public static Double getDouble(JsonArray a, int index) {
-		return a.get(index).getAsDouble();
+		JsonElement e = a.get(index);
+		return e.isJsonNull() ? null : e.getAsDouble();
 	}
 
 }

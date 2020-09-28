@@ -49,6 +49,39 @@ test {
   assert( a1.getNullValue( 7 ) == JSONObject.nullValue() );
   assert( a1.getDouble( 8 ) == Double( 8.4f ) );
   assert( a1.getString( 9 ) == tmpid.id.toString() );
+
+  var testnull := JSONObject();
+  assert( ! testnull.has( "nbool") );
+  testnull.put( "nbool", null as Bool );
+  assert( testnull.getBoolean( "nbool" ) == null );
+  testnull.put( "nstring", null as String );
+  assert( testnull.getString( "nstring" ) == null );
+  testnull.put( "nint", null as Int );
+  assert( testnull.getString( "nint" ) == null );
+  testnull.put( "nlong", null as Long );
+  assert( testnull.getLong( "nlong" ) == null );
+  testnull.put( "nfloat", null as Float );
+  assert( testnull.getDouble( "nfloat" ) == null );
+  testnull.put( "nobject", null as JSONObject );
+  assert( testnull.getJSONObject( "nobject" ) == null );
+  testnull.put( "narray", null as JSONArray );
+  assert( testnull.getJSONArray( "narray" ) == null );
+
+  var testnullarray := JSONArray();
+  testnullarray.put( null as Bool );
+  assert( testnullarray.getBoolean( 0 ) == null );
+  testnullarray.put( null as String );
+  assert( testnullarray.getString( 1 ) == null );
+  testnullarray.put( null as Int );
+  assert( testnullarray.getInt( 2 ) == null );
+  testnullarray.put( null as Long );
+  assert( testnullarray.getLong( 3 ) == null );
+  testnullarray.put( null as Float );
+  assert( testnullarray.getDouble( 4 ) == null );
+  testnullarray.put( null as JSONObject );
+  assert( testnullarray.getJSONObject( 5 ) == null );
+  testnullarray.put( null as JSONArray );
+  assert( testnullarray.getJSONArray( 6 ) == null );
 }
 
 function checkObject( obj: JSONObject ){
