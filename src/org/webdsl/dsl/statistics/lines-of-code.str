@@ -1,0 +1,133 @@
+module org/webdsl/dsl/statistics/lines-of-code
+
+imports
+  libwebdsl-front
+  libwebdsl-generator
+
+rules  // extract lines of code per language element
+
+  get-lines-of-code :  // assumes all analysis is done and dynamic rules have all the information
+    app -> result
+    with  collect(?Section(_,<id>) <+ ?AccessControlDefinition(_,<id>))
+        ; concat
+        ; remove-all(?Imports(_) <+ ?Note(_) <+ ?Description(_))
+        ; (entcount, entlines, ast1) := <count-entity-loc>
+        ; (pagecount, pagelines, ast2) := <count-page-loc> ast1
+        ; (templatecount, templatelines, ast3) := <count-template-loc> ast2
+        ; (ajaxtemplatecount, ajaxtemplatelines, ast4) := <count-ajax-template-loc> ast3
+        ; (funcount, funlines, ast5) := <count-function-loc> ast4
+        ; (account, aclines, ast6) := <count-ac-loc> ast5
+        ; (nccount, nclines, ast7) := <count-native-class-loc> ast6
+        ; (sfcount, sflines, ast8) := <count-service-fun-loc> ast7
+        ; (ficount, filines, ast9) := <count-background-fun-invokes-loc> ast8
+        ; (searchcount, searchlines, ast10) := <count-search-loc> ast9
+        ; (varcount, varlines, ast11) := <count-vardecls-loc> ast10
+        ; (initcount, initlines, ast12) := <count-global-init-loc> ast11
+        ; (routingcount, routinglines, ast13) := <count-routing-loc> ast12
+        ; <debug(!"Remaining top-level definitions: ")> ast13
+        ; result := <separate-by(|"\n\n"); concat-strings>
+            [ entcount,
+              pagecount,
+              templatecount,
+              ajaxtemplatecount,
+              funcount,
+              account,
+              nccount,
+              sfcount,
+              ficount,
+              searchcount,
+              varcount,
+              initcount,
+              routingcount,
+
+              entlines,
+              pagelines,
+              templatelines,
+              ajaxtemplatelines,
+              funlines,
+              aclines,
+              nclines,
+              sflines,
+              filines,
+              searchlines,
+              varlines,
+              initlines,
+              routinglines
+            ]
+
+  get-loc-count =
+    not(?[])
+  ; map(pp-webdsl-to-string)
+  ; concat-strings
+  ; ?resultlines
+  ; get-lines
+  ; length
+  ; ?resultloc
+  ; !(resultloc, resultlines)
+
+  get-loc-count = ?[]; !(0, "")
+
+  count-page-loc :
+    ast -> ($[Page LOC: [loc]], lines, rest)
+    with  (pages, rest) := <partition(where(?Define(<fetch(?Page())>,_,_,_,_)))>
+        ; (loc,lines) := <get-loc-count> pages
+
+  count-template-loc :
+    ast -> ($[Template LOC: [loc]], lines, rest)
+    with  (ts, rest) := <partition(where(?Define(<not(fetch(?Page() <+ ?AjaxTemplate()))>,_,_,_,_)))>
+        ; (loc,lines) := <get-loc-count> ts
+
+  count-ajax-template-loc :
+    ast -> ($[Ajax Template LOC: [loc]], lines, rest)
+    with  (ts, rest) := <partition(where(?Define(<fetch(?AjaxTemplate())>,_,_,_,_)))>
+        ; (loc,lines) := <get-loc-count> ts
+
+  count-entity-loc :
+    ast -> ($[Entity LOC: [loc]], lines, rest)
+    with  (ents, rest) := <partition(?Entity(_,_,_) <+ ?EntityNoSuper(_,_) <+ ?SessionEntity(_,_) <+ ?Enum(_,_) <+ ?ExtendEntity(_,_) <+ ?ExtendSessionEntity(_,_))>
+        ; (loc,lines) := <get-loc-count> ents
+
+  count-function-loc :
+    ast -> ($[Function LOC: [loc]], lines, rest)
+    with  (funs, rest) := <partition(?Function(_,_,_,_) <+ ?Predicate(_,_,_))>
+        ; (loc,lines) := <get-loc-count> funs
+
+  count-ac-loc :
+    ast -> ($[Access control LOC: [loc]], lines, rest)
+    with  (ac, rest) := <partition(?AccessControlPrincipal(_,_) <+ ?AccessControlRule(_,_,_,_,_) <+ ?SpecialAccessControlRule(_,_))>
+        ; (loc,lines) := <get-loc-count> ac
+
+  count-native-class-loc :
+    ast -> ($[Java class wrappers LOC: [loc]], lines, rest)
+    with  (nc, rest) := <partition(?NativeClass(_,_,_,_) <+ ?TypeDef(_,_))>
+        ; (loc,lines) := <get-loc-count> nc
+
+  count-service-fun-loc :
+    ast -> ($[Service function LOC: [loc]], lines, rest)
+    with  (sf, rest) := <partition(?ServiceFunction(_,_,_,_))>
+        ; (loc,lines) := <get-loc-count> sf
+
+  count-background-fun-invokes-loc :
+    ast -> ($[Background function invokes LOC: [loc]], lines, rest)
+    with  (ie, rest) := <partition(?InvokeEvery(_,_))>
+        ; (loc,lines) := <get-loc-count> ie
+
+  count-search-loc :
+    ast -> ($[Search specification LOC: [loc]], lines, rest)
+    with  (s, rest) := <partition(?FullTextAnalyzer(_,_,_) <+ ?SearchMapping(_,_))>
+        ; (loc,lines) := <get-loc-count> s
+
+  count-vardecls-loc :
+    ast -> ($[Global variables LOC: [loc]], lines, rest)
+    with  (v, rest) := <partition(?GlobalVarDeclInit(_,_,_) <+ ?GlobalVarDecl(_,_) <+ ?GlobalVarDeclInitInferred(_,_))>
+        ; (loc,lines) := <get-loc-count> v
+
+  count-global-init-loc :
+    ast -> ($[Global init LOC: [loc]], lines, rest)
+    with  (g, rest) := <partition(?InitAction(_))>
+        ; (loc,lines) := <get-loc-count> g
+
+  count-routing-loc :
+    ast -> ($[Routing LOC: [loc]], lines, rest)
+    with  (r, rest) := <partition(?Routing(_))>
+        ; (loc,lines) := <get-loc-count> r
