@@ -11,6 +11,7 @@ See also [how to get WebDSL in Eclipse][2].
 
 `brew install wget autoconf automake maven ant nailgun`
 
+
 ### ECJ (reduce heap usage)
 
 The build script looks for an `ecj` script on the path to replace `javac`.
@@ -19,11 +20,19 @@ You can download the ECJ jar from
 
     https://mvnrepository.com/artifact/org.eclipse.jdt.core.compiler/ecj/4.6.1
 
-Then create an ecj file and put it on your path:
+Then create an `ecj` file and put it on your path:
 
     #!/bin/sh -e
     ECJJAR=ecj-4.6.1.jar
     java -Xmx1g -Xms100m -server -XX:+UseParallelGC -cp $ECJJAR org.eclipse.jdt.internal.compiler.batch.Main "$@"
+
+Verify it:
+
+    which ecj
+
+> *Note*: If you get a `GC overhead limit exceeded` error when running `ecj` or `make`,
+> increase the amount of heap memory `-Xmx` in the `ecj` script.
+
 
 ### Build WebDSL compiler
 Invoke the following commands from the root of the repository:
@@ -39,7 +48,7 @@ You can check the current version of your WebDSL installation:
 
 It will report the hash of the commit from which WebDSL was built.
 
-> Note: If you get this error when invoking `make`:
+> *Note*: If you get this error when invoking `make`:
 >
 >     Making all in src
 >     make[1]: *** No rule to make target `libwebdsl-front.rtree',
@@ -51,6 +60,12 @@ It will report the hash of the commit from which WebDSL was built.
 >     git clean -fXd
 >
 > Then reissue the commands for building WebDSL.
+
+> *Note*: When you change the JAR libraries, remove the existing WebDSL install
+> directory or you might end up with duplicate JARs. The install directory is
+> at `$PREFIX/share/webdsl/`, for example `/usr/local/share/webdsl/` depending
+> on how you invoked `.configure`.
+
 
 ## Build and run a WebDSL application
 
