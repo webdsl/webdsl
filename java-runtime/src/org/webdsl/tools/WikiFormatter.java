@@ -9,24 +9,13 @@ import org.webdsl.logging.Logger;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.vladsch.flexmark.ast.AutoLink;
-import com.vladsch.flexmark.ast.HtmlBlock;
-import com.vladsch.flexmark.ast.HtmlInline;
-import com.vladsch.flexmark.ast.Link;
 import com.vladsch.flexmark.ast.Node;
 import com.vladsch.flexmark.ext.anchorlink.AnchorLinkExtension;
 import com.vladsch.flexmark.ext.wikilink.WikiLinkExtension;
-import com.vladsch.flexmark.html.AttributeProvider;
-import com.vladsch.flexmark.html.AttributeProviderFactory;
 import com.vladsch.flexmark.html.HtmlRenderer;
-import com.vladsch.flexmark.html.IndependentAttributeProviderFactory;
-import com.vladsch.flexmark.html.renderer.AttributablePart;
-import com.vladsch.flexmark.html.renderer.NodeRendererContext;
 import com.vladsch.flexmark.parser.Parser;
 import com.vladsch.flexmark.profiles.pegdown.Extensions;
 import com.vladsch.flexmark.profiles.pegdown.PegdownOptionsAdapter;
-import com.vladsch.flexmark.util.html.Attributes;
-import com.vladsch.flexmark.util.options.MutableDataHolder;
 import com.vladsch.flexmark.util.options.MutableDataSet;
 
 import utils.AbstractPageServlet;
@@ -35,7 +24,7 @@ import utils.HTMLFilter;
 
 
 public final class WikiFormatter {
-	
+  
 //    private static final Pattern verbatim = Pattern.compile("<verbatim>(.+?)</verbatim>", Pattern.DOTALL | Pattern.MULTILINE);
     private static String currentRootUrl = "";
 //    private static LinkRenderer currentLinkRenderer = null;
@@ -47,142 +36,143 @@ public final class WikiFormatter {
     private static HtmlRenderer RENDERER_NOHW = null;
     private static HtmlRenderer RENDERER_HW = null;
     
-	static{
-		whitelist.addTags("abbr", "hr", "del", "details", "summary")
-		         .addAttributes("abbr", "title")
-		         .addAttributes("th", "align")
-		         .addAttributes("td", "align")
-		         .addAttributes("code", "class")
-		         .addAttributes("div", "class")
-		         .addAttributes("a", "rel")
+  static{
+    whitelist.addTags("abbr", "hr", "del", "details", "summary")
+             .addAttributes("abbr", "title")
+             .addAttributes("th", "align")
+             .addAttributes("td", "align")
+             .addAttributes("code", "class")
+             .addAttributes("div", "class")
+             .addAttributes("a", "rel")
              .addAttributes("details", "class")
              .addAttributes("details", "open");
-		//allow id's on title tags
-		for(int i=1;i<7;i++){
-			whitelist.addAttributes("h"+i, "id");
-		}
-		whitelist.addProtocols("a", "href", "#");
-		whitelist.addEnforcedAttribute("a", "rel", "nofollow");
-		
-		
-		int pegdownOptions = Extensions.ALL & ~Extensions.HARDWRAPS;
-		if(!BuildProperties.isWikitextAnchorsEnabled()) {
-		  pegdownOptions &= ~Extensions.ANCHORLINKS; 
-		}
-		MutableDataSet defaultOptions = new MutableDataSet( PegdownOptionsAdapter.flexmarkOptions(true, pegdownOptions) );
-		defaultOptions.set(WikiLinkExtension.LINK_PREFIX, "");
-		defaultOptions.set(HtmlRenderer.FENCED_CODE_LANGUAGE_CLASS_PREFIX, "line-numbers language-");
-		defaultOptions.set(AnchorLinkExtension.ANCHORLINKS_ANCHOR_CLASS, "anchor-link");
-		
-		/*
-		 * rel=no-follow is handled by jsoup for now (so it does not apply to unsafe wikitexts) For more finer grained behavior, e.g. only adding rel="no-follow" to external links,
-		 * we probably need to process links in the markdown parser/renderer, which works like below, but not yet for links entered as HTML (<a href...) in the markdown source,
-		 * see https://github.com/vsch/flexmark-java/issues/277
-		 */		
+    //allow id's on title tags
+    for(int i=1;i<7;i++){
+      whitelist.addAttributes("h"+i, "id");
+    }
+    whitelist.addProtocols("a", "href", "#");
+    whitelist.addEnforcedAttribute("a", "rel", "nofollow");
+    
+    
+    int pegdownOptions = Extensions.ALL & ~Extensions.HARDWRAPS;
+    if(!BuildProperties.isWikitextAnchorsEnabled()) {
+      pegdownOptions &= ~Extensions.ANCHORLINKS; 
+    }
+    MutableDataSet defaultOptions = new MutableDataSet( PegdownOptionsAdapter.flexmarkOptions(true, pegdownOptions) );
+    defaultOptions.set(WikiLinkExtension.LINK_PREFIX, "");
+    defaultOptions.set(HtmlRenderer.FENCED_CODE_LANGUAGE_CLASS_PREFIX, "line-numbers language-");
+    defaultOptions.set(AnchorLinkExtension.ANCHORLINKS_ANCHOR_CLASS, "anchor-link");
+    
+    /*
+     * rel=no-follow is handled by jsoup for now (so it does not apply to unsafe wikitexts) For more finer grained behavior, e.g. only adding rel="no-follow" to external links,
+     * we probably need to process links in the markdown parser/renderer, which works like below, but not yet for links entered as HTML (<a href...) in the markdown source,
+     * see https://github.com/vsch/flexmark-java/issues/277
+     */    
      // //add rel="nofollow" attribute to link nodes (from examples mentioned in https://github.com/vsch/flexmark-java/issues/103) 
      // Parser.addExtensions(defaultOptions, AttributeProviderExtension.create());
 
-		//defaultOptions.set(Parser.BLOCK_QUOTE_INTERRUPTS_PARAGRAPH, false); //Workaround for https://github.com/vsch/flexmark-java/issues/101 Blockquotes should now start after blank line
-		optionsNoHardWraps = new MutableDataSet( defaultOptions );		
-		optionsHardWraps = new MutableDataSet( defaultOptions );
-		optionsHardWraps.set(HtmlRenderer.SOFT_BREAK, "<br/>");
-		MARKDOWN_PARSER = Parser.builder( optionsNoHardWraps ).build();
-		RENDERER_NOHW = HtmlRenderer.builder( optionsNoHardWraps ).build();
-		RENDERER_HW = HtmlRenderer.builder( optionsHardWraps ).build();
+    //defaultOptions.set(Parser.BLOCK_QUOTE_INTERRUPTS_PARAGRAPH, false); //Workaround for https://github.com/vsch/flexmark-java/issues/101 Blockquotes should now start after blank line
+    optionsNoHardWraps = new MutableDataSet( defaultOptions );    
+    optionsHardWraps = new MutableDataSet( defaultOptions );
+    optionsHardWraps.set(HtmlRenderer.SOFT_BREAK, "<br/>");
+    MARKDOWN_PARSER = Parser.builder( optionsNoHardWraps ).build();
+    RENDERER_NOHW = HtmlRenderer.builder( optionsNoHardWraps ).build();
+    RENDERER_HW = HtmlRenderer.builder( optionsHardWraps ).build();
 
-		
-	}
+    
+  }
 
-	public static CacheLoader<String, String> loader =
-			new CacheLoader<String, String>() {
-		public String load(String text) {
-			AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
-			boolean useHardWraps = BuildProperties.isWikitextHardwrapsEnabled() && !(text!=null && DISABLE_HARDWRAPS_PATTERN.matcher(text).find() );
-			return wikiFormat( text, useHardWraps, threadLocalPage.getAbsoluteLocation() );
-		}
-	};
+  public static CacheLoader<String, String> loader =
+      new CacheLoader<String, String>() {
+    public String load(String text) {
+      AbstractPageServlet threadLocalPage = utils.ThreadLocalPage.get();
+      boolean useHardWraps = BuildProperties.isWikitextHardwrapsEnabled() && !(text!=null && DISABLE_HARDWRAPS_PATTERN.matcher(text).find() );
+      return wikiFormat( text, useHardWraps, threadLocalPage.getAbsoluteLocation() );
+    }
+  };
 
-	public static LoadingCache<String, String> cache =
-			CacheBuilder.newBuilder()
-			.maximumSize(250)
-			.build(loader);
+  public static LoadingCache<String, String> cache =
+      CacheBuilder.newBuilder()
+      .maximumSize(250)
+      .build(loader);
 
     public static String wikiFormat(String text) {
-    	if ( text == null )
-    		return "";
-    	return org.jsoup.Jsoup.clean(cache.getUnchecked(text), whitelist );
+      if ( text == null ) { return ""; }
+      return org.jsoup.Jsoup.clean(cache.getUnchecked(text), whitelist );
     }
     
     //Similar to wikiFormat( text ) , but without cleaning by JSoup
     public static String wikiFormatNoTagFiltering(String text) {
-    	if ( text == null )
-    		return "";
-    	return cache.getUnchecked(text);
+      if ( text == null ) { return ""; }
+      //Parse the markdown result HTML by Jsoup to fix unclosed tags
+      org.jsoup.nodes.Document d = org.jsoup.Jsoup.parse( cache.getUnchecked(text) );
+      d.outputSettings().prettyPrint(false);
+      return d.html();
     }
     
     public static String wikiFormat(String text, boolean useHardWraps, String rootUrl){
-    	try {
+      try {
             Node document = MARKDOWN_PARSER.parse( text );
             HtmlRenderer renderer = getHTMLRenderer(rootUrl, useHardWraps);
             return renderer.render(document);
-//            		 + "<!--end-->"; //This forces an unclosed HTML-comment in the rendered output to be closed. This fixes the issue where commonmark may escape a closing `-->` when a blank line exists in the HTML comment.  
-//    		return processor.markdownToHtml( processVerbatim(text), getLinkRenderer( rootUrl ) );
-    	} catch (Exception e) {
-			Logger.error(e);
-			return errorMessage(text);
-		}
+//                 + "<!--end-->"; //This forces an unclosed HTML-comment in the rendered output to be closed. This fixes the issue where commonmark may escape a closing `-->` when a blank line exists in the HTML comment.  
+//        return processor.markdownToHtml( processVerbatim(text), getLinkRenderer( rootUrl ) );
+      } catch (Exception e) {
+      Logger.error(e);
+      return errorMessage(text);
+    }
     }    
     
     private static String errorMessage( String text ){
-    	StringBuilder sb = new StringBuilder(text.length() + 128);
-    	sb.append("Something went wrong processing the following markdown text: ")
-    	  .append("<pre>")
-    	  .append( HTMLFilter.filter(text) )
-    	  .append("</pre>");
-    	return sb.toString();
+      StringBuilder sb = new StringBuilder(text.length() + 128);
+      sb.append("Something went wrong processing the following markdown text: ")
+        .append("<pre>")
+        .append( HTMLFilter.filter(text) )
+        .append("</pre>");
+      return sb.toString();
     }
 
-	// private static String processVerbatim(String text) {
-	// Matcher m = verbatim.matcher(text);
-	// if (m.find()){
-	// StringBuffer sb = new StringBuffer( text.length() + 256 );
-	// do {
-	// String newText = "\n " +
-	// m.group(1).replaceAll("\n", "\n ")
-	// .replaceAll("\\\\", "\\\\\\\\")
-	// .replaceAll("\\$", "\\\\\\$") +
-	// "\n";
-	// m.appendReplacement(sb, newText);
-	//
-	// } while (m.find());
-	// m.appendTail(sb);
-	// return sb.toString();
-	// } else {
-	// return text;
-	// }
-	// }
+  // private static String processVerbatim(String text) {
+  // Matcher m = verbatim.matcher(text);
+  // if (m.find()){
+  // StringBuffer sb = new StringBuffer( text.length() + 256 );
+  // do {
+  // String newText = "\n " +
+  // m.group(1).replaceAll("\n", "\n ")
+  // .replaceAll("\\\\", "\\\\\\\\")
+  // .replaceAll("\\$", "\\\\\\$") +
+  // "\n";
+  // m.appendReplacement(sb, newText);
+  //
+  // } while (m.find());
+  // m.appendTail(sb);
+  // return sb.toString();
+  // } else {
+  // return text;
+  // }
+  // }
     
     private static synchronized HtmlRenderer getHTMLRenderer( String rootUrl, boolean hardwrapsEnabled ){
-    	if(!currentRootUrl.equals(rootUrl) && rootUrl != null ) {
-			currentRootUrl = rootUrl;
-			RENDERER_HW = null;
-			RENDERER_NOHW = null;
-			String linkPrefix = rootUrl + "/";
-			optionsHardWraps.set(WikiLinkExtension.LINK_PREFIX, linkPrefix);
-			optionsNoHardWraps.set(WikiLinkExtension.LINK_PREFIX, linkPrefix);
-		}
-    	
-    	if(hardwrapsEnabled){
-    		if(RENDERER_HW == null){    			
-    			RENDERER_HW = HtmlRenderer.builder( optionsHardWraps ).build();
-    		}
-    		return RENDERER_HW;
-    	} else {
-    	    if(RENDERER_NOHW == null){
-    	    	RENDERER_NOHW = HtmlRenderer.builder( optionsNoHardWraps ).build();
-    	    }
-    	    return RENDERER_NOHW;
-    	}
+      if(!currentRootUrl.equals(rootUrl) && rootUrl != null ) {
+      currentRootUrl = rootUrl;
+      RENDERER_HW = null;
+      RENDERER_NOHW = null;
+      String linkPrefix = rootUrl + "/";
+      optionsHardWraps.set(WikiLinkExtension.LINK_PREFIX, linkPrefix);
+      optionsNoHardWraps.set(WikiLinkExtension.LINK_PREFIX, linkPrefix);
+    }
+      
+      if(hardwrapsEnabled){
+        if(RENDERER_HW == null){          
+          RENDERER_HW = HtmlRenderer.builder( optionsHardWraps ).build();
+        }
+        return RENDERER_HW;
+      } else {
+          if(RENDERER_NOHW == null){
+            RENDERER_NOHW = HtmlRenderer.builder( optionsNoHardWraps ).build();
+          }
+          return RENDERER_NOHW;
+      }
     }
 
 //    public static void main(String[] args) {

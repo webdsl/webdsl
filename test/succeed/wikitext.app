@@ -89,6 +89,15 @@ application text
     assert( rawRendered.contains("<a href") );
     assert( rendered.contains("rel=\"nofollow\"") );
     assert( !rawRendered.contains("rel=\"nofollow\"") );
+    
+    t := "<div> <li> unclosed";
+    rendered := rendertemplate( output(t) );
+    rawRendered := rendertemplate( rawoutput(t) );
+    log(rendered);
+    assert( rendered.contains("</li>") );
+    assert( rawRendered.contains("</li>") );
+    assert( rendered.contains("</div>") );
+    assert( rawRendered.contains("</div>") );
   } 
   
   test callStringArg{
