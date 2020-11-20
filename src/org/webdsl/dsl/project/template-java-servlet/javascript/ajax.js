@@ -297,6 +297,11 @@ function replaceWithoutAction(serviceURL, jsonData, idOfElemToReplace) {
     function(req) {
       if (req.readyState == 4) {
         if (req.status == 200) {
+          if(req.responseText.substring(0, 15) == "<!DOCTYPE html>"){
+            //in case a html document is returned, don't do anything.
+            console.log("Unexpected server response for " + serviceURL + ". Received complete document instead of partial document");
+            return;
+          }
           var theNode = document.getElementById(idOfElemToReplace);
           theNode.innerHTML = req.responseText;
           ajax_post_process(theNode);

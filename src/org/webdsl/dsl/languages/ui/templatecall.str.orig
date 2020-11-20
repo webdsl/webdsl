@@ -1,0 +1,375 @@
+module org/webdsl/dsl/languages/ui/templatecall
+
+/**
+ *  Rename and constraints on template calls. All template call variants are covered here.
+ *  A new name for defined templates is stored in a dynamic rule, to cope with overloading.
+ *  When a tcall calls a defined template the new name is stored in a dynamic rule which can be accessed using the renamed tcall name.
+ *  This new name is applied in the rename-identifiers phase.
+ */
+
+imports
+
+  libwebdsl-front
+  libstrategolib
+  org/webdsl/dsl/typechecker/-
+  org/webdsl/dsl/transformation/emit
+  org/webdsl/dsl/languages/ui/declare
+  org/webdsl/dsl/languages/ui/rename
+  org/webdsl/dsl/languages/ui/navigate
+  org/webdsl/dsl/languages/ui/built-in-template
+  org/webdsl/dsl/languages/action/overloading
+  org/webdsl/dsl/languages/action/function-utils
+  org/webdsl/dsl/languages/data-model/utils
+  org/webdsl/dsl/modules/email
+
+rules
+
+  keep-position-anno = match-template-with-name(id) //keep location info for all variants
+
+rules //rename rule for each templatecall variant
+
+  rename-ui :
+    tc@TemplateCallPropsNoBody(x1, arg1*, passign1*){anno*}
+    -> TemplateCallPropsNoBody(x2, arg2*, passign2*){anno*}
+    with  arg2*     := <try(templatecall-replace-page-args(|x1)); rename-all> arg1*
+        ; x2 := <resolve-template-call-name> (x1,arg2*)
+        ; passign2* := <rename-all> passign1*
+
+  rename-ui :
+    tc@TemplateCallProps(x1, passign1*){anno*}
+    -> TemplateCallProps(x2, passign2*){anno*}
+    with  x2 := <resolve-template-call-name> (x1,[])
+        ; passign2* := <rename-all> passign1*
+
+  rename-ui :
+    tc@TemplateCallPropsNoArgs(x1, passign1*, elem1*){anno*}
+    -> TemplateCallPropsNoArgs(x2, passign2*, elem2*){anno*}
+    with  x2 := <resolve-template-call-name> (x1,[])
+        ; elem2*    := <rename-all> elem1*
+        ; passign2* := <rename-all> passign1*
+
+  rename-ui :
+    tc@TemplateCall(x1, arg1*, passign1*, elem1*){anno*}
+    -> TemplateCall(x2, arg2*, passign2*, elem2*){anno*}
+    with  arg2*     := <try(templatecall-replace-page-args(|x1)); rename-all> arg1*
+        ; x2 := <resolve-template-call-name> (x1,arg2*)
+        ; elem2*    := <rename-all> elem1*
+        ; passign2* := <rename-all> passign1*
+
+  rename-ui :
+    tc@TemplateCallNoBody(x1, arg1*){anno*}
+    -> TemplateCallNoBody(x2, arg2*){anno*}
+    with  arg2* := <try(templatecall-replace-page-args(|x1)); rename-all> arg1*
+        ; x2 := <resolve-template-call-name> (x1,arg2*)
+
+  rename-ui :
+    tc@TemplateCallNoArgs(x1){anno*}
+    -> TemplateCallNoArgs(x2){anno*}
+    with  x2 := <resolve-template-call-name> (x1,[])
+
+  rename-ui :
+    tc@TemplateCallNoAssigns(x1, arg1*, elem1*){anno*}
+    -> TemplateCallNoAssigns(x2, arg2*, elem2*){anno*}
+    with  arg2*  := <try(templatecall-replace-page-args(|x1)); rename-all> arg1*
+        ; x2 := <resolve-template-call-name> (x1,arg2*)
+        ; elem2* := <rename-all> elem1*
+
+  rename-ui :
+    tc@TemplateCallBody(x1, elem1*){anno*}
+    -> TemplateCallBody(x2, elem2*){anno*}
+    with  x2 := <resolve-template-call-name> (x1,[])
+        ; elem2* := <rename-all> elem1*
+
+rules //template call either refers to a defined template, or to a built-in template, otherwise it is an error
+
+  resolve-template-call-name :
+    (x,arg*) -> x1
+    with  x' := x{<toplevel-rename> x}
+        //; <debug> x; <debug> arg*; <debug> <InTemplate<+InPage<+InEmail<+!"unknown context">; <debug> x1; <debug> "\n"
+        ; if not(InTypeCheckingPhase)
+          then with(<map(type-of <+ debug(!"cannot determine type of argument (type-of rule fails): ");fail)
+                     <+ <debug(!"error in templatecall found during model-to-model: ")> (x,arg*);fail> arg*) end //extra check in case model-to-model produces bad code
+        ; x1 := <rename-template-call-name-required(|x)
+           <+rename-template-call-name-defined-unique
+           <+rename-template-call-name-defined
+           <+rename-template-call-name-builtin
+           <+rename-template-call-name-template-elements-arg(|x)
+           <+rename-member-template-call(|x)
+           <+rename-template-call-name-error
+          > (x',arg*)
+        ; register-closure-vars(|x, x1)
+        ; not(<templatecall-rename-hook> x1; debug(!"Internal error: templatecall-rename-hook should always fail"); <exit> 1)
+    with  try(declare-entityderive-exp)
+
+  register-closure-vars(|xold, xnew) =
+    where(
+      // collect variables for template closure
+      oldvars := <CallContextVars <+ ![]> xold
+    ; if InTemplate <+ InPage <+ InEmail
+      then vars := <bigbagof-VarInContext> //whole def renamed, collect environment
+      else vars := <rename-all> oldvars //only this part renamed, only apply rename
+      end
+    ; rules ( CallContextVars : xnew -> vars )
+  )
+
+  rename-template-call-name-defined :
+    (x,arg*) -> x
+    where xsa := <strip-annos> x
+        ; name := <resolve-overloaded-template> (xsa,arg*,x)
+    with  rules ( CallToDefinedTemplate : x -> name )
+        ; <store-enclosing-define-for-template-call> x
+
+  //used in translation of elements call to determine which ac rules to inherit
+  store-enclosing-define-for-template-call :
+    x -> x
+    with  if InTemplate <+ InPage <+ InEmail
+          then  enclosing-define := <get-enclosing-define-from-context>
+              ; rules ( DefinedTemplateGetEnclosingDefine : x -> enclosing-define )
+          end
+
+  /**
+   *  Some template names are generated uniquely so no need for overloading, see desugar of ArgDef below
+   */
+  rename-template-call-name-defined-unique :
+    (x,arg*) -> x
+    where xsa := <strip-annos> x
+        ; name := <UniqueNameTemplateCall> xsa
+    with  rules ( CallToDefinedTemplate : x -> name )
+        ; <store-enclosing-define-for-template-call> x
+
+  rename-template-call-name-required(|x_old) :
+    (x,arg*) -> x
+    where if (InTemplate <+ InPage) then
+          xsa := <strip-annos> x
+        ; types := <ReqTemplateFargTypes> xsa
+        else
+          types := <CallToRequiredTemplate> x_old //if not in rename, or only part of the page/template is renamed, the required calls cannot be resolved, this checks whether this call was already resolved in an earlier rename phase
+        end
+    with  rules ( CallToRequiredTemplate : x -> types )
+        ; <store-enclosing-define-for-template-call> x
+
+  rename-template-call-name-builtin :
+    tup@(x,arg*) -> x
+    where <call-tuple-to-signature; CompatibleWithBuiltInTemplate> tup
+    with  rules ( CallToBuiltInTemplate : x )
+
+  call-tuple-to-signature :
+    (x,arg*) -> (xsa,t*)
+    where t* := <map-type-of-strip-annos> arg*
+        ; xsa := <strip-annos> x
+
+  rename-template-call-name-error :
+    tup@(x,arg*) -> x
+    with  rules ( IncorrectTemplateCall : x )
+        ; if not(InTypeCheckingPhase) then //if no longer typechecking this is an error in the compiler
+            sig := <try(call-tuple-to-signature; pp-func-sig)> tup
+          ; <fatal-err(|["Error found during compilation: template call with signature ",sig," is not valid"])> (x,arg*)
+          end
+
+  /**
+   *  overloading resolution for template calls, resolved during rename
+   *  template arguments needs explicit types no overloading resolution there
+   *  x:strip-annos name
+   *  arg* : farglist
+   *  x1 : name with anno
+   */
+  resolve-overloaded-template :
+  (x,arg*,x1) -> name
+  where templates := <AllTopLevelTemplateArguments> x
+      ; t_target := <map-type-of-strip-annos; prepare-type-list-for-compare> arg*
+      ; resolvedarg* := <find-most-specific-signature(|t_target,x1)> templates
+      //each template is renamed for overloading, the arg types are appended to the name:
+      ; name := <TemplateNewName>(x,resolvedarg*)
+
+rules // using page as template produces error; tested in fail/pageastemplate.app
+
+  constraint-error-templatecall(|p,arg*) = constraint-error-page-as-template(|p)
+
+  constraint-error-page-as-template(|p) :
+    tc -> <add-error(|["Cannot use page as template: ",<pp-webdsl> p])>
+    where <IncorrectTemplateCall> p //not a valid template call
+    where <strip-annos;IsPage> p //but could be trying to invoke a page
+
+rules //template not defined
+
+  constraint-error-templatecall(|p,arg*) :
+    x -> <add-error(|err*)>
+    where <IncorrectTemplateCall> p
+        ; if <ErrorDuringOverloadResolution> p
+          then err* := <ErrorDuringOverloadResolution>
+          else err* := ["Template with signature ",<pp-func-sig> (p,<map(type-of)>arg*)," not defined "] end
+
+  constraint-error-ui = ?tc@TemplateCallNoBody(p,arg*)       ;where(<constraint-error-templatecall(|p,arg*)> tc)
+  constraint-error-ui = ?tc@TemplateCallNoArgs(p)            ;where(<constraint-error-templatecall(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCallNoAssigns(p,arg*,_)  ;where(<constraint-error-templatecall(|p,arg*)> tc)
+  constraint-error-ui = ?tc@TemplateCallPropsNoBody(p,arg*,_);where(<constraint-error-templatecall(|p,arg*)> tc)
+  constraint-error-ui = ?tc@TemplateCallProps(p,_)           ;where(<constraint-error-templatecall(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCallPropsNoArgs(p,_,_)   ;where(<constraint-error-templatecall(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCallBody(p,_)            ;where(<constraint-error-templatecall(|p,[]  )> tc)
+  constraint-error-ui = ?tc@TemplateCall(p,arg*,_,_)         ;where(<constraint-error-templatecall(|p,arg*)> tc)
+
+signature constructors LiftedElementsTemplateCall : Term
+rules // desugar 'elements' template argument for defined template calls
+
+  built-in-template-rule-setup = <declare-built-in-template-rules> ("elements",[]);fail
+
+  desugar-ui :
+    tc@TemplateCall(x,arg*,passign*,TemplateBody(elem*)){anno*} -> TemplateCall(x,arg*,[elementscall|passign*],TemplateBody([])){anno*}
+    where not(<ElementsCallInsideTemplateWith> x) // wait until the enclosing 'with' argument is lifted
+    where <CallToDefinedTemplate <+ CallToRequiredTemplate> x // defined or required template definition can contain an 'elements' call
+    where not(<fetch(?TemplateCall(_,_,_,_))> passign*) // don't loop
+    where not(<fetch(?LiftedElementsTemplateCall())> anno*) // don't recurse
+    where not(<args-contain-entityderived> arg*) // don't desugar call to entityderive template that has not been generated yet
+    where not(is-inlineable-template-call)  // if the called template will be inlined, don't lift the elements
+    where if EnclosingDefine(_, _, encltemplateargs, _, _) := <DefinedTemplateGetEnclosingDefine> x then
+          <not(fetch(?Arg(_,ArgEntityDerive(_,_))))> encltemplateargs end // don't desugar call inside entityderive template that has not been generated yet
+    with  elementskey := <concat-strings> ["elements#",<generate-elements-tcallsmap-name> x]
+    with  if (<?[]> elem*) then // don't create a new template def for empty elements
+            elementscall := <rename-all> TemplateCall("elementsempty",[],[ResolvedRequireKey(elementskey)],TemplateBody([])){LiftedElementsTemplateCall()}
+          else
+            x_newtempl := <toplevel-rename> "ta"
+          ; positionanno* := <filter-position-from-anno-list> anno*
+          ; if <fetch(?NoEnclosingDefine())> anno* // see org/webdsl/dsl/languages/ui/render-template-function
+            then // templatecall that is not inside a template definition
+                var* := <collect(?Var(_))> elem* // because VarInContext is only defined for templates, cannot use it for any context. VarInContext needs to be refactored to be automatically created during rename for any context
+              ; farg* := <map(?Var(<!Arg(<id>, <type-of;  strip-annos> Var(<id>))>))> var* //create only immutable formal arguments for the lifted template
+              ; <emit-webdsl-code> Define([TemplateDefineNameBeforeLifting("internal-NoEnclosingDefine"),IgnoreAccessControl()], x_newtempl, farg*, [], elem*){positionanno*}
+              ; extra-anno* := [NoEnclosingDefine()]
+            else // regular handling of elements
+                (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper> (x,elem*)
+              ; EnclosingDefine(_, encltemplatename, encltemplateargs, _, encltemplatemods) := <DefinedTemplateGetEnclosingDefine> x
+              ; enclname := <generate-template-name-fargs> (encltemplatename, encltemplateargs, encltemplatemods)
+              ; <emit-webdsl-code> Define([TemplateDefineNameBeforeLifting(enclname)|mod*], x_newtempl, farg*, requires*, defelem*){positionanno*}
+              ; extra-anno* := []
+            end
+          ; elementscall := <rename-all> TemplateCall(x_newtempl,var*,[ResolvedRequireKey(elementskey)],TemplateBody([])){LiftedElementsTemplateCall(),extra-anno*} //encode as regular template call, so it gets renamed correctly in transformation/rename-identifiers.str
+          end
+
+<<<<<<< HEAD
+  single-templatecall-as-elements(|elementskey) =
+    ?[<id>]
+  ; try(normalize-ui)
+  ; ?TemplateCall(x,arg*,passign*,TemplateBody([])){anno*}
+  ; <not(?"wrapsubmit");CallToDefinedTemplate> x
+  ; <not(fetch(?TemplateCall(<not(?"elementsempty")>,_,_,_)))> passign*  // cannot have a lifted non-empty elements call,
+  ; <not(fetch(not(?TemplateCall(_,_,_,_))))> passign*                   // or other call attributes, the back-end does not pass them along yet
+  ; !TemplateCall(x,arg*,[ResolvedRequireKey(elementskey)|passign*],TemplateBody([])){LiftedElementsTemplateCall(),anno*}
+
+=======
+>>>>>>> parent of dd174541... Optimize compilation and execution by skipping the lifting of templatecall elements when the elements only contain a single simple templatecall.
+  generate-elements-tcallsmap-name :
+    x -> genname
+    where genname := <CallToDefinedTemplate> x
+
+  generate-elements-tcallsmap-name :
+    x -> genname
+    where types := <CallToRequiredTemplate> x
+    with  genname := <generate-template-name> (x,types)
+
+  emit-top-level-template-contents-helper:
+    (x,elem*) -> (farg*, requires*, defelem*, var*, mod*)
+    with  var* := <CallContextVars; reverse> x  // reverse names from closure to get same order for template arguments as enclosing definition, relevant for template-elements-argument desugaring
+        ; farg* := <map(?Var(
+          	              <!Arg(
+          	              	<id>
+          	                // make all 'elements' arguments Ref args, unless the type has ImmutableReference annotation (e.g. because it belong to a for loop iterator)
+          	              , <type-of; if where({?_{anno_type*};<fetch(ImmutableReference)>anno_type*}) then strip-annos else strip-annos;!RefSort(<id>) end> Var(<id>)
+          	              )>
+          	            ) 
+          	         <+ debug(|"Internal error: Expected Var(_) with type information: "); fail)> var* 
+        ; EnclosingDefine(templatekey, encltemplatename, encltemplateargs, in-email, _) := <DefinedTemplateGetEnclosingDefine> x
+        ; if <False> in-email
+          then
+            requires* := <TemplateRequiresList <+ ![]> encltemplatename
+          ; acimports* := <TemplateACImports <+ ![]> encltemplatename
+          ; mod* := <TemplateMods <+ ![]> encltemplatename
+          ; defelem* := [ AccessControlImportRules(encltemplatename,<map(get-varname-from-formarg)> encltemplateargs) | [acimports*, elem*] ]
+          else
+            requires* := []
+          ; defelem* := elem*
+          ; mod* := [IgnoreAccessControl()]
+          end
+
+rules
+
+  /*
+    mark ArgDefine fargs as Ref allowed
+  */
+  rename-ui:
+    ArgDefine(x,farg1*,elem1*) -> ArgDefine(x,farg2*,elem2*)
+    with  {| Rename, VarInContext, InsideArgDefine :
+            farg2* := <map(rename; add-is-template-arg-anno)> farg1*
+          ; rules(InsideArgDefine := (x,farg2*))
+          ; elem2* := <rename-all> elem1*
+          |}
+
+  /*
+    wait with lifting 'elements' inside TemplateWith until the definition (foo in the example below) is lifted
+       baz() with{
+         foo(message : String) {
+           bar{ ---> output(message) <--- }
+         }
+       }
+       ...
+       define baz() requires foo(String){ foo() }
+       define bar{ elements() }
+  */
+
+  rename-ui :
+    TemplateWith(argdef*) -> TemplateWith(argdef2*)
+    with {| InsideTemplateWith :
+              rules( InsideTemplateWith := True() )
+            ; argdef2* := <rename-all> argdef*
+         |}
+
+  templatecall-rename-hook :
+    x -> <fail>
+    where InsideTemplateWith
+    where rules( ElementsCallInsideTemplateWith : x )
+
+  enable-elements-lifting-in-with =
+    alltd({?TemplateCall(x,_,_,_); where(<once-ElementsCallInsideTemplateWith> x)})
+
+  /* translation of 'with/requires' templatecall, 'with' part
+
+    define x() {
+      var s: String := "abc"
+ ---> y() with {
+ --->   z() { output(s) }
+ ---> }
+    }
+    define y() requires z(){
+      z() "!"
+    }
+  */
+
+  desugar-ui :
+    tc@TemplateCall(x,arg*,passign,TemplateWith(argdef*)) -> TemplateCall(x,arg*,passign2,TemplateBody([]))
+    with elementscall := <map(desugar-argdef(|x))> argdef*
+       ; passign2 := <conc>(elementscall, passign)
+
+  desugar-argdef(|templatename) :
+    ArgDefine(x,origfarg*,elem*) -> renamedtopleveltemplatecall
+    with x_newtempl := <conc-strings; toplevel-rename> (x,"_ad")
+        ; (farg*, requires*, defelem*, var*, mod*) := <emit-top-level-template-contents-helper> (templatename,elem*)
+        ; <enable-elements-lifting-in-with; emit-webdsl-code> Define([TemplateDefineNameBeforeLifting(x)|mod*], x_newtempl, [origfarg*, farg*], requires*, defelem*)
+         // a special templatecall that only needs resolving by name, since the name is uniquely generated
+         //  produces the name that should be used to look up the template in the hashmap
+        ; t* := <formal-arguments-to-types> [origfarg*, farg*]
+        ; namewithargtypesappended :=  <generate-template-name> (x_newtempl,t*)
+        ; rules (
+            UniqueNameTemplateCall : x_newtempl -> namewithargtypesappended
+            IsArgDefineInWithTemplateCall : namewithargtypesappended
+          )
+        ; renamedtopleveltemplatecall := <rename-all> TemplateCall(x_newtempl, var*,[ResolvedRequireKey(x)],TemplateBody([]))
+
+rules
+
+  add-backend-annotation =
+      ?PageCall(p, args)
+    ; not("url" := p)
+    ; with(
+        strippedpagename := <strip-annos> p
+      ; def |[ define mod* x(farg*) req* { elem* } ]| := <TemplateSignature> (strippedpagename, <map-type-of-strip-annos> args)
+     )
+    ; add-new-anno(|PageArgsAnno(farg*))
