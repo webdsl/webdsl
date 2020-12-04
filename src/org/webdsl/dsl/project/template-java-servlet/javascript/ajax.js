@@ -306,7 +306,8 @@ function replaceWithoutAction(serviceURL, jsonData, idOfElemToReplace) {
           theNode.innerHTML = req.responseText;
           ajax_post_process(theNode);
         } else if (req.status != 200) {
-          showError(thisobject, 'Invalid return of server: ' + req.status);
+          console.log("Unexpected server response for " + serviceURL + " status code: " + req.status);
+//          showError(thisobject, 'Invalid return of server: ' + req.status);
         }
       }
     }
