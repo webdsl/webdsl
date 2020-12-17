@@ -105,9 +105,9 @@ public final class WikiFormatter {
     public static String wikiFormatNoTagFiltering(String text) {
       if ( text == null ) { return ""; }
       //Parse the markdown result HTML by Jsoup to fix unclosed tags
-      org.jsoup.nodes.Document d = org.jsoup.Jsoup.parse( cache.getUnchecked(text) );
+      org.jsoup.nodes.Document d = org.jsoup.Jsoup.parseBodyFragment( cache.getUnchecked(text) );
       d.outputSettings().prettyPrint(false);
-      return d.html();
+      return d.body().html();
     }
     
     public static String wikiFormat(String text, boolean useHardWraps, String rootUrl){
