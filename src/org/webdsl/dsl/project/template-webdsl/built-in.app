@@ -502,6 +502,7 @@ native class utils.AbstractDispatchServletHelper as DispatchServlet{
   static get(): DispatchServlet
   getBaseUrl(): String
   getUrlComponents(): [String]
+  renewCookieValue()
 }
 function getDispatchServlet(): DispatchServlet{
   return DispatchServlet.get();

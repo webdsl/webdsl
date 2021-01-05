@@ -52,7 +52,7 @@ rules
               getSessionManager().setLastUseNoEventsOrValidation(null);
               if(oldManager != null && oldManager != getSessionManager()){
                 getSessionManager().getMessages().addAll( oldManager.getMessages() );
-                oldManager.removeAllFromMessages();               
+                oldManager.removeAllFromMessages();
               }
             }
           }
@@ -65,12 +65,35 @@ rules
             loadSessionManager(hses, null);
           }
           private boolean isNewSessionManager;
-          public void loadSessionManager(org.hibernate.Session hses, String[] joins) {  
+          protected static java.util.regex.Pattern domainPattern = java.util.regex.Pattern.compile("(^\\w{0,6})://([^/]+)");
+          public String getDomain(){
+            String url = getRequestURL();
+            if(url == null){ return null; }
+            java.util.regex.Matcher m = domainPattern.matcher(url);
+            m.find();
+            return m.group(2);
+          }
+          public void generateCookieValue(){
+            cookieValue = java.util.UUID.randomUUID();
+            sessionManager.setCookieValueNoEventsOrValidation(cookieValue);
+          }
+          public void generateCookieValueAndPersist(){
+            generateCookieValue();
+            sessionManager.setChanged("*new cookie value*");
+          }
+          public void loadSessionManager(org.hibernate.Session hses, String[] joins) {
+            String domain = getDomain();
             /*if(joins == null || joins.length == 0) {*/
             if(sessionManager == null){
-            	if(sessionId != null){
-            		sessionManager = (SessionManager)hses.get(SessionManager.class, sessionId); //from org.hibernate.Session documentation: you should not use load() to determine if an instance exists (use get() instead)
-            	}
+              if(sessionId != null){
+                sessionManager = (SessionManager)hses.get(SessionManager.class, sessionId); //from org.hibernate.Session documentation: you should not use load() to determine if an instance exists (use get() instead)
+                if(sessionManager != null && sessionManager.getDomain() == null){  // migration of old instances
+                  sessionManager.setDomainNoEventsOrValidation(domain);
+                }
+                if(sessionManager != null && sessionManager.getCookieValue() == null){  // migration of old instances
+                  renewCookieValue();
+                }
+              }
             }
             /*} else {
               java.util.List<SessionManager> results = utils.QueryOptimization.addJoinsIfOptimizationEnabled(hses.createCriteria(SessionManager.class), joins)
@@ -80,13 +103,15 @@ rules
                 sessionManager = results.get(0);
               }
             }*/
-            if(sessionManager == null){
+            if(sessionManager == null || !sessionManager.getDomain().equals(domain) || !sessionManager.getCookieValue().equals(cookieValue) ){
               ~*<![];if-debug(!bstm*|[  org.webdsl.logging.Logger.info("session entity could not be loaded, creating new");  ]|)>
               isNewSessionManager = true;
               sessionManager = new SessionManager();
               sessionId = java.util.UUID.randomUUID(); //generate a new sessionId, not using the one supplied in cookie (prevents session fixation)
               sessionManager.setId(sessionId);
               sessionManager.setLastUseNoEventsOrValidation(new java.util.Date());
+              sessionManager.setDomainNoEventsOrValidation(domain);
+              generateCookieValue();
             }
           }
           public void setCookie(org.hibernate.Session hses){
@@ -106,12 +131,18 @@ rules
           	  }
           	} else {
           		sendCookie = webdsl.generated.functions.internalUpdateSessionManagerTimeout_.internalUpdateSessionManagerTimeout_();
+              if( mustRenewCookieValue ){
+                sendCookie = true;
+              }
           	}
           	
           	
           	
           	if(sendCookie){
-          		String basicCookieInfo = "WEBDSLSESSIONID=" + utils.UUIDUserType.persistUUIDString(sessionId) + "; HttpOnly; path=/";
+          		String basicCookieInfo = "WEBDSLSESSIONID="
+          		  + utils.UUIDUserType.persistUUIDString(sessionId)
+          	  	+ utils.UUIDUserType.persistUUIDString(sessionManager.getCookieValue())
+          		  + "; HttpOnly; path=/";
             	String setCookie = "SET-COOKIE";
           		if(sessionManager.getStayLoggedIn() != null && sessionManager.getStayLoggedIn()){
 	                Date expdate = utils.DateType.addMonths(new Date(), 6);
@@ -221,7 +252,10 @@ rules
               	
                 if("WEBDSLSESSIONID".equals(c.getName())){
                   try{
-                    sessionId = utils.UUIDUserType.retrieveUUID(c.getValue());
+                    sessionId = utils.UUIDUserType.retrieveUUID(c.getValue().substring(0,32));
+                    if( c.getValue().length() == 64 ){
+                      cookieValue = utils.UUIDUserType.retrieveUUID(c.getValue().substring(32,64));
+                    }
                   }
                   catch(Exception ex){
                     org.webdsl.logging.Logger.error("Could not create UUID from String, new session will be created");

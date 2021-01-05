@@ -109,7 +109,13 @@ public abstract class AbstractDispatchServletHelper{
   public java.util.UUID getSessionId(){
 	  return sessionId;
   }
-  
+  protected java.util.UUID cookieValue = null;
+  protected boolean mustRenewCookieValue = false;
+  public void renewCookieValue(){
+	  mustRenewCookieValue = true;
+	  generateCookieValueAndPersist();
+  }
+  abstract public void generateCookieValueAndPersist();
   public String contextPath;
   protected String requested;
   public String getRequestedPage(){
