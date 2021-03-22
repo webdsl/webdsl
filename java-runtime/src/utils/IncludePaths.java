@@ -4,15 +4,15 @@ import org.webdsl.logging.Logger;
 
 public class IncludePaths {
 	
-	private static final String JQUERY_JS_LOCAL = "jquery-1.11.0.min.js";
-	private static final String JQUERY_JS_CDN = "//code.jquery.com/jquery-1.11.0.min.js";
+	private static final String JQUERY_JS_LOCAL = "jquery-3.5.1.min.js";
+	private static final String JQUERY_JS_CDN = "//code.jquery.com/jquery-3.5.1.min.js";
 	
-	private static final String JQUERYUI_JS_LOCAL = "jquery-ui-1.10.4.min.js";
-	private static final String JQUERYUI_JS_CDN = "//code.jquery.com/ui/1.10.4/jquery-ui.min.js";
+	private static final String JQUERYUI_JS_LOCAL = "jquery-ui-1.12.1.min.js";
+	private static final String JQUERYUI_JS_CDN = "//code.jquery.com/ui/1.12.1/jquery-ui.min.js";
 	private static final String JQUERYUI_TOUCH_PUNCH_JS_LOCAL = "jquery.ui.touch-punch-0.2.3.min.js";
 	private static final String JQUERYUI_TOUCH_PUNCH_JS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/jqueryui-touch-punch/0.2.3/jquery.ui.touch-punch.min.js";	
-	private static final String JQUERYUI_CSS_LOCAL = "jquery-ui-1.10.4.min.css";
-	private static final String JQUERYUI_CSS_CDN = "//code.jquery.com/ui/1.10.4/themes/smoothness/jquery-ui.min.css";
+	private static final String JQUERYUI_CSS_LOCAL = "jquery-ui-1.12.1.min.css";
+	private static final String JQUERYUI_CSS_CDN = "//code.jquery.com/ui/1.12.1/themes/smoothness/jquery-ui.min.css";
 	
 	private static final String MOMENT_JS_LOCAL = "moment.min.js";
 	private static final String FLATPICKR_JS_LOCAL = "flatpickr-4.3.2.min.js";
