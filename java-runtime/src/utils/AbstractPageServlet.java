@@ -681,7 +681,14 @@ public abstract class AbstractPageServlet{
         }
         else{
             //this doesn't work with ajax template render from action, since an ajax template needs to submit to a different page than the original request
-            return request.getRequestURL().toString();
+
+            // fix problem with placeholder replace creating forms with http instead of https in deployed app
+            if(ThreadLocalServlet.getContextPath().equals("")){
+              return utils.UrlTransform.convertToHttpsUrl(request.getRequestURL().toString());
+            }
+            else{
+              return request.getRequestURL().toString();
+            }
         }
     }
 
