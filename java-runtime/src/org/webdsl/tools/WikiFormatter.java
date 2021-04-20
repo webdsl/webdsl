@@ -43,7 +43,7 @@ public final class WikiFormatter {
              .addAttributes("td", "align")
              .addAttributes("code", "class")
              .addAttributes("div", "class")
-             .addAttributes("a", "rel")
+             .addAttributes("a", "rel", "name")
              .addAttributes("details", "class")
              .addAttributes("details", "open");
     //allow id's on title tags
