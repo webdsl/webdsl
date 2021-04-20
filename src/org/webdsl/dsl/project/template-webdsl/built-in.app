@@ -832,10 +832,16 @@ entity QueuedEmail{
 
 invoke internalHandleEmailQueue() every 15 seconds
 
+native class utils.EmailServlet as EmailServlet{
+  static getNumEmailsPerInvocation() : Int
+  static setNumEmailsPerInvocation(Int)
+}
+
 function internalHandleEmailQueue(){
   var n: DateTime := now().addHours( -3 ); // retry after 3 hours to avoid spamming too much
   var dontRetryMoment: DateTime := now().addDays( -3 ); //dont retry emails older than 3 days
-  var queuedEmails := from QueuedEmail as q where (q.lastTry is null or q.lastTry < ~n) and q.created > ~dontRetryMoment order by q.created asc limit 5;
+  var sizeLim := EmailServlet.getNumEmailsPerInvocation(); //default is 5
+  var queuedEmails := from QueuedEmail as q where (q.lastTry is null or q.lastTry < ~n) and q.created > ~dontRetryMoment order by q.created asc limit ~sizeLim;
   for( queuedEmail: QueuedEmail in queuedEmails ){
     if( sendemail( sendQueuedEmail( queuedEmail ) ) ){
       queuedEmail.delete();

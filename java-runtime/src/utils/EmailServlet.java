@@ -39,19 +39,23 @@ public abstract class EmailServlet {
   protected static boolean authenticate = true;
   public AbstractPageServlet threadLocalPageCached = null;
   
-    protected Environment env;
-  
-    protected String uniqueid;
-    public String getUniqueId(){
-      if(uniqueid == null){
-        uniqueid = Encoders.encodeTemplateId(getTemplateClassName(), getTemplateContext(), threadLocalPageCached);
-      }
-      return uniqueid;
+  protected Environment env;
+
+  protected String uniqueid;
+  public String getUniqueId(){
+    if(uniqueid == null){
+      uniqueid = Encoders.encodeTemplateId(getTemplateClassName(), getTemplateContext(), threadLocalPageCached);
     }
-    public abstract String getTemplateClassName();
-    public String getTemplateContext(){
-      return threadLocalPageCached.getTemplateContextString();
-    } 
+    return uniqueid;
+  }
+  public abstract String getTemplateClassName();
+  public String getTemplateContext(){
+    return threadLocalPageCached.getTemplateContextString();
+  }
+  
+  protected static int numEmailsPerInvocation = 5;
+  public static int getNumEmailsPerInvocation() { return numEmailsPerInvocation; }
+  public static void setNumEmailsPerInvocation(int num) { numEmailsPerInvocation = num; }
   
   protected static javax.mail.Session getSession(){
     return javax.mail.Session.getInstance(sessionProps, null);
