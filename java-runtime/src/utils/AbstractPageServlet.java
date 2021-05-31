@@ -550,22 +550,31 @@ public abstract class AbstractPageServlet{
 
         addJavascriptInclude( utils.IncludePaths.jQueryJS() );
         addJavascriptInclude( ajax_js_include_name );
-
+        
         sout.println("<!DOCTYPE html>");
         sout.println("<html>");
         sout.println("<head>");
-        sout.println("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
-        sout.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1\">");
+        
+        if( !customHeadNoDuplicates.containsKey( "viewport" ) ) {
+          sout.println("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1\">");
+        }
+        if( !customHeadNoDuplicates.containsKey( "contenttype" ) ) {
+          sout.println("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
+        }
+        if( !customHeadNoDuplicates.containsKey( "favicon" ) ) {
+          sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+ CachedResourceFileNameHelper.fav_ico_link_tag_suffix);
+        }
+        if( !customHeadNoDuplicates.containsKey( "defaultcss" ) ) {
+          sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+ CachedResourceFileNameHelper.common_css_link_tag_suffix);
+        }
+        
         sout.println("<title>"+getPageTitle().replaceAll("<[^>]*>","")+"</title>");
-
-        sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+ CachedResourceFileNameHelper.fav_ico_link_tag_suffix);
-        sout.println("<link href=\""+ThreadLocalPage.get().getAbsoluteLocation()+ CachedResourceFileNameHelper.common_css_link_tag_suffix);
 
         renderDebugJsVar(sout);
         sout.println("<script type=\"text/javascript\">var contextpath=\""+ThreadLocalPage.get().getAbsoluteLocation()+"\";</script>");
 
         for(String sheet : this.stylesheets) {
-        	String href = computeResourceSrc("stylesheets", sheet);
+          String href = computeResourceSrc("stylesheets", sheet);
             sout.print("<link rel=\"stylesheet\" href=\""+ href + "\" type=\"text/css\" />");
         }
         for(String script : this.javascripts) {
@@ -575,9 +584,6 @@ public abstract class AbstractPageServlet{
         for(Map.Entry<String,String> headEntry : customHeadNoDuplicates.entrySet()) {
 //            sout.println("<!-- " + headEntry.getKey() + " -->");
             sout.println(headEntry.getValue());
-        }
-        for(String headEntry : customHeads) {
-            sout.println(headEntry);
         }
         sout.println("</head>");
 
@@ -946,7 +952,6 @@ public abstract class AbstractPageServlet{
     protected java.util.List<String> javascripts = new java.util.ArrayList<String>();
     protected java.util.List<String> tailJavascripts = new java.util.ArrayList<String>();
     protected java.util.List<String> stylesheets = new java.util.ArrayList<String>();
-    protected java.util.List<String> customHeads = new java.util.ArrayList<String>();
     protected java.util.List<String> bodyAttributes = new java.util.ArrayList<String>();
 
     protected java.util.Map<String,String> customHeadNoDuplicates = new java.util.HashMap<String,String>();
