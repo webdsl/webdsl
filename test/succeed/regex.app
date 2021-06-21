@@ -24,7 +24,7 @@ application test
     
     break
     
-    output(/ / /.replaceAll("-", "1/10/100/1000"))
+    output(/ \/ /.replaceAll("-", "1/10/100/1000"))
     
     break
     
@@ -49,6 +49,15 @@ application test
   }
   function replacenewline3(x : String) : String {
     return /\r|\n|\r\n/.replaceAll("",x);
+  }
+  
+  
+  function multiRegex(x : String) : Bool {
+  	//previously caused amb when / was accepted as AtomLiteral
+    var baseUri := /[]](.*getFile).*/.replaceAll("$1", x);
+    var numFileRefs := x.split(baseUri).length;
+    var unresolved := /\]\([^:]+\)/.find(x);
+    return numFileRefs < 1 || !unresolved ;
   }
 
   test regexnewline {
