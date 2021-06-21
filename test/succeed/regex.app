@@ -54,7 +54,7 @@ application test
   
   function multiRegex(x : String) : Bool {
   	//previously caused amb when / was accepted as AtomLiteral
-    var baseUri := /[]](.*getFile).*/.replaceAll("$1", x);
+    var baseUri := /(.*getFile).*/.replaceAll("$1", x);
     var numFileRefs := x.split(baseUri).length;
     var unresolved := /\]\([^:]+\)/.find(x);
     return numFileRefs < 1 || !unresolved ;
