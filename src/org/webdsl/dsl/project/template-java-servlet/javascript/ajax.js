@@ -70,12 +70,12 @@ function formToPost(formObj) {
     }
 
   if (showFileUploadNotSupported) {
-	var browserSupportsFormData = window.FormData !== undefined;
-	if( browserSupportsFormData ){
+    var browserSupportsFormData = window.FormData !== undefined;
+    if( browserSupportsFormData ){
       doShowError('Something went wrong. The files could not be uploaded through this action.');
-	} else {
-	  doShowError('You are using an (older) browser that does not support file uploads in this form');
-	}
+    } else {
+      doShowError('You are using an (older) browser that does not support file uploads in this form');
+    }
   }
   //alert(request);
   return request;
@@ -379,13 +379,71 @@ function serverInvokeDownloadCompatible(template, action, jsonparams, thisform, 
 
 }
 
+function requireJSResource( uri, callback ){
+  if( 1 > $('script[src="' + uri + '"]').length ){
+    console.log("Dynamically loading: " + uri);
+    var head = document.getElementsByTagName('head')[0];
+    var script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.src = uri;
+    script.onload = callback;
+    script.onerror = callback;
+    head.appendChild(script);
+  } else {
+    callback();
+  }
+}
+function requireCSSResource( uri ){
+  if( 1 > $('link[href="' + uri + '"]').length ){
+    console.log("Dynamically loading: " + uri);
+    var head = document.getElementsByTagName('head')[0];
+    var link = document.createElement("link");
+    link.type = "text/css";
+    link.rel = "stylesheet";
+    link.href = uri;
+    head.appendChild(link);
+  }
+}
+
+//load JS resources and defer calls to ajax_post_process until resources are loaded
+function requireJSResources( arr ){
+  var resourcesToLoad = arr.length;
+  if(resourcesToLoad < 1){
+    return;
+  }
+
+  var orig_ajax_post_process = ajax_post_process;
+  var post_process_calls_queue = function(){};
+  ajax_post_process = function( node ){
+    var queue_head = post_process_calls_queue;
+    post_process_calls_queue = function(){
+      queue_head();
+      orig_ajax_post_process(node);
+    }
+  }; 
+  
+  function resourceLoaded(){
+    resourcesToLoad--;
+    if(resourcesToLoad == 0){
+      ajax_post_process = orig_ajax_post_process;
+      post_process_calls_queue();
+    }
+  }
+  
+  for (var i = 0; i < arr.length; i++) {
+    requireJSResource( arr[i], resourceLoaded );
+  }
+}
+
 function clientExecute(jsoncode, thisobject) {
+  
   data = eval(jsoncode);
   if (data == undefined)
     if (show_webdsl_debug) {
       alert("received no valid response from the server! " + jsoncode);
     }
-  for (i = 0; i < data.length; i++) {
+
+  for (var i = 0; i < data.length; i++) {
     command = data[i];
     try {
       if (command.action == "replace")
@@ -409,6 +467,13 @@ function clientExecute(jsoncode, thisobject) {
         eval(command.value);
       } else if (command.action == "logsql") {
         appendLogSql(command);
+      } else if (command.action == "require_js") {
+        requireJSResources( command.value );
+      } else if (command.action == "require_css") {
+        var arr = command.value;
+        for (var j = 0; j < arr.length; j++) {
+          requireCSSResource( arr[j] );
+        }
       } else if (command.action != undefined) //last command might equal {}
         if (show_webdsl_debug) {
           alert("unknown client command: " + command.action);

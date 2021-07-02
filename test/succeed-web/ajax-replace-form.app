@@ -36,6 +36,9 @@ application test
       input(i)
       submit("save",action{refresh();})[ajax]
     }
+    
+    includeJS("http://localhost/resource.js")
+    includeCSS("http://localhost/resource.css")
     submit("refresh",action{refresh();})[ajax]
   }
   
@@ -48,6 +51,11 @@ application test
     d.getSubmit().click();
     
     assert(d.getPageSource().contains("ajax template"), "expected to see ajax template");
+    
+    //check for dynamically loaded resources
+    assert(d.getPageSource().contains("localhost/resource.js"), "expected to see js resource injected");
+    assert(d.getPageSource().contains("localhost/resource.css"), "expected to see css resource injected");
+    
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
     assert(elist.length==10, "incorrect number of input elements found");
     log(d.getPageSource());

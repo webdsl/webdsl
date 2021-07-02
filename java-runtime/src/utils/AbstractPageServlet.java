@@ -198,42 +198,60 @@ public abstract class AbstractPageServlet{
           else {
             // actionLink or ajax action used and replace(placeholder) invoked
             if( isReRenderPlaceholders() ){
-                response.getWriter().write( "[" );
+                StringBuilder commands = new StringBuilder("[");
                 templateservlet.validateInputs (null, args, new Environment(envGlobalAndSession), null);
                 clearTemplateContext();
                 renderDynamicFormWithOnlyDirtyData = true;
                 renderPageOrTemplateContents(); // content of placeholders is collected in reRenderPlaceholdersContent map
-                StringWriter replacements = new StringWriter();
+                
+                //For now we do not support dynamically loading of resources in case of a rerendered placeholder,
+                //because this would try to load the js/css resources from the whole page while only a part gets rerendered
+//                if(this.javascripts.size() > 0) {
+//                  commands.append( requireJSCommand() ).append(",");
+//                }
+//                if(this.stylesheets.size() > 0) {
+//                  commands.append( requireCSSCommand() ).append(",");
+//                }
+                
                 boolean addComma = false;
                 for(String ph : reRenderPlaceholders){
-                    if(addComma){ replacements.write(","); }
+                    if(addComma){ commands.append(","); }
                     else { addComma = true; }
-                	replacements.write("{\"action\":\"replace\",\"id\":\""+ph+"\",\"value\":\""
-                            + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(reRenderPlaceholdersContent.get(ph))
-                            + "\"}");
+                    commands.append("{\"action\":\"replace\",\"id\":\"")
+                	            .append(ph)
+                	            .append("\",\"value\":\"")
+                              .append(org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(reRenderPlaceholdersContent.get(ph)))
+                              .append("\"}");
                 }
-                response.getWriter().write( replacements.toString() );
                 if( outstream.length() > 0 ){
-                	response.getWriter().write( "," + outstream.substring(0, outstream.length() - 1) + "]" ); // Other ajax updates, such as clear(ph). Done after ph rerendering to allow customization.
+                  commands.append( "," + outstream.substring(0, outstream.length() - 1) ); // Other ajax updates, such as clear(ph). Done after ph rerendering to allow customization.
                 }
-                else{
-                	response.getWriter().write( "]" );
-                }
+                commands.append("]");
+                response.getWriter().write( commands.toString() );
             }
             //hasExecutedAction() && isValid()
             else if( isAjaxRuntimeRequest() ){
-              response.getWriter().write("[");
-              response.getWriter().write(outstream);
+              PrintWriter responseWriter = response.getWriter();
+              responseWriter.write("[");
+              if(this.javascripts.size() > 0) {
+                responseWriter.write( requireJSCommand() );
+                responseWriter.write(",");
+              }
+              if(this.stylesheets.size() > 0) {
+                responseWriter.write( requireCSSCommand() );
+                responseWriter.write(",");
+              }
+              responseWriter.write(outstream);
               if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
                     if(logSqlCheckAccess()){
-                      response.getWriter().write("{\"action\":\"logsql\",\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
+                      responseWriter.write("{\"action\":\"logsql\",\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
                     }
                     else{
-                      response.getWriter().write("{\"action\":\"logsql\",\"value\":\"Access to SQL logs was denied.\"}");
+                      responseWriter.write("{\"action\":\"logsql\",\"value\":\"Access to SQL logs was denied.\"}");
                     }
-                response.getWriter().write(",");
+                    responseWriter.write(",");
               }
-              response.getWriter().write("{}]");
+              responseWriter.write("{}]");
             }
             else if( isActionLinkUsed() ){
               //action link also uses ajax when ajax is not enabled
@@ -629,6 +647,37 @@ public abstract class AbstractPageServlet{
             String hashedName = CachedResourceFileNameHelper.getNameWithHash(resourceDirName, url);
             return ThreadLocalPage.get().getAbsoluteLocation()+"/"+resourceDirName+"/"+hashedName;
         }
+    }
+    
+    private String requireJSCommand() {
+      StringBuilder aStr = new StringBuilder("{ \"action\":\"require_js\", \"value\": [");
+      boolean addComma = false;
+      for(String script : this.javascripts) {
+        if(addComma) {
+          aStr.append(",");
+        } else{
+          addComma = true;
+        }
+        String src = computeResourceSrc("javascript", script);
+        aStr.append( "\"" ).append( org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(src) ).append("\"");
+      }
+      aStr.append("] }");
+      return aStr.toString();
+    }
+    private String requireCSSCommand() {
+      StringBuilder aStr = new StringBuilder("{ \"action\":\"require_css\", \"value\": [");
+      boolean addComma = false;
+      for(String sheet : this.stylesheets) {
+        if(addComma) {
+          aStr.append(",");
+        } else{
+          addComma = true;
+        }
+        String href = computeResourceSrc("stylesheets", sheet);
+        aStr.append( "\"" ).append( org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(href) ).append("\"");
+      }
+      aStr.append("] }");
+      return aStr.toString();
     }
 
     //ajax/js runtime request related
