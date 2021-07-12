@@ -28,14 +28,14 @@ rules // iteration
           else result :=  bstm*|[
                             ident = "";
                             if(inForLoop) {
-                              ident += forelementcounter;
+                              ident += forelementid;
                             }
                             bstm*
                           ]| end
 
   //wraps expression that starts with ident
   for-loop-counter-wrap-code-expr:
-    e1 -> e |[((inForLoop?forelementcounter:"") + e1 ) ]|
+    e1 -> e |[((inForLoop?forelementid:"") + e1 ) ]|
 
 
   wrap-in-for-loop(|x,t,e) :
@@ -65,6 +65,7 @@ rules // iteration
      with  x_bound := <newname-webdsl> "stop"
          ; e3 := <expression-to-java-servlet> e1
          ; e4 := <expression-to-java-servlet> e2
+         ; x_oldelemid := <newname-webdsl> "old_elementid"
          ; bstm* := <s;concat-with-sublists> elems
          ; x_separatorindex := <newname-webdsl> "separatorindex"
          ; x_delta := <newname-webdsl> "delta"
@@ -74,24 +75,26 @@ rules // iteration
                            {
                              inForLoop = true;
                              forLoopCounter++;
+                             String x_oldelemid = forelementid;
                              int x = e3; //x has been renamed already
                              int x_bound = e4;
                              int x_separatorindex = 0;
                              int x_delta = (x < x_bound? 1 : -1);
                              while(x != x_bound) {
-                               forelementcounter = Integer.toString(++fallbackcounter);
+                               forelementid = Integer.toString(++fallbackcounter);
                                ~*<control-flow-for-separator(s|sep, x_separatorindex)> bstm*|[
-                                 threadLocalPageCached.enterTemplateContext(forelementcounter);
+                                 threadLocalPageCached.enterTemplateContext(forelementid);
                                  bstm*
                                  ~*<!bstm*|[ threadLocalPageCached.leaveTemplateContext(); ]|
-                                    ;if-debug(!bstm*|[ threadLocalPageCached.leaveTemplateContextChecked(forelementcounter); ]|)>
+                                    ;if-debug(!bstm*|[ threadLocalPageCached.leaveTemplateContextChecked(forelementid); ]|)>
                                ]|
                                x += x_delta;
                              }
+                             forelementid = x_oldelemid;
                              forLoopCounter--;
                              if(forLoopCounter == 0){
                                inForLoop = false;
-                               forelementcounter = "0";
+                               forelementid = "0";
                                fallbackcounter = 0;
                              }
                            }
@@ -187,6 +190,7 @@ rules // iteration
   control-flow-for-common(s | x_list, x, srt, t, fltr, sep, bstm_batch*, anno*, bstm_initcode*) :
     bstm* ->
     bstm* |[
+      String x_oldelemid = forelementid;
       inForLoop = true;
       forLoopCounter++;
       int x_separatorindex = 0;
@@ -197,21 +201,22 @@ rules // iteration
           fallbackcounter += 1;
           if(org.webdsl.WebDSLEntity.class.isInstance(x)) {
              org.webdsl.WebDSLEntity x_ent = ((org.webdsl.WebDSLEntity) ((Object) x));
-             forelementcounter = (x_ent.getVersion() == 0
+             forelementid = (x_ent.getVersion() == 0
                ? Integer.toString(fallbackcounter)
                : utils.UUIDUserType.persistUUIDString(x_ent.getId()));
           }
           else
-            forelementcounter = Integer.toString(fallbackcounter);
-          threadLocalPageCached.enterTemplateContext(forelementcounter);
+            forelementid = Integer.toString(fallbackcounter);
+          threadLocalPageCached.enterTemplateContext(forelementid);
           bstm*
           ~*<!bstm*|[ threadLocalPageCached.leaveTemplateContext(); ]|
-             ;if-debug(!bstm*|[ threadLocalPageCached.leaveTemplateContextChecked(forelementcounter); ]|)>
+             ;if-debug(!bstm*|[ threadLocalPageCached.leaveTemplateContextChecked(forelementid); ]|)>
         ]|
+      forelementid = x_oldelemid;
       forLoopCounter--;
       if(forLoopCounter == 0){
         inForLoop = false;
-        forelementcounter = "0";
+        forelementid = "0";
         fallbackcounter = 0;
       }
     ]|
@@ -219,6 +224,7 @@ rules // iteration
         ; x_separatorindex := <newname-webdsl> "separatorindex"
         ; x_ent := <newname-webdsl> "temp"
         ; x_forcol := <newname-webdsl> "forcol"
+        ; x_oldelemid := <newname-webdsl> "old_elementid"
         ; bstm_initcf* := [ bstm_initcode*, bstm_order*, bstm_batch* ]
         ; bstm_cachecontrolflow* := <cache-control-flow(|expr|[ x_list ]|, x_forcol, java:type|[ java.util.List<t> ]|, anno*, bstm_initcf*)>
 
@@ -247,11 +253,11 @@ rules // control flow caching
   	    ; x_ident := <get-controlflownumber-from-anno> anno*)
   ; !bstm* |[ 
       t x_var = null;
-      if( RENDER_PHASE == phase || (x_var = (x_type) getTemplatecalls().get("~x_ident" + forelementcounter)) == null ){
+      if( RENDER_PHASE == phase || (x_var = (x_type) getTemplatecalls().get("~x_ident" + forelementid)) == null ){
         bstm_initcf*
         x_var = e1;
 	    if( RENDER_PHASE != phase ){  
-	      getTemplatecalls().put("~x_ident" + forelementcounter, x_var);
+	      getTemplatecalls().put("~x_ident" + forelementid, x_var);
         }
       }
     ]|
@@ -393,7 +399,7 @@ rules //templatecall
       try{
         ~bstm*:bstm_cachedlookup*
         ~bstm*:bstm_attrs1*
-        handleTemplateCall(phase, inForLoop, forelementcounter, e_tcallid, e_name, e, e_withcallsmap, e_parentname, e_attrs);
+        handleTemplateCall(phase, inForLoop, forelementid, e_tcallid, e_name, e, e_withcallsmap, e_parentname, e_attrs);
       }
       catch(RuntimeException ex){
         printTemplateCallException(ex, e_tcerrormessage);
