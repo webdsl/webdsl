@@ -10,8 +10,8 @@ application test
   function head1():String{return "<!--[if IE 6]><link rel=\"stylesheet\" href=/stylesheets/msie6.css\" type=\"text/css\" /><![endif]-->";}
   function https():String{return "https://localhost/stylesheets/common_.css";}
   function httpsjs():String{return "https://localhost/javascript/ajax.js";}
-  function viewport():String{ return "<meta name=\"viewport\" content=\"width=device-width, user-scalable=no\">"; }
-  
+  function viewport():String{ return "<meta name=\"viewport\" " + viewportcontent() + ">"; }
+  function viewportcontent():String{ return "content=\"width=device-width, user-scalable=no\""; }
 
   define page root() {
     
@@ -60,7 +60,7 @@ application test
     var d : WebDriver := getFirefoxDriver();
     d.get(navigate(overriddenHeadTags()));
     var pagecontent := d.getPageSource();
-    assert(pagecontent.contains(viewport()), "overridden element missing: " + viewport());
+    assert(pagecontent.contains(viewportcontent()), "overridden element missing: " + viewport());
     assert(pagecontent.contains(favicon()), "overridden element missing: " + favicon());
     assert(pagecontent.contains(css4()), "overridden element missing: " + css4());
     assert(! pagecontent.contains("common_.css"), "default element `common_.css` still included, while it should only include overridden");
