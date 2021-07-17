@@ -15,3 +15,9 @@ function replace(i:Int,s:String){}
 function rollback {}
 function rollback( i: Int ){}
 function rollback( i: Int, s: String ){}
+
+entity Ent {
+  function replace(){}
+  function cancel(){}
+  function rollback(){}
+}
