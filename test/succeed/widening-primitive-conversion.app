@@ -29,7 +29,12 @@ application test
     assert(1.0f == Double(1.0f));
     assert(f >= d);
     assert(f <= d);
-    assert(f == d);
+    assert(f == d);    
+    var dNull : Double := null;
+    assert(dNull == null);
+    assert(null == dNull);
+    assert(!(d == dNull));
+    
     assert(f != Double(1.1));
     assert(Double(1.1) != f);
     assert(f < Double(2.0));

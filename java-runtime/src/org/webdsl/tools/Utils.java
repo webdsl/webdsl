@@ -41,26 +41,25 @@ public final class Utils {
     }*/
 
     public static boolean equal(Object a, Object b) {
-        if(a == null || b == null) {
-          return a == null && b == null;
-        }
-        return a.equals(b);
-    }
-    public static boolean equal(Long b, Integer a) { return equal(a, b); }
-    public static boolean equal(Integer a, Long b) {
-      if(a == null || b == null) {
-        return a == null && b == null;
-      } else {
-       return a.intValue() == b.longValue();
+      if(a == null) {
+        return b == null;
       }
+      return b != null && a.equals(b);
     }
-    //compare sub-type of Number, (other than Long vs Integer) using their double value
+//    public static boolean equal(Long b, Integer a) { return equal(a, b); }
+//    public static boolean equal(Integer a, Long b) {
+//      if(a == null || b == null) {
+//        return a == null && b == null;
+//      } else {
+//       return a.intValue() == b.longValue();
+//      }
+//    }
+    //compare any Number using their double value
     public static boolean equal(Number a, Number b) {
-      if(a == null || b == null) {
-        return a == null && b == null;
-      } else {
-       return a.doubleValue()==b.doubleValue();
+      if(a == null) {
+        return b == null;
       }
+      return b != null && a.doubleValue() == b.doubleValue();
     }
     
     public static Object cast(Object e2 , Class<?> t) {
