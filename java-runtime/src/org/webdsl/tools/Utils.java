@@ -41,20 +41,28 @@ public final class Utils {
     }*/
 
     public static boolean equal(Object a, Object b) {
-        if(a == null && b == null) {
-            return true;
-        } else if( (a == null && b != null) || (a != null && b == null) ) {
-            return false;
-        }
-        if(a instanceof Long && b instanceof Integer) {
-            return ((Long) a).longValue() == ((Integer) b).intValue();
-        }
-        if(a instanceof Integer && b instanceof Long) {
-            return ((Long) b).longValue() == ((Integer) a).intValue();
+        if(a == null || b == null) {
+          return a == null && b == null;
         }
         return a.equals(b);
     }
-
+    public static boolean equal(Long b, Integer a) { return equal(a, b); }
+    public static boolean equal(Integer a, Long b) {
+      if(a == null || b == null) {
+        return a == null && b == null;
+      } else {
+       return a.intValue() == b.longValue();
+      }
+    }
+    //compare sub-type of Number, (other than Long vs Integer) using their double value
+    public static boolean equal(Number a, Number b) {
+      if(a == null || b == null) {
+        return a == null && b == null;
+      } else {
+       return a.doubleValue()==b.doubleValue();
+      }
+    }
+    
     public static Object cast(Object e2 , Class<?> t) {
         return (e2 instanceof org.hibernate.proxy.HibernateProxy)?
             t.cast( ((org.hibernate.proxy.HibernateProxy) e2).getHibernateLazyInitializer().getImplementation())

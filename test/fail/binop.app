@@ -1,4 +1,5 @@
 //#10 Wrong operand types for operator
+//#2 Type of expression being assigned 'Double' is incompatible with type in left-hand side 'Float'
 application binop
 
 page root(){}
@@ -21,6 +22,11 @@ function testbinop(sarg:String) {
 	  var x4 := Ent1{} < Ent1{}; // error
 	  var x5 := Ent1{} <= Ent1{}; // error
     132-"Sdfs"; // error
+    3.0f + Double(1.0);
+    Double(1.0) + 3.0f;
+    var fl : Float;
+    fl := 3.0f + Double(1.0); // Type of expression being assigned 'Double' is incompatible with type in left-hand side 'Float'
+    fl := Double(1.0) + 3.0f; // Type of expression being assigned 'Double' is incompatible with type in left-hand side 'Float'
     123-123;
     1.0*1.0;
     23423%2345;

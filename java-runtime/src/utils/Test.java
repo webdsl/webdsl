@@ -52,6 +52,12 @@ public abstract class Test {
     public void assertEquals(Object o1, Object o2, String message, String loc){
        assertTrue(org.webdsl.tools.Utils.equal(o1,o2),message+"\nassert equals\nfirst value was:  "+o1+"\nsecond value was: "+o2, loc);
     }
+    public <T extends Number, Y extends Number> void assertEquals(T o1, Y o2, String message, String loc){
+      assertTrue(org.webdsl.tools.Utils.equal(o1,o2), message+"\nassert equals\nfirst value was:  "+o1+"\nsecond value was: "+o2, loc);
+    }
+    public <T extends Number, Y extends Number> void assertEquals(T o1, Y o2, String loc){
+      assertEquals(o1, o2,"",loc);
+   }
 
     public void assertEquals(Object o1, Object o2, String loc){
         assertEquals(o1, o2,"",loc);
