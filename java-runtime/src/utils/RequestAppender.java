@@ -213,16 +213,16 @@ public class RequestAppender extends AbstractAppender {
 			logMap.get(rle).append(event);
 		}
 	}
-
-	public synchronized void close() {
-		if (this.closed) {
-			return;
-		}
-
-		this.closed = true;
-
-		logMap.clear();
-		restoreLogLevels();
-		RequestAppender.resetInstance(this);
-	}
-
+//
+//	public synchronized void close() {
+//		if (this.closed) {
+//			return;
+//		}
+//
+//		this.closed = true;
+//
+//		logMap.clear();
+//		restoreLogLevels();
+//		RequestAppender.resetInstance(this);
+//	}
+}

@@ -11,6 +11,7 @@ WEBDSL_TEMPLATES= \
   $(wildcard template-java-servlet/lib/*.jar) \
   $(wildcard template-java-servlet/lib-test/*.jar) \
   $(wildcard template-java-servlet/src-template/*.properties) \
+  $(wildcard template-java-servlet/src-template/*.xml) \
   $(wildcard template-java-servlet/src-template/utils/*.java) \
   $(wildcard template-java-servlet/html/*) \
   $(wildcard template-java-servlet/tomcat/*) \
