@@ -18,7 +18,8 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.log4j.spi.LoggingEvent;
+import org.apache.logging.log4j.ThreadContext;
+import org.apache.logging.log4j.core.LogEvent;
 import org.hibernate.engine.CollectionEntry;
 import org.hibernate.engine.CollectionKey;
 import org.hibernate.engine.EntityEntry;
@@ -73,17 +74,17 @@ public class HibernateLog {
         _collectionCounter = null;
 	}
 
-	public void append(LoggingEvent event) {
+	public void append(LogEvent event) {
 		if(_error != null) return;
         try {
         	String cat = event.getLoggerName();
-        	String template = event.getMDC("template").toString();
+        	String template = ThreadContext.get("template").toString();
         	String msg = event.getMessage().toString();
         	if(cat.indexOf("org.hibernate.jdbc") == 0) {
         		if(msg.indexOf("about to open PreparedStatement") == 0) {
         			if(_current != null) _entries.push(_current);
         			_current = new HibernateLogEntry();
-        			_current.openTime = new Date(event.getTimeStamp());
+        			_current.openTime = new Date(event.getTimeMillis());
         			_current.template = template;
         			if(_firstQueryStart == null) {
         				_firstQueryStart = _current.openTime; 
@@ -95,7 +96,7 @@ public class HibernateLog {
         				_error = "No statement to reuse";
         				return;
         			}
-        			_current.closeTime = new Date(event.getTimeStamp());
+        			_current.closeTime = new Date(event.getTimeMillis());
         			_current.duration = dateDiff(_current.openTime, _current.closeTime);
         			_lastQuery = _current;  
         			if(!_entries.empty()) {
@@ -113,7 +114,7 @@ public class HibernateLog {
         				_error = "No statement to close";
         				return;
         			}
-        			_current.closeTime = new Date(event.getTimeStamp());
+        			_current.closeTime = new Date(event.getTimeMillis());
         			_current.duration = dateDiff(_current.openTime, _current.closeTime);
         			_lastQuery = _current;
         			if(_entries.empty()) {

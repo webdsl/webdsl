@@ -1,12 +1,10 @@
 package org.webdsl.logging;
 
-import javax.servlet.http.HttpServletRequest;
-
 import utils.AbstractDispatchServletHelper;
 import utils.ThreadLocalServlet;
 
 public class Logger {
-    private static final org.apache.log4j.Logger logger = org.apache.log4j.Logger.getLogger(org.webdsl.logging.Logger.class);
+    private static final org.apache.logging.log4j.Logger logger = org.apache.logging.log4j.LogManager.getLogger(org.webdsl.logging.Logger.class);
 
     public static final void info(Object message){
         logger.info(message);

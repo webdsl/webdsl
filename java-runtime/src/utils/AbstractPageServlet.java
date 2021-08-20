@@ -72,8 +72,8 @@ public abstract class AbstractPageServlet{
       }
 
       org.webdsl.WebDSLEntity rle = getRequestLogEntry();
-      org.apache.log4j.MDC.put("request", rle.getId().toString());
-      org.apache.log4j.MDC.put("template", "/" + getPageName());
+      org.apache.logging.log4j.ThreadContext.put("request", rle.getId().toString());
+      org.apache.logging.log4j.ThreadContext.put("template", "/" + getPageName());
       utils.RequestAppender reqAppender = null;
       if(parammap.get("disableopt") != null){
         this.isOptimizationEnabled = false;
@@ -341,8 +341,8 @@ public abstract class AbstractPageServlet{
       }
       finally{
         cleanupThreadLocals();
-        org.apache.log4j.MDC.remove("request");
-        org.apache.log4j.MDC.remove("template");
+        org.apache.logging.log4j.ThreadContext.remove("request");
+        org.apache.logging.log4j.ThreadContext.remove("template");
         if(reqAppender != null) reqAppender.removeRequest(rle.getId().toString());
       }
     }
