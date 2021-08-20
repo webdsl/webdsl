@@ -45,13 +45,13 @@ public class Logger {
     public static final void fatal(Throwable t){
         logger.error( addURLSuffix("FATAL "), t);
     }
-    
+
     private static String addURLSuffix( String msg ) {
-      AbstractDispatchServletHelper dsh = ThreadLocalServlet.get();
-      if(dsh != null) {
-          return msg + " [" + dsh.getRequestURL() + "]";
-      }
-      //else
-      return msg;
+        AbstractDispatchServletHelper dsh = ThreadLocalServlet.get();
+        if(dsh != null) {
+            return msg + " [" + dsh.getRequestURL() + "]";
+        }
+        //else
+        return msg;
     }
 }
