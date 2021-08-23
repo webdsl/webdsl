@@ -15,6 +15,10 @@ import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.apache.logging.log4j.core.config.Property;
 import org.apache.logging.log4j.core.config.plugins.Plugin;
+import org.apache.logging.log4j.core.config.plugins.PluginAttribute;
+import org.apache.logging.log4j.core.config.plugins.PluginElement;
+import org.apache.logging.log4j.core.config.plugins.PluginFactory;
+import org.apache.logging.log4j.core.layout.PatternLayout;
 import org.apache.logging.log4j.status.StatusLogger;
 
 import java.io.Serializable;
@@ -48,10 +52,30 @@ public class RequestAppender extends AbstractAppender {
 			final boolean ignoreExceptions,
 			final Property[] properties
 	) {
+	  
 		super(name, filter, layout, ignoreExceptions, properties);
 		RequestAppender.setInstance(this);
 	}
 
+  // Your custom appender needs to declare a factory method
+  // annotated with `@PluginFactory`. Log4j will parse the configuration
+  // and call this factory method to construct an appender instance with
+  // the configured attributes.
+  @PluginFactory
+  public static RequestAppender createAppender(
+          @PluginAttribute("name") String name,
+          @PluginElement("Layout") Layout<? extends Serializable> layout,
+          @PluginElement("Filter") final Filter filter){
+      if (name == null) {
+          LOGGER.error("No name provided for RequestAppender");
+          return null;
+      }
+      if (layout == null) {
+          layout = PatternLayout.createDefaultLayout();
+      }
+      return new RequestAppender(name, filter, layout, true, new Property[0]);
+  }
+	
 
 	private synchronized static void setInstance(RequestAppender instance) {
 		if(RequestAppender.instance == null) {
@@ -213,16 +237,12 @@ public class RequestAppender extends AbstractAppender {
 			logMap.get(rle).append(event);
 		}
 	}
-//
-//	public synchronized void close() {
-//		if (this.closed) {
-//			return;
-//		}
-//
-//		this.closed = true;
-//
-//		logMap.clear();
-//		restoreLogLevels();
-//		RequestAppender.resetInstance(this);
-//	}
+	
+  @Override
+  public void stop() {
+    super.stop();
+    logMap.clear();
+    restoreLogLevels();
+    RequestAppender.resetInstance(this);
+  }
 }
