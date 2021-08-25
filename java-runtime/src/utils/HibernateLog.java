@@ -18,7 +18,7 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.log4j.spi.LoggingEvent;
+import org.apache.logging.log4j.core.LogEvent;
 import org.hibernate.engine.CollectionEntry;
 import org.hibernate.engine.CollectionKey;
 import org.hibernate.engine.EntityEntry;
@@ -28,10 +28,10 @@ import org.hibernate.proxy.HibernateProxy;
 import org.webdsl.WebDSLEntity;
 
 public class HibernateLog {
-    protected static final BasicFormatterImpl sqlFormat = new BasicFormatterImpl();
-    protected static final Pattern pattern = Pattern.compile("([a-zA-Z0-9.]+)#([a-fA-F0-9-]+)");
+	protected static final BasicFormatterImpl sqlFormat = new BasicFormatterImpl();
+	protected static final Pattern pattern = Pattern.compile("([a-zA-Z0-9.]+)#([a-fA-F0-9-]+)");
 
-    protected List<HibernateLogEntry> _list = null;
+	protected List<HibernateLogEntry> _list = null;
 	protected Date _firstQueryStart = null;
 	protected HibernateLogEntry _lastQuery = null;
 	protected String _error = null;
@@ -48,141 +48,141 @@ public class HibernateLog {
 
 	public static void printHibernateLog(PrintWriter sout, AbstractPageServlet page, String source) {
 		RequestAppender requestAppender = RequestAppender.getInstance();
-		if(requestAppender != null) { 
-			HibernateLog log = requestAppender.getLog();
+		if(requestAppender != null) {
+			utils.HibernateLog log = requestAppender.getLog();
 			log.parseSessionCache(HibernateUtil.getCurrentSession());
 			log.print(sout, page, source);
 		}
 	}
 
 	public static String printHibernateLog(AbstractPageServlet page, String source) {
-	    StringWriter s = new StringWriter();
-	    PrintWriter out = new PrintWriter(s);
-	    printHibernateLog(out, page, source);
-	    return s.toString();
+		StringWriter s = new StringWriter();
+		PrintWriter out = new PrintWriter(s);
+		printHibernateLog(out, page, source);
+		return s.toString();
 	}
 
 	public HibernateLog() {
-        _list = new ArrayList<HibernateLogEntry>();
-        _fetched = new HashSet<String>();
-        _duplicates = 0;
-        _duplicateCounter = new HashMap<String, Integer>();
-        _entities = 0;
-        _entityCounter = null;
-        _collections = 0;
-        _collectionCounter = null;
+		_list = new ArrayList<HibernateLogEntry>();
+		_fetched = new HashSet<String>();
+		_duplicates = 0;
+		_duplicateCounter = new HashMap<String, Integer>();
+		_entities = 0;
+		_entityCounter = null;
+		_collections = 0;
+		_collectionCounter = null;
 	}
 
-	public void append(LoggingEvent event) {
+	public void append(LogEvent event) {
 		if(_error != null) return;
-        try {
-        	String cat = event.getLoggerName();
-        	String template = event.getMDC("template").toString();
-        	String msg = event.getMessage().toString();
-        	if(cat.indexOf("org.hibernate.jdbc") == 0) {
-        		if(msg.indexOf("about to open PreparedStatement") == 0) {
-        			if(_current != null) _entries.push(_current);
-        			_current = new HibernateLogEntry();
-        			_current.openTime = new Date(event.getTimeStamp());
-        			_current.template = template;
-        			if(_firstQueryStart == null) {
-        				_firstQueryStart = _current.openTime; 
-        			}
-        			_list.add(_current);
-        		}
-        		else if(msg.indexOf("reusing prepared statement") == 0) {
-        			if(_current == null) {
-        				_error = "No statement to reuse";
-        				return;
-        			}
-        			_current.closeTime = new Date(event.getTimeStamp());
-        			_current.duration = dateDiff(_current.openTime, _current.closeTime);
-        			_lastQuery = _current;  
-        			if(!_entries.empty()) {
-        				_current = _entries.peek();
-        				_current.subEntries += _lastQuery.subEntries + 1;
-        			}
-        			_current = new HibernateLogEntry();
-        			//current.sql = _lastQuery.sql;
-        			_current.openTime = _lastQuery.closeTime;
-        			_current.template = template;
-        			_list.add(_current);
-        		}
-        		else if(msg.indexOf("about to close PreparedStatement") == 0) {
-        			if(_current == null) {
-        				_error = "No statement to close";
-        				return;
-        			}
-        			_current.closeTime = new Date(event.getTimeStamp());
-        			_current.duration = dateDiff(_current.openTime, _current.closeTime);
-        			_lastQuery = _current;
-        			if(_entries.empty()) {
-        				_current = null;
-        			}
-        			else {
-        				_current = _entries.pop();
-        				_current.subEntries += _lastQuery.subEntries + 1;
-        			}
-        		}
-        	}
-        	if(cat.indexOf("org.hibernate.stat") == 0 && msg.indexOf("HQL: ") == 0) {
-        		if(_current == null && _lastQuery != null) {
-            		int timeidx = msg.lastIndexOf("time: ");
-            		int rowidx = msg.lastIndexOf("ms, rows: ");
-            		_lastQuery.duration = Integer.parseInt(msg.substring(timeidx + 6, rowidx));
-        			_lastQuery.closeTime = dateAdd(_lastQuery.openTime, _lastQuery.duration);
-        			_lastQuery.rows = Integer.parseInt(msg.substring(rowidx + 10));
-        		}
-        	}
-        	if(cat.indexOf("org.hibernate.loader") == 0) {
-        		if(_current == null && _lastQuery != null && msg.indexOf("total objects hydrated: ") == 0) {
-        			_lastQuery.hydrated = Integer.parseInt(msg.substring(24));
-        		}
-        		else if(msg.indexOf("result row:") == 0) {
-        			Matcher matcher = pattern.matcher(msg);
-        			String ent;
-        			String entId;
-        			while (matcher.find()) {
-    					ent = matcher.group(1);
-    					entId = matcher.group(2);
-    					if(_current == null) {
-    						_results.add(new HibernateLogEntityResult(ent, entId));
-    					} else {
-    						_current.results.add(new HibernateLogEntityResult(ent, entId));
-    					}
-        			}
-    			}
-        	}
-        	else if(cat.indexOf("org.hibernate.SQL") == 0) {
-        		if(_current == null || _current.sql != null) {
-        			_error = "Statement was not expected";
-        			return;
-        		}
-       			_current.sql = sqlFormat.format(msg).replaceAll("^\n", "");
-        	}
-        	else if(cat.indexOf("org.hibernate.type") == 0) {
-        		if(_current == null) return;
-        		if(msg.indexOf("binding parameter [") == 0) {
-        			int idx = msg.indexOf("] as [");
-        			if(idx <= 19) return;
-        			int index = Integer.parseInt(msg.substring(19,  idx));
-        			int idx2 = msg.indexOf("] - ", idx);
-        			String type = msg.substring(idx + 6, idx2);
-        			String value = msg.substring(idx2 + 4);
-        			if(type.equals("VARCHAR")) value = "'" + value + "'";
-        			while(_current.parameterVals.size() - 1 < index - 1)
-        			{
-        				_current.parameterVals.add("<null>");
-        				_current.parameterTypes.add("null");            				
-        			}
-        			_current.parameterVals.set(index - 1, value);
-        			_current.parameterTypes.set(index - 1, type);
-        		}
-        	}
-        } catch (Exception ex){
-        	_error = ex.toString();
-        }
-    }
+		try {
+			String cat = event.getLoggerName();
+			String template = event.getContextData().getValue("template").toString();
+			String msg = event.getMessage().toString();
+			if(cat.indexOf("org.hibernate.jdbc") == 0) {
+				if(msg.indexOf("about to open PreparedStatement") == 0) {
+					if(_current != null) _entries.push(_current);
+					_current = new HibernateLogEntry();
+					_current.openTime = new Date(event.getTimeMillis());
+					_current.template = template;
+					if(_firstQueryStart == null) {
+						_firstQueryStart = _current.openTime;
+					}
+					_list.add(_current);
+				}
+				else if(msg.indexOf("reusing prepared statement") == 0) {
+					if(_current == null) {
+						_error = "No statement to reuse";
+						return;
+					}
+					_current.closeTime = new Date(event.getTimeMillis());
+					_current.duration = dateDiff(_current.openTime, _current.closeTime);
+					_lastQuery = _current;
+					if(!_entries.empty()) {
+						_current = _entries.peek();
+						_current.subEntries += _lastQuery.subEntries + 1;
+					}
+					_current = new HibernateLogEntry();
+					//current.sql = _lastQuery.sql;
+					_current.openTime = _lastQuery.closeTime;
+					_current.template = template;
+					_list.add(_current);
+				}
+				else if(msg.indexOf("about to close PreparedStatement") == 0) {
+					if(_current == null) {
+						_error = "No statement to close";
+						return;
+					}
+					_current.closeTime = new Date(event.getTimeMillis());
+					_current.duration = dateDiff(_current.openTime, _current.closeTime);
+					_lastQuery = _current;
+					if(_entries.empty()) {
+						_current = null;
+					}
+					else {
+						_current = _entries.pop();
+						_current.subEntries += _lastQuery.subEntries + 1;
+					}
+				}
+			}
+			if(cat.indexOf("org.hibernate.stat") == 0 && msg.indexOf("HQL: ") == 0) {
+				if(_current == null && _lastQuery != null) {
+					int timeidx = msg.lastIndexOf("time: ");
+					int rowidx = msg.lastIndexOf("ms, rows: ");
+					_lastQuery.duration = Integer.parseInt(msg.substring(timeidx + 6, rowidx));
+					_lastQuery.closeTime = dateAdd(_lastQuery.openTime, _lastQuery.duration);
+					_lastQuery.rows = Integer.parseInt(msg.substring(rowidx + 10));
+				}
+			}
+			if(cat.indexOf("org.hibernate.loader") == 0) {
+				if(_current == null && _lastQuery != null && msg.indexOf("total objects hydrated: ") == 0) {
+					_lastQuery.hydrated = Integer.parseInt(msg.substring(24));
+				}
+				else if(msg.indexOf("result row:") == 0) {
+					Matcher matcher = pattern.matcher(msg);
+					String ent;
+					String entId;
+					while (matcher.find()) {
+						ent = matcher.group(1);
+						entId = matcher.group(2);
+						if(_current == null) {
+							_results.add(new HibernateLogEntityResult(ent, entId));
+						} else {
+							_current.results.add(new HibernateLogEntityResult(ent, entId));
+						}
+					}
+				}
+			}
+			else if(cat.indexOf("org.hibernate.SQL") == 0) {
+				if(_current == null || _current.sql != null) {
+					_error = "Statement was not expected";
+					return;
+				}
+				_current.sql = sqlFormat.format(msg).replaceAll("^\n", "");
+			}
+			else if(cat.indexOf("org.hibernate.type") == 0) {
+				if(_current == null) return;
+				if(msg.indexOf("binding parameter [") == 0) {
+					int idx = msg.indexOf("] as [");
+					if(idx <= 19) return;
+					int index = Integer.parseInt(msg.substring(19,  idx));
+					int idx2 = msg.indexOf("] - ", idx);
+					String type = msg.substring(idx + 6, idx2);
+					String value = msg.substring(idx2 + 4);
+					if(type.equals("VARCHAR")) value = "'" + value + "'";
+					while(_current.parameterVals.size() - 1 < index - 1)
+					{
+						_current.parameterVals.add("<null>");
+						_current.parameterTypes.add("null");
+					}
+					_current.parameterVals.set(index - 1, value);
+					_current.parameterTypes.set(index - 1, type);
+				}
+			}
+		} catch (Exception ex){
+			_error = ex.toString();
+		}
+	}
 
 	public void print(PrintWriter sout, AbstractPageServlet page, String source) {
 		long time = page.getElapsedTime();
@@ -194,7 +194,7 @@ public class HibernateLog {
 			int logindex = 0;
 			java.util.List<HibernateLogEntry> longestThree = new ArrayList<HibernateLogEntry>();
 			for(HibernateLogEntry entry : _list)
-			{ 
+			{
 				logindex++;
 				if(longestThree.size() == 0) {
 					longestThree.add(entry);
@@ -228,7 +228,7 @@ public class HibernateLog {
 			if(_entityCounter != null && _collectionCounter != null) {
 				sout.print(", Entities = <span id=\"sqllogentities\">" + _entities + "</span>, Duplicates = <span id=\"sqllogduplicates\">" + _duplicates + "</span>, Collections = <span id=\"sqllogcollections\">" + _collections + "</span></p>");
 				sout.print("<table class=\"sqllogdetails\"><tr><th class=\"sqllogdetailsname\">Entity/Collection</th><th class=\"sqllogdetailsinstances\">Instances</th><th class=\"sqllogdetailsduplicates\">Duplicates</th></tr>");
-				java.util.Iterator<String> entKeys = _entityCounter.keySet().iterator(); 
+				java.util.Iterator<String> entKeys = _entityCounter.keySet().iterator();
 				java.util.Iterator<String> colKeys = _collectionCounter.keySet().iterator();
 				String entKey = entKeys.hasNext() ? entKeys.next() : null;
 				String colKey = colKeys.hasNext() ? colKeys.next() : null;
@@ -338,15 +338,15 @@ public class HibernateLog {
 	}
 
 	public void parseSessionCache(org.hibernate.Session session) {
-        if(!_entries.empty()) {
-        	_error = "Not all statements were closed";
-        }
-        if(session != null && session instanceof SessionImplementor) {
-        	for(HibernateLogEntry entry : _list) {
+		if(!_entries.empty()) {
+			_error = "Not all statements were closed";
+		}
+		if(session != null && session instanceof SessionImplementor) {
+			for(HibernateLogEntry entry : _list) {
 				for(HibernateLogEntityResult res : entry.results) {
 					checkDuplicate(session, entry, res);
 				}
-        	}
+			}
 			for(HibernateLogEntityResult res : _results) {
 				checkDuplicate(session, null, res);
 			}
@@ -373,7 +373,7 @@ public class HibernateLog {
 							_entityCounter.put(name, count);
 						}
 					}
-	
+
 					// Count collections in the hibernate session by their role
 					for(Object col : collectionEntries.values()) {
 						if(col instanceof CollectionEntry) {
@@ -449,23 +449,23 @@ public class HibernateLog {
 		if(_firstQueryStart == null || _lastQuery == null) return 0;
 		return dateDiff(_firstQueryStart, _lastQuery.closeTime);
 	}
-	
-    public static Date dateAdd(Date start, long ms) {
-    	Calendar calendar = Calendar.getInstance();
-    	calendar.setTime(start);
-    	long newTime = calendar.getTimeInMillis() + ms;
-    	calendar.setTimeInMillis(newTime);
-    	return calendar.getTime();
-    }
 
-    public static long dateDiff(Date start, Date end) {
-    	Calendar calendar = Calendar.getInstance();
-    	calendar.setTime(start);
-    	long startTime = calendar.getTimeInMillis();
-    	calendar.setTime(end);
-    	long endTime = calendar.getTimeInMillis();
-    	return endTime - startTime;
-    }
+	public static Date dateAdd(Date start, long ms) {
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(start);
+		long newTime = calendar.getTimeInMillis() + ms;
+		calendar.setTimeInMillis(newTime);
+		return calendar.getTime();
+	}
+
+	public static long dateDiff(Date start, Date end) {
+		Calendar calendar = Calendar.getInstance();
+		calendar.setTime(start);
+		long startTime = calendar.getTimeInMillis();
+		calendar.setTime(end);
+		long endTime = calendar.getTimeInMillis();
+		return endTime - startTime;
+	}
 }
 
 class HibernateLogEntityResult {

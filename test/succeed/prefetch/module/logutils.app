@@ -40,7 +40,7 @@ native class utils.HibernateLog as HibernateLog {
   getCollectionCount(String) : Int
 }
 
-native class org.apache.log4j.MDC as MDC {
+native class org.apache.logging.log4j.ThreadContext as MDC {
   static put(String,String)
   static remove(String)
 }
