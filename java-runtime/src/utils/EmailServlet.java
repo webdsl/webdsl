@@ -154,6 +154,7 @@ public abstract class EmailServlet {
 
       javax.mail.Address sender = javax.mail.internet.InternetAddress.parse(this.sender, false)[0];
       msg.setSender(sender);
+      msg.setFrom(sender);
       javax.mail.Address[] replyTo = javax.mail.internet.InternetAddress.parse(this.replyTo, false);
       msg.setReplyTo(replyTo);
 
