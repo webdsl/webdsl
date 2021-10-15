@@ -1209,6 +1209,7 @@
    TemplateCallPropertyNotSecure -- KW["not-secure"],
    TemplateCallPropertyIgnoreValidation -- KW["ignore-validation"],
    TemplateCallPropertyNotNull -- KW["not null"],
+   TemplateCallPropertyNoLoadingFeedback -- KW["no loading feedback"],
 
    TemplateModSpan -- KW["span"],
    TemplateModInline -- KW["inline"],
