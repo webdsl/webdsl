@@ -167,6 +167,7 @@
    String                             -- H hs=0[KW["\""] _1 KW["\""]],
    Var                                -- _1,
    RequestVar                         -- _1,
+   PrincipalId                        -- KW["principal"],
    ExternalScopeVar                   -- KW["externalscope"] KW["."] _1,
    FieldAccess                        -- H hs=0[_1 KW["."] _2],
    ObjectCreation                     -- H hs=0[_1 KW["{"] V[_2] KW["}"]],

@@ -24,7 +24,9 @@ rules  // extract lines of code per language element
         ; (varcount, varlines, ast11) := <count-vardecls-loc> ast10
         ; (initcount, initlines, ast12) := <count-global-init-loc> ast11
         ; (routingcount, routinglines, ast13) := <count-routing-loc> ast12
-        ; <debug(!"Remaining top-level definitions: ")> ast13
+        ; (expandcount, expandlines, ast14) := <count-expand-loc> ast13
+        ; (attributescount, attributeslines, ast15) := <count-attributes-loc> ast14
+        ; <debug(!"Remaining top-level definitions: ")> ast15
         ; result := <separate-by(|"\n\n"); concat-strings>
             [ entcount,
               pagecount,
@@ -39,6 +41,8 @@ rules  // extract lines of code per language element
               varcount,
               initcount,
               routingcount,
+              expandcount,
+              attributescount,
 
               entlines,
               pagelines,
@@ -52,7 +56,9 @@ rules  // extract lines of code per language element
               searchlines,
               varlines,
               initlines,
-              routinglines
+              routinglines,
+              expandlines,
+              attributeslines
             ]
 
   get-loc-count =
@@ -120,7 +126,7 @@ rules  // extract lines of code per language element
 
   count-vardecls-loc :
     ast -> ($[Global variables LOC: [loc]], lines, rest)
-    with  (v, rest) := <partition(?GlobalVarDeclInit(_,_,_) <+ ?GlobalVarDecl(_,_) <+ ?GlobalVarDeclInitInferred(_,_))>
+    with  (v, rest) := <partition(?GlobalVarDeclInit(_,_,_) <+ ?GlobalVarDecl(_,_) <+ ?GlobalVarDeclInitInferred(_,_) <+ ?RequestScope(_))>
         ; (loc,lines) := <get-loc-count> v
 
   count-global-init-loc :
@@ -131,4 +137,14 @@ rules  // extract lines of code per language element
   count-routing-loc :
     ast -> ($[Routing LOC: [loc]], lines, rest)
     with  (r, rest) := <partition(?Routing(_))>
+        ; (loc,lines) := <get-loc-count> r
+
+  count-expand-loc :
+    ast -> ($[Expand LOC: [loc]], lines, rest)
+    with  (r, rest) := <partition(?ExpandTemplateCall(_,_) <+ ?ExpandTemplateDefinition(_,_,_) <+ ?ExpandLocal(_,_,_))>
+        ; (loc,lines) := <get-loc-count> r
+
+  count-attributes-loc :
+    ast -> ($[Attributes LOC: [loc]], lines, rest)
+    with  (r, rest) := <partition(?AttributeCollection(_,_,_))>
         ; (loc,lines) := <get-loc-count> r
