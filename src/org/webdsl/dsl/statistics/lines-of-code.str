@@ -4,11 +4,39 @@ imports
   libwebdsl-front
   libwebdsl-generator
 
-rules  // extract lines of code per language element
+// extract lines of code per language element
 
-  get-lines-of-code :  // assumes all analysis is done and dynamic rules have all the information
+signature constructors
+  HTMLWrapperMultipleTmp : Term -> Term
+  HTMLWrapperTmp : Term * Term * Term -> Term
+
+rules  // preprocessing
+
+  prepare-ast-for-lines-of-code-stats =
+    import-modules
+  ; keep-htmlwrapper-normalize-constructors  // htmlwrapper normally expanded during normalize-constructors
+  ; normalize-constructors  // simplify number of constructors to match for counting, and make prettyprinting more stable by reducing variations
+  ; topdown(try({\ TemplateCall(a,b,c,TemplateBody([])){anno*} -> TemplateCall(a,b,c,[]){anno*} \}))  // remove empty blocks that add an additional empty line in prettyprinter
+  ; restore-htmlwrapper-normalize-constructors
+
+  keep-htmlwrapper-normalize-constructors =
+    alltd(
+       {\ HTMLWrapperMultiple(a){anno*} -> HTMLWrapperMultipleTmp(a){anno*} \}
+    <+ {\ HTMLWrapper(a,b,c){anno*}     -> HTMLWrapperTmp(a,b,c){anno*}     \}
+    )
+
+  restore-htmlwrapper-normalize-constructors =
+    alltd(
+       {\ HTMLWrapperMultipleTmp(a){anno*} -> HTMLWrapperMultiple(a){anno*} \}
+    <+ {\ HTMLWrapperTmp(a,b,c){anno*}     -> HTMLWrapper(a,b,c){anno*}     \}
+    )
+
+rules
+
+  get-lines-of-code :  // assumes only the main file is parsed and its ast is the current term
     app -> result
-    with  collect(?Section(_,<id>) <+ ?AccessControlDefinition(_,<id>))
+    with  prepare-ast-for-lines-of-code-stats
+        ; collect(?Section(_,<id>) <+ ?AccessControlDefinition(_,<id>))
         ; concat
         ; remove-all(?Imports(_) <+ ?Note(_) <+ ?Description(_))
         ; (entcount, entlines, ast1) := <count-entity-loc>
@@ -26,12 +54,17 @@ rules  // extract lines of code per language element
         ; (routingcount, routinglines, ast13) := <count-routing-loc> ast12
         ; (expandcount, expandlines, ast14) := <count-expand-loc> ast13
         ; (attributescount, attributeslines, ast15) := <count-attributes-loc> ast14
-        ; <debug(!"Remaining top-level definitions: ")> ast15
+        ; (testingcount, testinglines, ast16) := <count-testing-loc> ast15
+        ; (wrappercount, wrapperlines, ast17) := <count-wrapper-loc> ast16
+        ; <debug(!"Remaining top-level definitions: ")> ast17
         ; result := <separate-by(|"\n\n"); concat-strings>
             [ entcount,
               pagecount,
               templatecount,
               ajaxtemplatecount,
+              wrappercount,
+              attributescount,
+              expandcount,
               funcount,
               account,
               nccount,
@@ -41,13 +74,15 @@ rules  // extract lines of code per language element
               varcount,
               initcount,
               routingcount,
-              expandcount,
-              attributescount,
+              testingcount,
 
               entlines,
               pagelines,
               templatelines,
               ajaxtemplatelines,
+              wrapperlines,
+              attributeslines,
+              expandlines,
               funlines,
               aclines,
               nclines,
@@ -57,8 +92,7 @@ rules  // extract lines of code per language element
               varlines,
               initlines,
               routinglines,
-              expandlines,
-              attributeslines
+              testinglines
             ]
 
   get-loc-count =
@@ -96,7 +130,7 @@ rules  // extract lines of code per language element
 
   count-function-loc :
     ast -> ($[Function LOC: [loc]], lines, rest)
-    with  (funs, rest) := <partition(?Function(_,_,_,_) <+ ?Predicate(_,_,_))>
+    with  (funs, rest) := <partition(?Function(_,_,_,_) <+ ?Predicate(_,_,_) <+ ?CachedGlobalFunction(_))>
         ; (loc,lines) := <get-loc-count> funs
 
   count-ac-loc :
@@ -147,4 +181,14 @@ rules  // extract lines of code per language element
   count-attributes-loc :
     ast -> ($[Attributes LOC: [loc]], lines, rest)
     with  (r, rest) := <partition(?AttributeCollection(_,_,_))>
+        ; (loc,lines) := <get-loc-count> r
+
+  count-testing-loc :
+    ast -> ($[Testing LOC: [loc]], lines, rest)
+    with  (r, rest) := <partition(?Test(_,_))>
+        ; (loc,lines) := <get-loc-count> r
+
+  count-wrapper-loc :
+    ast -> ($[HTML Wrapper LOC: [loc]], lines, rest)
+    with  (r, rest) := <partition(?HTMLWrapperMultiple(_) <+ ?HTMLWrapper(_,_,_))>
         ; (loc,lines) := <get-loc-count> r
