@@ -1340,7 +1340,7 @@
    NativeClassConstructorCall.3:iter-star-sep             -- _1 KW[","],
 
    PrefetchFor                                            -- H[KW["prefetch-for"] _1 _2 _3] _4,
-   PrefetchChildren                                       -- V  [V is=2 [KW["{"] _1] KW["}"]],
+   PrefetchChildren                                       -- H[ KW["{"] V[ _1 ] ] KW["}"],
    PrefetchChildren.1:iter-star                           -- _1,
    PrefetchNode                                           -- H[ H hs=0 [_1 _2] H hs=1 [_3] _4 _5 _6] _7,
    PrefetchNode.1:opt                                     -- _1 KW["."],
@@ -1384,7 +1384,7 @@
    AttributeCollectionOverride                            -- KW["override"],
    AttributeIgnore                                        -- KW["ignore"] _1 KW["attributes"],
 
-   TemplateElementsArgument                               -- KW["{"] _1 KW["}"],
+   TemplateElementsArgument                               -- H[ KW["{"] V[ _1 ] ] KW["}"],
    TemplateElementsArgumentReplaced                       -- KW["{"] KW["}"],
 
    TemplateVarArgSort                                     -- KW["["] _1 KW["]"],
@@ -1399,11 +1399,11 @@
    MemberTemplateCall                                     -- _1 KW["."] _2,
    TemplateCallExpression                                 -- V[ V is=2[ H [ _1 KW["("] H[_2] KW[")"] KW["["] H[_3] KW["]"]] _4]],
 
-   TemplateVarArgExp                                      -- KW["["] _1 KW["]"],
-   TemplateVarArgExp.1:iter-star-sep                      -- _1 KW[","],
+   TemplateVarArgExp                                      -- H[ KW["["] V[ _1 ] ] KW["]"],
+   TemplateVarArgExp.1:iter-star-sep                      -- H hs=0[ _1 KW[","] ],
 
-   ExpVarArg                                              -- KW["("] _1 KW[")"],
-   ExpVarArg.1:iter-star-sep                              -- _1 KW[","],
+   ExpVarArg                                              -- H[ KW["("] V[ _1 ] ] KW[")"],
+   ExpVarArg.1:iter-star-sep                              -- H hs=0[ _1 KW[","] ],
 
    ExpVarArgFor                                           -- V is=2[H hs=1[KW["for"] KW["("] _1 KW[":"] _2 KW["in"] _3 _4 KW[")"]] KW["{"] _5 KW["}"]],
    ExpVarArgFor.5:iter-star                               -- _1 KW[","],
