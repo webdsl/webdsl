@@ -1806,7 +1806,7 @@ template inputListInternal( list: ref [Entity], selectfrom: [Entity], tname: Str
       $('#~sortableid').disableSelection();
       $('#~sortableid').sortable({
             stop: function(event, ui){
-              $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray'));
+              $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray')).trigger('change');
               ~onchange
             }
         });
@@ -1818,7 +1818,7 @@ template inputListInternal( list: ref [Entity], selectfrom: [Entity], tname: Str
     });
     window.~deletejsfuncname = function(dollarthis){
       dollarthis.parent().remove();
-      $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray'));
+      $('#~hiddenid').attr('value', $('#~sortableid').sortable('toArray')).trigger('change');
       ~onchange
     };
   </script>
