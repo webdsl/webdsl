@@ -456,8 +456,8 @@ native class utils.DateType as DateType{ //@TODO static functions not yet suppor
 }
 
 type WikiText{
-  org.webdsl.tools.WikiFormatter.wikiFormat as format(): String
-  org.webdsl.tools.WikiFormatter.wikiFormatNoTagFiltering as formatNoTagFiltering(): String
+  org.webdsl.tools.WikiFormatter.wikiFormat as format(String/*hardwraps attribute value*/): String
+  org.webdsl.tools.WikiFormatter.wikiFormatNoTagFiltering as formatNoTagFiltering(String/*hardwraps attribute value*/): String
 }
 
 type Email{
@@ -2392,11 +2392,11 @@ template inputURLInternal( s: ref URL, tname: String ){
 //input/output WikiText
 
 template output( s: WikiText ){
-  rawoutput( s.format() )
+  rawoutput( s.format( attribute("hardwraps") ) )
 }
 
 template rawoutput( t: WikiText ){
-  rawoutput( t.formatNoTagFiltering() )
+  rawoutput( t.formatNoTagFiltering( attribute("hardwraps") ) )
 }
 
 template input( s: ref WikiText ){

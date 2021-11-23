@@ -39,6 +39,22 @@ define testnolabel(e:Ent){
   }	
 }
 
+var e3 := Ent{ s := "*1*<b>2</b>" }
+
+define page hardwrapsattr(){
+  testhardwrapsattr(e3)
+}
+
+define testhardwrapsattr(e:Ent){ 
+  " defined output"  
+  output(e.s)[hardwraps="false"]
+  form{
+    "defined input"
+    input(e.s)[class = "input-elem"]
+    submit action{}[class = "button-elem"]{"save"}
+  }	
+}
+
 test wikitexttemplates {
   var d : WebDriver := getFirefoxDriver();
   d.get(navigate(root()));
@@ -51,8 +67,13 @@ test wikitexttemplates {
   
   d.get(navigate(nolabel()));
   commonTest(d);
-}
+
+  d.get(navigate(hardwrapsattr()));
+  commonTest(d);
+  hardwrapsTest(d);
   
+}
+
 function commonTest(d:WebDriver){  
   var input     :WebElement   := d.findElements(SelectBy.className(         "input-elem"))[0];
   assert(       input.getValue()=="*1*<b>2</b>");
@@ -68,7 +89,30 @@ function commonTest(d:WebDriver){
   //test filtering of unsafe tags
   //defined input
   inputDefinedCheck(d,"*1*<b>2</b><script></script>",["<em>1</em>","<b>2</b>"], ["<script>"]);
+  
+  //test in-text hardwraps override
+  inputDefinedCheck(d,"<!--DISABLE_HARDWRAPS-->\n\nno \nnew\n line",["no new line"]);  
 
+}
+
+function hardwrapsTest(d:WebDriver){
+  //test hardwraps being disabled by hardwraps="false" attribute on output WikiText
+  //defined input
+  inputDefinedCheck(d,"no \nnew\n line",["no new line"]);
+  
+  //trigger validation error for property validation (length > 2)
+  //defined input
+  inputDefinedCheck(d,"a","length must be greater than 2");
+  
+  //test hardwraps still being disabled after validation error
+  //defined input
+  inputDefinedCheck(d,"no \nnew\n line",["no new line"]);
+  
+  //test in-text hardwraps override
+  //defined input
+  inputDefinedCheck(d,"<!--ENABLE_HARDWRAPS-->\n\nrender\nnew\nline",["render<br />new<br />line"], ["rendernewline"]);
+  //drop in-text override
+  inputDefinedCheck(d,"no \nnew\n line",["no new line"]);
 }
 
 function inputBuiltinCheck(d:WebDriver, input:String, error:List<String>){
