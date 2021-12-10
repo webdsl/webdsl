@@ -1394,21 +1394,24 @@ template inputCheckboxSetInternalHelper( set: ref {Entity}, tmpset: {Entity}, e:
   var tmphidden := getRequestParameter( tnamehidden )
   <div inputSetCheckboxElements attributes >
     <input type = "hidden" name = tnamehidden/>
-    <input type = "checkbox"
-      name = tname
-      if(       tmphidden != null
-             && tmp != null
-          ||
-                tmphidden == null
-             && e in set
-      ){
-        checked = "true"
-      }
-      id = tname + e.id
-      all attributes
-    />
     <label for = tname + e.id>
+
+      <input type = "checkbox"
+        name = tname
+        if(       tmphidden != null
+               && tmp != null
+            ||
+                  tmphidden == null
+               && e in set
+        ){
+          checked = "true"
+        }
+        id = tname + e.id
+        all attributes
+      />
+
       outputLabel( e )
+
     </label>
   </div>
   databind{
