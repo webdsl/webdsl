@@ -1378,7 +1378,7 @@ template inputCheckboxSetInternal( set: ref {Entity}, from: [Entity], tname: Str
        all attributes except "onclick">
     <input type="hidden" name = tnamehidden/>
     for( e: Entity in from ){
-      inputCheckboxSetInternalHelper( set, tmpset, e, tname + "-" + e.id )[ onclick = "" + attribute( "onclick" ) ]
+      inputCheckboxSetInternalHelper( set, tmpset, e, tname + "-" + e.id )[ onclick = "" + attribute( "onclick" ), attributes "disabled" ]
     }
   </div>
   databind{
