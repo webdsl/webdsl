@@ -111,7 +111,8 @@ public final class WikiFormatter{
     .weigher(
     new Weigher<String, String>(){
       public int weigh(String k, String v){
-        return v.length()*2+23;
+        //both key and value take num_of_chars * 2 bytes + (approx) 38 bytes of overhead per String
+        return (k.length() + v.length() + 38)*2;
       }
     }
     )
