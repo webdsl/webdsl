@@ -43,7 +43,7 @@ public abstract class AbstractPageServlet{
     public boolean isReadOnly = false;
     public boolean isWebService(){ return false; }
     public String placeholderId = "1";
-
+    
     static{
     	ajax_js_include_name = "ajax.js";
     }
@@ -202,6 +202,7 @@ public abstract class AbstractPageServlet{
                 templateservlet.validateInputs (null, args, new Environment(envGlobalAndSession), null);
                 clearTemplateContext();
                 renderDynamicFormWithOnlyDirtyData = true;
+                shouldReInitializeTemplates = true;
                 renderPageOrTemplateContents(); // content of placeholders is collected in reRenderPlaceholdersContent map
                 
                 //For now we do not support dynamically loading of resources in case of a rerendered placeholder,
@@ -497,6 +498,7 @@ public abstract class AbstractPageServlet{
           ThreadLocalOut.popChecked(out);  	
         }
         else{
+          shouldReInitializeTemplates = false;
           // dynamicform uses submitted variable data to process form content
           // render form with newly entered data, rest with the current persisted data
           if(isNotValid() && !renderDynamicFormWithOnlyDirtyData){
@@ -997,6 +999,8 @@ public abstract class AbstractPageServlet{
     public java.util.List<String> ignoreset= new java.util.ArrayList<String>();
 
     public boolean hibernateCacheCleared = false;
+    
+    public boolean shouldReInitializeTemplates = false;
 
     protected java.util.List<String> javascripts = new java.util.ArrayList<String>();
     protected java.util.List<String> tailJavascripts = new java.util.ArrayList<String>();

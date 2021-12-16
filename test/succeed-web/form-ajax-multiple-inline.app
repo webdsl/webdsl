@@ -1,7 +1,7 @@
 application test
 
 page root(){
-  var i := 0
+  request var i := 0
   form{
     input( i )[ class="input1" ]
     submitlink action{ clear(err1); replace(p1); clear(err2); replace(p2); clear(err3); }{ "replace" }

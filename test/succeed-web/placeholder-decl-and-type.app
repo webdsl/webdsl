@@ -1,7 +1,7 @@
 application test
 
   page root(){
-    var i1 := 1
+    request var i1 := 1
   
     action update1(){ replace(ph1); }
     action update2(ph:Placeholder){ replaceSomething(ph); }
@@ -23,7 +23,7 @@ application test
     }
     <br/>
     <br/>
-    var ints := [IntBox{i:=1},IntBox{i:=2},IntBox{i:=3}]
+    request var ints := [IntBox{i:=1},IntBox{i:=2},IntBox{i:=3}]
     form{
       for(i:IntBox in ints){
         "test"

@@ -2,7 +2,7 @@ application test
 
 page test( facet: String ){
   dark
-  var searchQuery := ""
+  request var searchQuery := ""
   input( searchQuery )[ class="the-input", oninput=updateSearch() ]
   action updateSearch() {
     log( facet );

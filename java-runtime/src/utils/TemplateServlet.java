@@ -204,11 +204,14 @@ public abstract class TemplateServlet {
         //always store env and arguments, values might change between phases
         // We ensure that there is an env, because prefetching in storeArguments() may use env.getTemplate()
         this.env = env;
+        this.attrs = attrs;
         storeArguments(args);
         // storing local define arguments inputLocalDefinesInEnv() could use template arguments, so needs to come after storeArguments(args)
         putLocalDefinesInEnv();
         
-        if(!initialized || threadLocalPageCached.hibernateCacheCleared)
+        if(!initialized || threadLocalPageCached.hibernateCacheCleared ||
+            threadLocalPageCached.shouldReInitializeTemplates
+          )
         {
               //System.out.println("template init "+"~x_Page"+"init: "+initialized+ " hibcache: "+ThreadLocalPage.get().hibernateCacheCleared);
               initialized=true;
@@ -220,7 +223,6 @@ public abstract class TemplateServlet {
               //  this.session = request.getSession(true);
               //}
               this.hibSession = threadLocalPageCached.hibernateSession;
-              this.attrs = attrs;
               try {
                 initialize();
                 initializeLocalVars();
