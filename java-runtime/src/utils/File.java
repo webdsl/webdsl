@@ -121,7 +121,7 @@ import javax.persistence.Transient;
         int length = inputStream.read(contents);
         if(length != expected)
             return "";
-        return new String(contents);
+        return new String(contents, StandardCharsets.UTF_8);
     } catch (SQLException e) {
         org.webdsl.logging.Logger.error("EXCEPTION",e);
         return "";
