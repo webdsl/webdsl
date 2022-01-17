@@ -61,7 +61,7 @@ rules //desugar dummy templatecall
 rules
 	
   desugar-in-define-context :
-  	a@Action(amod*, nm, farg1*, b1){anno*} -> Action(amod*, nm, farg3*, b1){anno1*}
+  	a@Action(amod*, nm, farg1*, b1){anno*} -> Action(amod*, nm, farg3*, b2){anno1*}
   	where has-no-anno(?SubmitActionTemplateArgsAdded())
   	    ; AccessControlRulesApplied 
   	      // after ac is applied, additional arguments might be needed that are used in the ac expression
@@ -74,9 +74,16 @@ rules
   	    // note: closure in anno has all template args, but not local args like for loop iterator, 
   	    //  front-end currently forces actions to be specified at top in template,
   	    //  and inline action desugaring has already added these local arguments to the action def and call
-  	    ; anno1* := [SubmitActionTemplateArgsAdded() | anno*]
-      	; farg3* :=  [farg1*,farg2*]
-        ; rules ( 
+        ; anno1* := [SubmitActionTemplateArgsAdded() | anno*]
+        ; {|RenameRequestVarInAction, FoundRequestVars:
+            farg2'* := < force-ref-arg-in-fargs-request-vars(id)> farg2*
+            // need to replace var occurrences in body to remove type information and
+            // let rename create new type annotation to hold ref-type instead of old type
+          ; if FoundRequestVars
+            then b2 := <topdown(try(RenameRequestVarInAction))> b1
+            else b2 := b1 end |}
+        ; farg3* :=  [farg1*,farg2'*]
+        ; rules (
           	DesugarSubmitActionCall : // matching only on the unique name 'nm' of the defined action
               ActionCall(nm, arg1*){anno2*} ->  ActionCall(nm, [arg1*,arg5*]){anno3*}
               where has-no-anno(?SubmitActionTemplateArgsAdded())
@@ -87,8 +94,19 @@ rules
                     then arg5* := arg2*
                     else arg5* := <filter(replace-var-in-action-call(|arg4*))> arg2* // replace with var{uniq} from action call environment
                     end
-          ) 
-        
+          )
+
+  force-ref-arg-in-fargs-request-vars(create-dr) =
+    map(try({ x:
+      where(?Arg(x,<has-anno(|IsTemplateRequestVar())>))
+      // dynamic rule to remove annotation from identifier in body, because we are changing type
+      // we need to make a variable without annototation/type info
+      // the rename performed after desugar-in-define-context will add the type information again, with ref arg if needed
+    ; if create-dr then where(rules( RenameRequestVarInAction : x -> x{} ); if not(FoundRequestVars) then rules( FoundRequestVars := True() ) end) end
+    ; replace-non-ref-with-ref-in-farg
+    ; ?Arg(_,<!Arg(x{},<id>)>)  // remove annotation from identifier in formal argument
+    }))
+
   // strings with annotations seem to take annotations into account when matching, strip annos here because we are looking for a match of name ignoring annotations  
   replace-var-in-action-call(|arg4*):
 	Var(x){anno*} -> result
