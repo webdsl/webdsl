@@ -6,25 +6,34 @@ imports
 
 rules
 
-  desugar-action :
-    RequestScopeTemplate(TemplateVarDeclInit(x, srt, e)) -> RequestScopeTemplateVarDeclInit(x, srt, e)
+  normalize-constructor :
+    RequestScopeTemplate(TemplateVarDeclInit(x, srt, e)){anno*} -> RequestScopeTemplateVarDeclInit(x, srt, e){anno*}
 
-  desugar-action :
-    RequestScopeTemplate(TemplateVarDecl(x, srt)) -> RequestScopeTemplateVarDecl(x, srt)
+  normalize-constructor :
+    RequestScopeTemplate(TemplateVarDecl(x, srt)){anno*} -> RequestScopeTemplateVarDecl(x, srt){anno*}
+
+  normalize-constructor :
+     RequestScopeTemplate(TemplateVarDeclInitInferred(x, e)){anno*} -> RequestScopeTemplateVarDeclInitInferred(x, e){anno*}
 
 rules
 
+  // above rules were previously done in desugar-action instead of normalize-constructor, which gave issues:
   // The initial rename for typecheck will use the rename rules for TemplateVarDeclInit and TemplateVarDecl.
   // Rename rules are still required because after the above desugaring, rename can still be called
   // to retrieve information about the template.
   // Without the rename rules, request vars are not part of the variables passed on to lifted templates
 
-  rename-action :
+  rename-ui :
     v@RequestScopeTemplateVarDecl(x, srt){anno*} -> RequestScopeTemplateVarDecl(y, srt2){anno*}
     where InDef
-    with  (y, srt2) := <vardecl-rename-common> (v, x, srt)
+    with  (y, srt2) := <vardecl-rename-common> (v, x, <add-anno(|IsTemplateRequestVar())> srt)
 
-  rename-action :
+  rename-ui :
     v@RequestScopeTemplateVarDeclInit(x, srt, e){anno*} -> RequestScopeTemplateVarDeclInit(y, srt2, e'){anno*}
     where InDef
-    where (y, srt2, e') := <vardeclinit-rename-common> (v, x, srt, e)
+    where (y, srt2, e') := <vardeclinit-rename-common> (v, x, <add-anno(|IsTemplateRequestVar())> srt, e)
+
+  rename-ui :
+    v@RequestScopeTemplateVarDeclInitInferred(x, e){anno*} -> RequestScopeTemplateVarDeclInitInferred(y, e'){anno*}
+    where InDef
+    where (y, e') := <vardeclinitinferred-rename-common(|IsTemplateRequestVar())> (v, x, e)
