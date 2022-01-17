@@ -89,7 +89,6 @@ public abstract class TemplateServlet {
     public void storeInputs(String calledName, Object[] args, Environment env, Map<String,String> attrs) {
         if(!skipThisTemplate){
           tryInitializeTemplate(calledName, args, env, attrs);
-          tryInitializeVarsOnce(); //this phase could be skipped, so performed in render as well
           if(!skipThisTemplate){
             storeInputsInternal();
           }
@@ -115,8 +114,7 @@ public abstract class TemplateServlet {
     public void render(String calledName, Object[] args, Environment env, Map<String,String> attrs) { 
       if(!skipThisTemplate){
         tryInitializeTemplate(calledName, args, env, attrs);
-        tryInitializeVarsOnce();
-     
+
         if(!skipThisTemplate){
           java.io.StringWriter s = new java.io.StringWriter();
 
@@ -226,6 +224,7 @@ public abstract class TemplateServlet {
               try {
                 initialize();
                 initializeLocalVars();
+                tryInitializeVarsOnce();  // request and placeholder vars should be initialized before initActions() (init blocks)
                 initSubmitActions();
                 initActions();
               }
