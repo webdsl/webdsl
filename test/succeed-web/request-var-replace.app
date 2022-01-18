@@ -9,7 +9,7 @@ page root {
       placeholder y {
         "value: " ~name
       }
-      submitlink action{ name := ""; replace( x ); }{ "Save" }
+      submitlink action{ name := "replaced"; replace( x ); }{ "Save" }
     }
   }
 }
@@ -24,7 +24,7 @@ test {
   sleep( 1000 );  // test runner does not wait for delayed oninput
   assert( d.getPageSource().contains( "value: abc" ) );
   d.getSubmit().click();
-  assert( d.getPageSource().contains( "value: abc" ) );
+  assert( d.getPageSource().contains( "value: replaced" ) );
 }
 
 
