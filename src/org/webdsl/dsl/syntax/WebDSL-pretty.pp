@@ -1169,7 +1169,7 @@
    PropertySubmitMultiple -- _1 KW["="] _2,
    PropertySubmitMultiple.2:iter-star-sep -- H hs=0[_1 KW[";"]],
    AjaxRunScript -- KW["runscript"] KW["("] _1 KW[")"],
-   RefSort -- H hs=0[ KW["ref"] _1 ],
+   RefSort -- H hs=1[ KW["ref"] _1 ],
    AllAttributes -- KW["all attributes"],
    AllAttributeExceptExp -- KW["all attributes except"] _1,
    AttributesExp -- KW["attributes"] _1,

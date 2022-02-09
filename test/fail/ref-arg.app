@@ -1,6 +1,6 @@
 //#3 only allowed in formal parameters 
 //Global variable s has illegal type
-//#4 No such type Ref<String>
+//#4 No such type ref String
 
 application test
 entity Bla{
