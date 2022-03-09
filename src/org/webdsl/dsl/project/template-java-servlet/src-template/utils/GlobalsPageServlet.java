@@ -28,7 +28,6 @@ public class GlobalsPageServlet extends webdsl.generated.templates.RootPage
     protected void renderDebugJsVar(java.io.PrintWriter sout){}
     protected boolean logSqlCheckAccess(){return false;}
     protected void initTemplateClass(){}
-    protected void redirectHttpHttps(){}
     protected boolean isActionSubmit(){return false;}
     protected String[] getUsedSessionEntityJoins(){ return null; }
     protected org.webdsl.WebDSLEntity getRequestLogEntry(){return null;}

@@ -29,7 +29,6 @@ public abstract class AbstractPageServlet{
     protected abstract void renderDebugJsVar(PrintWriter sout);
     protected abstract boolean logSqlCheckAccess();
     protected abstract void initTemplateClass();
-    protected abstract void redirectHttpHttps();
     protected abstract boolean isActionSubmit();
     protected abstract String[] getUsedSessionEntityJoins();
     protected TemplateServlet templateservlet = null;
@@ -61,8 +60,6 @@ public abstract class AbstractPageServlet{
       this.parammapvalues = parammapvalues;
       this.fileUploads=fileUploads;
 
-      
-      redirectHttpHttps();
       String ajaxParam = parammap.get( "__ajax_runtime_request__" );
       if( ajaxParam != null ){
         this.setAjaxRuntimeRequest( true );
