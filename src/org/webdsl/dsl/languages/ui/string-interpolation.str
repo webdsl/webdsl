@@ -2,11 +2,64 @@ module org/webdsl/dsl/languages/ui/string-interpolation
 
 rules
 
-  normalize-constructor :
-    OutputShorthand(e){anno*}
-  ->
-    TemplateCall("output", [StringInterp([InterpExp(e)])], [], TemplateBody([])){anno*}
-    // 'StringInterp([InterpExp(e)])' instead of just 'e' to add null->"" behavior
+  rename-ui :
+    OutputShorthand(e1){anno*} -> OutputShorthand(e2){anno1*}
+    with  e2 := <rename-all> e1
+        ; anno1* := <put-closure-in-anno> anno*
+
+  desugar-in-define-context :
+    OutputShorthand(e){anno*} -> result
+    where srt := <type-of> e
+        ; <allow-desugar-type-to-interp> srt
+        ; result := TemplateCall("output", [StringInterp([InterpExp(e)])], [], TemplateBody([])){anno*}
+          // 'StringInterp([InterpExp(e)])' instead of just 'e' to add exception -> "" behavior
+
+  // making assumpion here that these do not have customized outputs, in order to reuse robust error handling from string interpolation
+  allow-desugar-type-to-interp = SimpleSort("Int"<+"String"<+"Bool"<+"Float")
+
+  // although not using the string interpolation exception -> "" behavior for other case,
+  // still want to avoid getting warnings in log for common nullpointer dereferencing,
+  // generate function so we can control that sub-expressions are only evaluated once
+  desugar-in-define-context :
+    OutputShorthand(e){anno*} -> TemplateCall("output", [e_result], [], TemplateBody([])){anno*}
+    where srt := <type-of> e
+        ; <not(allow-desugar-type-to-interp)> srt
+    with  x_fun := <newname-webdsl> "nullChk"
+        ; srt := <type-of> e
+        ; (arg*,farg*) := <get-args-fargs-from-closure-in-anno-filtered> (anno*,e)
+        ; (x,stat*) := <null-values-check> e
+        ; def := def |[
+            function x_fun( farg* ): srt {
+              var foundNull := false;
+              stat*
+              return x;
+            }
+          ]|
+        ; <emit-webdsl-code> def{anno*}
+        ; e_result := ThisCall(x_fun, arg*)
+
+  null-values-check =
+    null-values-check-deref
+ <+ null-values-check-exp
+
+  null-values-check-deref :
+    fa@FieldAccess(e, p) -> (x, webdsl|[ stat* var x: srt := null; if( ! foundNull ){ x := e_fa; foundNull := x == null || foundNull; } ]|)
+    with  x := <newname-webdsl> "x"
+        ; (x_inner,stat*) := <null-values-check> e
+        ; srt := <type-of> fa
+        ; e_fa := FieldAccess(Var(x_inner), p)
+
+  null-values-check-deref :
+    c@Call(e, f, e*) -> (x, webdsl|[ stat* var x: srt := null; if( ! foundNull ){ x := e_cl; foundNull := x == null || foundNull; } ]|)
+    with  x := <newname-webdsl> "x"
+        ; (x_inner,stat*) := <null-values-check> e
+        ; srt := <type-of> c
+        ; e_cl := Call(Var(x_inner), f, e*)
+
+  null-values-check-exp :
+    e -> (x,webdsl|[ var x: srt := e; foundNull := x == null || foundNull; ]|)
+    with  x := <newname-webdsl> "x"
+        ; srt := <type-of> e
 
 rules
 

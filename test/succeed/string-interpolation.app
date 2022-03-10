@@ -92,4 +92,30 @@ test {
   log( rendertemplate( testtemplate() ));
   assert( rendertemplate( testtemplate() ) == "[no-interp]t1blat1.foo1\~escape\\\\\~[no-interp]t1blat1.foo1\~t1t11test[]test[]test1211t1t111t1t1wrapper1[]0.12" + navigate( navfun( t1 ) ) );
   assert( rendertemplate( wrapper2("hey") ) == "hey" );
+  log( rendertemplate( outputCalls() ));
+  assert( rendertemplate( outputCalls() ) == "to1name<h1></h1>&lt;h1&gt;&lt;/h1&gt;********" );
+}
+
+template outputCalls {
+  ~to1
+  ~to1.to.to
+  ~to1.to.to.test()
+  var x: WikiText := "<h1></h1>"
+  var y: Text := "<h1></h1>"
+  var z: Secret := "123"
+  ~x
+  ~y
+  ~z
+}
+
+entity TestOutput {
+  name : String
+  to : TestOutput
+  function test: String { return "test"; }
+}
+
+var to1 := TestOutput { name := "to1name" }
+
+template output( t: TestOutput ){
+  ~t.name
 }
