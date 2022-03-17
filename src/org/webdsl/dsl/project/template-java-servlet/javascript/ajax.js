@@ -421,18 +421,19 @@ function requireJSResources( arr ){
       orig_ajax_post_process(node);
     }
   }; 
-  
-  function resourceLoaded(){
-    resourcesToLoad--;
-    if(resourcesToLoad == 0){
+   
+  var nextIdx = 0;
+  function tryLoadNextResource(){
+    if(nextIdx >= resourcesToLoad){
       ajax_post_process = orig_ajax_post_process;
       post_process_calls_queue();
+    } else {
+      var resource = arr[nextIdx];
+      nextIdx++;
+      requireJSResource( resource, tryLoadNextResource );
     }
   }
-  
-  for (var i = 0; i < arr.length; i++) {
-    requireJSResource( arr[i], resourceLoaded );
-  }
+  tryLoadNextResource();
 }
 
 function clientExecute(jsoncode, thisobject) {
