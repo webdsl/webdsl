@@ -2753,6 +2753,7 @@ template inputajax( b: ref Bool ){
     getPage().leaveLabelContext();
     errors.addAll( getPage().getValidationErrorsByName( id ) );
     if( errors.length > 0 ){
+      cancel();
       replace( "validate" + id, showMessages( errors ) );
     }
     else{
@@ -2813,6 +2814,7 @@ template inputajax( f: ref Float ){
       errors.addAll( getPage().getValidationErrorsByName( id ) );
     }
     if( errors.length > 0 ){
+      cancel();
       replace( "validate" + id, showMessages( errors ) );
     }
     else{
@@ -2869,6 +2871,7 @@ template inputajax( i: ref Int ){
       errors.addAll( getPage().getValidationErrorsByName( id ) );
     }
     if( errors.length > 0 ){
+      cancel();
       replace( "validate" + id, showMessages( errors ) );
     }
     else{
@@ -2925,6 +2928,7 @@ template inputajax( l: ref Long ){
       errors.addAll(getPage().getValidationErrorsByName( id ));
     }
     if( errors.length > 0 ){
+      cancel();
       replace( "validate" + id, showMessages( errors ) );
     }
     else{
@@ -2970,6 +2974,7 @@ template inputajax( s: ref URL ){
       errors.addAll( getPage().getValidationErrorsByName( id ) );
     }
     if( errors.length > 0 ){
+      cancel();
       replace( "validate" + id, showMessages( errors ) );
     }
     else{
@@ -3023,6 +3028,7 @@ template inputajax( s: ref String ){
     getPage().leaveLabelContext();
     errors.addAll( getPage().getValidationErrorsByName( id ) );
     if( errors.length > 0 ){
+      cancel();
       replace( "validate" + id, showMessages( errors ) );
     }
     else{
@@ -3073,6 +3079,7 @@ template inputajax( s: ref Email ){
       errors.addAll( getPage().getValidationErrorsByName( id ) );
     }
     if( errors.length > 0 ){
+      cancel();
       replace( "validate" + id, showMessages( errors ) );
     }
     else{
@@ -3121,6 +3128,7 @@ template selectcheckboxajax( set: ref {Entity}, from: [Entity] ){
     getPage().leaveLabelContext();
     errors.addAll( getPage().getValidationErrorsByName( id ) );
     if( errors.length > 0 ){
+      cancel();
       replace( "validate" + id, showMessages( errors ) );
     }
     else{
@@ -3158,6 +3166,7 @@ template selectajax( set: ref {Entity}, from: [Entity] ){
     getPage().leaveLabelContext();
     errors.addAll( getPage().getValidationErrorsByName( id ) );
     if( errors.length > 0 ){
+      cancel();
       replace( "validate" + id, showMessages( errors ) );
     }
     else{
@@ -3205,6 +3214,7 @@ template selectajax( ent: ref Entity, from: [Entity] ){
     getPage().leaveLabelContext();
     errors.addAll( getPage().getValidationErrorsByName( id ) );
     if( errors.length > 0 ){
+      cancel();
       replace( "validate" + id, showMessages( errors ) );
     }
     else{
@@ -3243,6 +3253,7 @@ template radioajax( ent1: ref Entity, ent2: [Entity] ){
     getPage().leaveLabelContext();
     errors.addAll( getPage().getValidationErrorsByName( id ) );
     if( errors.length > 0 ){
+      cancel();
       replace( "validate" + id, showMessages( errors ) );
     }
     else{
@@ -3284,6 +3295,7 @@ template inputajax( list: ref [Entity], from: [Entity] ){
     getPage().leaveLabelContext();
     errors.addAll( getPage().getValidationErrorsByName( id ) );
     if( errors.length > 0 ){
+      cancel();
       replace( "validate" + id, showMessages( errors ) );
     }
     else{

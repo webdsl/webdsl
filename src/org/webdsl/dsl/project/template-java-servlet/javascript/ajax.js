@@ -201,8 +201,12 @@ function findTopDown(element, id) {
   return null;
 }
 
+var __skip_next_action = false;
+var __next_action = false;
+
 function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfeedback, placeholderId) {
   var attachObj, loadingimage;
+  __skip_next_action = false;
   if (loadfeedback) {
     attachObj = typeof loadImageElem !== 'undefined' ? loadImageElem : thisobject;
     loadImageElem = undefined;
@@ -220,6 +224,13 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfe
           stopLoading(attachObj, loadingimage);
         }
         __requestcount--;
+        // handle multiple submit actions for inputajax
+        if( __next_action !== false ){
+          if( ! __skip_next_action ){
+            __next_action();
+          }
+          __next_action = false;
+        }
       }
     }
   );
@@ -421,19 +432,18 @@ function requireJSResources( arr ){
       orig_ajax_post_process(node);
     }
   }; 
-   
-  var nextIdx = 0;
-  function tryLoadNextResource(){
-    if(nextIdx >= resourcesToLoad){
+  
+  function resourceLoaded(){
+    resourcesToLoad--;
+    if(resourcesToLoad == 0){
       ajax_post_process = orig_ajax_post_process;
       post_process_calls_queue();
-    } else {
-      var resource = arr[nextIdx];
-      nextIdx++;
-      requireJSResource( resource, tryLoadNextResource );
     }
   }
-  tryLoadNextResource();
+  
+  for (var i = 0; i < arr.length; i++) {
+    requireJSResource( arr[i], resourceLoaded );
+  }
 }
 
 function clientExecute(jsoncode, thisobject) {
@@ -475,6 +485,8 @@ function clientExecute(jsoncode, thisobject) {
         for (var j = 0; j < arr.length; j++) {
           requireCSSResource( arr[j] );
         }
+      } else if (command.action == "skip_next_action") {
+        __skip_next_action = true;
       } else if (command.action != undefined) //last command might equal {}
         if (show_webdsl_debug) {
           alert("unknown client command: " + command.action);

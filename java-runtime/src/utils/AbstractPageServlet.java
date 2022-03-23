@@ -249,7 +249,12 @@ public abstract class AbstractPageServlet{
                     }
                     responseWriter.write(",");
               }
-              responseWriter.write("{}]");
+              if( this.validateFailedBeforeRollback ){
+                responseWriter.write("{\"action\":\"skip_next_action\"}]");
+              }
+              else {
+                responseWriter.write("{}]");
+              }
             }
             else if( isActionLinkUsed() ){
               //action link also uses ajax when ajax is not enabled
@@ -1137,10 +1142,12 @@ public abstract class AbstractPageServlet{
      * can be used to replace templates with ajax without saving, e.g. for validation
      */
     protected boolean rollback = false;
+    protected boolean validateFailedBeforeRollback = false;
     public boolean isRollback() {
         return rollback;
     }
     public void setRollback() {
+        validateFailedBeforeRollback = this.isNotValid();
         //by setting validated true, the action will succeed
         this.setValidated(true);
         //the session will be rolled back, to cancel persisting any changes
