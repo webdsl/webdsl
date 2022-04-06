@@ -1270,6 +1270,7 @@ template datepickerinput( d: ref Date, internalJavaDateFormat : String, visibleJ
   var req := getRequestParameter( tname )
   var flatPickrAltDateFormat := convertJavaDateFormatToFlatPickr( visibleJavaDateFormat )
   var onOpen := "onOpen: function(dateObj, dateStr, instance){ if(dateStr == ''){ instance.jumpToDate( new Date() ); } }"
+  var extraOptions := options
   init{
     if( d == null ){
       s := "";
@@ -1279,6 +1280,11 @@ template datepickerinput( d: ref Date, internalJavaDateFormat : String, visibleJ
     }
     if(req != null){
       s := req;
+    }
+    //attribute [static="true"] will add "static: true" to the flatpickr options, which is needed 
+    //when using flatpickr in fixed/static positioned elements such as bootstrap modals
+    if( attribute("static") != "" ){
+      extraOptions := "static: " + attribute("static") + ", " + extraOptions;
     }
   }
   datepickerIncludes
@@ -1296,7 +1302,7 @@ template datepickerinput( d: ref Date, internalJavaDateFormat : String, visibleJ
   />
 
   <script>
-    $("input:not(.flatpickr-input)[name=~tname]").flatpickr({~onOpen, allowInput: true, dateformat: '~internalFlatPickrFormat', altFormat: '~flatPickrAltDateFormat' , altInput: true, time_24hr: true, ~options});
+    $("input:not(.flatpickr-input)[name=~tname]").flatpickr({~onOpen, allowInput: true, dateformat: '~internalFlatPickrFormat', altFormat: '~flatPickrAltDateFormat' , altInput: true, time_24hr: true, ~extraOptions});
   </script>
 
   databind{
