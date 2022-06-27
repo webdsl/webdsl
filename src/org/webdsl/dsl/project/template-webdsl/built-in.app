@@ -1256,7 +1256,7 @@ template datepickerIncludes(){
     // https://github.com/flatpickr/flatpickr/issues/893
     // Flatpickr does not update its internals on the alt input field when focus is lost without hitting enter.
     // Force sending the enter-key on the flatpickr alt input that loses focus, so it updates its internals
-    postProcess( "$(node).find('input.flatpickr:not([id])').focusout( function(){ this.dispatchEvent( new KeyboardEvent('keydown',{'keyCode':13}) ); } );" )
+    postProcess( "$(node).find('input.flatpickr:not([id])').focusout( function(){ this.dispatchEvent( new KeyboardEvent('keydown',{keyCode:13, bubbles: true}) ); } );" )
   }
 }
 
