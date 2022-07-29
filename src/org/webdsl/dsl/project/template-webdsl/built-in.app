@@ -65,6 +65,8 @@ native class utils.ValidationException as NativeValidationException{
 native class utils.HibernateTransactionHelper as HibernateTransactionHelper{
   static commitAndStartNewTransaction(): [NativeValidationException]
   static rollbackAndStartNewTransaction()
+  static useManualFlushMode()
+  static useAutoFlushMode()
 }
 
 function commitAndStartNewTransaction(): [NativeValidationException]{
