@@ -5,10 +5,8 @@ import java.util.List;
 
 public class Navigate {
 
-	public static final List<String> emptyargs = new ArrayList<String>(0);
-
 	public static String constructUrl(String pagename) {
-		return constructUrl(pagename,emptyargs);
+		return constructUrl(pagename, new ArrayList<String>(0));
 	}
 
 	public static String constructUrl(String pagename, List<String> args, String... argtypes) {
