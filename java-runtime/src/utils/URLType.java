@@ -49,6 +49,7 @@ public class URLType {
 			URLConnection con = url.openConnection();
 			//some servers/proxies require a user agent string 
 			con.addRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:25.0) Gecko/20100101 Firefox/25.0");
+			con.addRequestProperty("Accept", "*/*");
 			if(con instanceof HttpsURLConnection){
 				setAcceptAllVerifier((HttpsURLConnection) con);
 			}
