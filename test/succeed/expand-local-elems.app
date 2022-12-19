@@ -40,6 +40,10 @@ template test( f: Foo ) {
 }
 
 template t3( expand s1 s2 s3 to x { x: String } ){ expand s1 s2 s3 to x { ~x } }
+template t4(){
+  expand s1 s2 s3 to x { "x" }
+  expand abc def ghi to y { "y" }
+}
 function f3( expand s1 s2 s3 to x { x: String } ): String { return "~s1~s2~s3"; }
 
 
