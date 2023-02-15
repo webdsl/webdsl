@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o noclobber
+set -o nounset
+#set -o xtrace
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+[ ! -z "$DIR" ]     # Ensure the directory is not empty
+[ -d "$DIR" ]       # Ensure the directory exists
+
+BIN="implodePT"
+
+usage() { echo "implodePT in Docker
+
+Usage: $0 [aAbchi:lOo:pPtvILVqX]
+Options:
+        -a              keep annotations (default yes)
+        -A              interpret alternatives
+        -b              output terms in BAF format (default)
+        -c              interpret 'cons' attributes
+        -h              display help information (usage)
+        -i filename     input from file (default stdin)
+        -l              remove layout
+        -o filename     output to file (default stdout)
+        -O              interpret optionals
+        -p              remove parsetree
+        -P              interpret layout-place-holder annotation
+        -t              output terms in plaintext format
+        -v              verbose mode
+        -I              remove injections
+        -L              remove literals
+        -V              reveal program version (i.e. 1.1)
+        -q              interpret sequences
+        -X              implode lexicals
+
+Note that if none of the [AclopILqX] switches are given,
+they are all activated by default. If you give any of them,
+the others are off by default until you switch them on.
+" 1>&2; exit 1; }
+
+# Read the command-line options,
+# appending them to $newopts
+newopts=""
+declare -a vols=()
+while getopts "aAbchi:lOo:pPtvILVqX" o; do
+    case "${o}" in
+        a) newopts+=" -a" ;;
+        A) newopts+=" -A" ;;
+        b) newopts+=" -b" ;;
+        c) newopts+=" -c" ;;
+        h) newopts+=" -h" ;;
+        i)
+            abspath=$(realpath -s $(dirname "${OPTARG}"))
+            absfile=$(realpath -s "${OPTARG}")
+            newopts+=" -i  ${absfile}"
+            vols+=($abspath)
+            ;;
+        l) newopts+=" -l" ;;
+        O) newopts+=" -O" ;;
+        o)
+            abspath=$(realpath -s $(dirname "${OPTARG}"))
+            absfile=$(realpath -s "${OPTARG}")
+            newopts+=" -o  ${absfile}"
+            vols+=($abspath)
+            ;;
+        p) newopts+=" -p" ;;
+        P) newopts+=" -P" ;;
+        t) newopts+=" -t" ;;
+        v) newopts+=" -v" ;;
+        I) newopts+=" -I" ;;
+        L) newopts+=" -L" ;;
+        V) newopts+=" -V" ;;
+        q) newopts+=" -q" ;;
+        X) newopts+=" -X" ;;
+        *) usage ;;
+    esac
+done
+shift $((OPTIND-1))
+
+# Attempt to run the native command
+set +o errexit
+"$DIR/$BIN-macosx" ${newopts}
+retVal=$?
+set -o errexit
+if [[ $retVal -ne 126 ]]; then
+    # It ran but succeeded or failed
+    exit $retVal
+fi
+# The command didn't run, attempt run using Docker
+echo "$BIN failed to run natively, attemping using Docker"
+
+# Gather the volumes to mount (basically, every directory mentioned in -i, or -o)
+volumes=""
+for i in "${vols[@]}"
+do
+    echo "VOLUME: ${i}"
+    volumes+=" -v ${i}:${i}"
+    mkdir -p "${i}"
+done
+echo $volumes
+
+# Create the docker container with the volumes mounted
+container_id=$(docker container create \
+  --mount type=bind,source="$DIR",target=/bundle \
+  ${volumes} \
+  ubuntu:focal \
+  /bin/bash -c "/bundle/$BIN-linux ${newopts}")
+
+# Start the container
+docker container start $container_id
+
+# Show container output
+docker container logs --since 0 -f $container_id
+
+# Wait for the container to finish, and get exit code
+retVal=$(docker container wait $container_id)
+
+# Always remove the container
+docker container rm $container_id
+
+if [[ $retVal -ne 0 ]]; then
+    # It ran but failed
+    echo "Error $retVal, exit"
+    exit $retVal
+fi
+
+echo "Done"

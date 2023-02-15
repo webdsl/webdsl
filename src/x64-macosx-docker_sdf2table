@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+set -o errexit
+set -o pipefail
+set -o noclobber
+set -o nounset
+#set -o xtrace
+
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+[ ! -z "$DIR" ]     # Ensure the directory is not empty
+[ -d "$DIR" ]       # Ensure the directory exists
+
+BIN="sdf2table"
+
+usage() { echo "sdf2table in Docker
+
+Use this program to generate a parse table from an SDF definition.
+It can generate tables from full SDF definition files, parse trees
+of full SDF definition files, or search for modules itself starting
+from a top module name and using a search path.
+
+Common usage patterns:
+	$0 -c -m <topModule> -o <file>.tbl
+	$0 -c -m <topModule> -p <searchPath> -o <file>.tbl
+	$0 -m <topModule> -i <definitionFile>.def -o <file>.tbl
+	$0 -m <topModule> -i <definitionTree>.def.pt -o <file>.tbl
+	$0 -c -d -m <topModule> -o <definitionFile>.def.pt
+
+Usage: $0 [options]
+Options:
+	-b              output terms in BAF format (default)
+	-c              collect SDF modules from the search path
+	-d              only collect an SDF definition
+	-g              take kernel sdf as input and generate table
+	-h              display help information (usage)
+	-i filename     input from file (default stdin, can be repeated)
+	-l filename     log statistic information
+	-m modulename   name of top module (default Main)
+	-n              only normalization of grammar
+	-o filename     output to file (default stdout)
+	-p path         colon separated search path for SDF modules (default '.', not supported)
+	-t              output terms in plaintext format
+	-v              verbose mode
+	-V              reveal program version (i.e. 5.0)
+" 1>&2; exit 1; }
+
+# Read the command-line options,
+# appending them to $newopts
+newopts=""
+declare -a vols=()
+while getopts "bcdghi:l:m:no:p:tvV" o; do
+    case "${o}" in
+        b) newopts+=" -b" ;;
+        c) newopts+=" -c" ;;
+        d) newopts+=" -d" ;;
+        g) newopts+=" -g" ;;
+        h) newopts+=" -h" ;;
+        i)
+            abspath=$(realpath -s $(dirname "${OPTARG}"))
+            absfile=$(realpath -s "${OPTARG}")
+            newopts+=" -i  ${absfile}"
+            vols+=($abspath)
+            ;;
+        l)
+            abspath=$(realpath -s $(dirname "${OPTARG}"))
+            absfile=$(realpath -s "${OPTARG}")
+            newopts+=" -l  ${absfile}"
+            vols+=($abspath)
+            ;;
+        m) newopts+=" -m  ${OPTARG}" ;;
+        n) newopts+=" -n" ;;
+        o)
+            abspath=$(realpath -s $(dirname "${OPTARG}"))
+            absfile=$(realpath -s "${OPTARG}")
+            newopts+=" -o  ${absfile}"
+            vols+=($abspath)
+            ;;
+        #p) newopts+=" -p  ${OPTARG}" ;;    # Not supported
+        t) newopts+=" -t" ;;
+        v) newopts+=" -v" ;;
+        V) newopts+=" -V" ;;
+        *) usage ;;
+    esac
+done
+shift $((OPTIND-1))
+
+# Attempt to run the native command
+set +o errexit
+"$DIR/$BIN-macosx" ${newopts}
+retVal=$?
+set -o errexit
+if [[ $retVal -ne 126 ]]; then
+    # It ran but succeeded or failed
+    exit $retVal
+fi
+# The command didn't run, attempt run using Docker
+echo "$BIN failed to run natively, attemping using Docker"
+
+# Gather the volumes to mount (basically, every directory mentioned in -i, -l, or -o)
+volumes=""
+for i in "${vols[@]}"
+do
+    echo "VOLUME: ${i}"
+    volumes+=" -v ${i}:${i}"
+    mkdir -p "${i}"
+done
+echo $volumes
+
+# Create the docker container with the volumes mounted
+container_id=$(docker container create \
+  --mount type=bind,source="$DIR",target=/bundle \
+  ${volumes} \
+  ubuntu:focal \
+  /bin/bash -c "/bundle/$BIN-linux ${newopts}")
+
+# Start the container
+docker container start $container_id
+
+# Show container output
+docker container logs --since 0 -f $container_id
+
+# Wait for the container to finish, and get exit code
+retVal=$(docker container wait $container_id)
+
+# Always remove the container
+docker container rm $container_id
+
+if [[ $retVal -ne 0 ]]; then
+    # It ran but failed
+    echo "Error $retVal, exit"
+    exit $retVal
+fi
+
+echo "Done"
