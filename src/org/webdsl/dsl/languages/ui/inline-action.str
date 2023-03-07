@@ -12,9 +12,9 @@ rules
 
   desugar-ui :
     Define(mods, name, args, targs, elems){anno*} -> result
-    where <oncetd(?InlineAction(_))> elems
+    where <oncetd( ?InlineAction(_) <+ ?ReplaceAction(_) )> elems
     with {| InsertedActions
-          : elems1 := <alltd(desugar-inline-action-call)> elems
+          : elems1 := <alltd( desugar-inline-action-call <+ desugar-replace-action-call )> elems
           ; elems2 := <concat> [elems1, <bagof-InsertedActions>]
          |}
        ; result := <rename> Define(mods, name, args, targs, elems2){anno*}
@@ -33,3 +33,55 @@ rules
         ; rules( InsertedActions :+= newaction )
 
   rename-inline-action-farg : x -> <concat-strings> [x,"_"]
+
+
+rules  // replace action, shorthand for:
+       // action ignore-validation update( ph: Placeholder / [Placeholder] / {Placeholder}, ... ){
+       //   replace( ph ); / for( p in ph ){ replace( p ); }; ...
+       //   rollback();
+       // }
+
+  rename-ui :
+    ReplaceAction(args){anno*} -> ReplaceAction(args1){anno*}
+    with  args1 := <rename-all> args
+
+  constraint-error-ui :
+    ReplaceAction(e*){anno*} -> <fail>  // constraint rules are expected to fail, so all of them are attempted by stratego (errors are captured in dynamic rules)
+    with <map(try(replace-action-check-arg))> e*
+
+  replace-action-check-arg :
+    e -> <add-error(|["Expression ", <pp-webdsl> e, " should be of type Placeholder or [Placeholder] or {Placeholder}"])>
+    where not(<type-of; ( ?SimpleSort("Placeholder") <+ ?GenericSort(_,[SimpleSort("Placeholder")] ))> e)  // note: <+ has lower precedence than ;
+        ; <type-of> e  // don't report cascaded error, e should have valid type
+
+  desugar-replace-action-call :
+    ReplaceAction(arg*){anno*} -> ActionCall(fun, arg*)
+    with  fun := <toplevel-rename> "ra"  // make new unique action name
+        ; argnames := <map( \ _ -> <toplevel-rename> "ph" \ )> arg*  // make new unique arg name for each arg in the list
+        ; fargs := <zip( \ (e, x) -> Arg(x, <type-of> e) \ )> (arg*, argnames)  // construct the formal args of the generated action
+        ; stat* := <map(create-replace-call-replace-action)> fargs  // for each arg, create a replace call
+        ; newaction :=
+            Action(
+              [ActionModifierIgnoreValidation()]
+            , fun
+            , fargs
+            , Block(
+               [ stat*, Stat(ThisCall("rollback", []))]  // note: variable name with * gets merged in list
+              ))
+        ; rules( InsertedActions :+= newaction )
+
+  create-replace-call-replace-action :
+    Arg(x, t) -> Stat(ThisCall("replace", [Var(x)]))
+    where <?SimpleSort("Placeholder")> t
+
+  create-replace-call-replace-action :
+    Arg(x, t) ->
+      ForStmt(
+        tmp
+      , SimpleSort("Placeholder")
+      , Var(x)
+      , None()
+      , Block([Stat(ThisCall("replace", [Var(tmp)]))])
+      )
+    where <?GenericSort(_,[SimpleSort("Placeholder")])> t
+    with  tmp := <toplevel-rename> "tmp"

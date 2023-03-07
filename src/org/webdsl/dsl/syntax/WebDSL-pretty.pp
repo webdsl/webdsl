@@ -1148,6 +1148,9 @@
    ActionCall.2:iter-star-sep           -- H hs=0[_1 KW[","]],
    ActionCall.2:iter-star           -- _1,
 
+   ReplaceAction                 -- H hs=0[KW["replace"] KW["("] H[_1] KW[")"]],
+   ReplaceAction.1:iter-star-sep -- H hs=0[_1 KW[","]],
+
    GlobalVar -- H hs=0[KW["global"] KW["."] _1],
    SessionVar -- H hs=0[KW["session"] KW["."] _1],
 
