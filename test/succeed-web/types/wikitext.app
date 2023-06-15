@@ -92,6 +92,9 @@ function commonTest(d:WebDriver){
   
   //test in-text hardwraps override
   inputDefinedCheck(d,"<!--DISABLE_HARDWRAPS-->\n\nno \nnew\n line",["no new line"]);  
+  
+  //test allowed (target) and enforced (rel="nofollow") attributes on anchor tags
+  inputDefinedCheck(d,"<a href=\"https://webdsl.org/\" target=\"_blank\">link</a>",["target=\"_blank\"","rel=\"no-follow\""]);
 
 }
 
