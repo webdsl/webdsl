@@ -625,7 +625,7 @@ public abstract class AbstractPageServlet{
         if(this.isLogSqlEnabled()){
             if(logSqlCheckAccess()){
                 sout.print("<hr/><div class=\"logsql\">");
-                sout.print("<script type=\"text/javascript\">$('a.navigate').on('click', function(event) { event.preventDefault(); window.location.href = $(this).attr('href') + '?logsql' })</script>");
+                sout.print("<script type=\"text/javascript\">$('a.navigate').on('click', function(event) { event.target.href += '?logsql' })</script>");
                 utils.HibernateLog.printHibernateLog(sout, this, null);
                 sout.print("</div>");
             }
