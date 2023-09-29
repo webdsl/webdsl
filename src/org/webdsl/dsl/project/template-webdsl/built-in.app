@@ -3424,3 +3424,12 @@ access control rules
   //Tampering with the URL will produce an html-escaped echo of the 'list' request parameter.
   rule ajaxtemplate showMessages( list: [String] ){ true }
   rule ajaxtemplate noMessages(){ true }
+  
+section debug
+function logWithStackTrace(message : String, lines : Int){
+  log(message + "\n--- Stack trace:");
+  Warning.printSmallStackTrace(lines, 2);
+}
+native class utils.Warning as Warning{
+  static printSmallStackTrace(Int, Int)
+}
