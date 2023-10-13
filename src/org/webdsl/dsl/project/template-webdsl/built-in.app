@@ -397,9 +397,9 @@ type String{ //includes other String-based types such as Secret, Patch, Email, U
   substring( Int ): String
   substring( Int, Int ): String
   utils.StringType.similarity as similarity(String) : Float
-  utils.StringType.isNullOrEmpty				as isNullOrEmpty(): Bool
-  utils.StringType.valueOrDefault				as valueOrDefault(String): Bool
-  utils.StringType.valueNonEmptyOrDefault   	as valueNonEmptyOrDefault(String): Bool
+  utils.StringType.isNullOrEmpty        as isNullOrEmpty(): Bool
+  utils.StringType.valueOrDefault       as valueOrDefault(String): Bool
+  utils.StringType.valueNonEmptyOrDefault     as valueNonEmptyOrDefault(String): Bool
 }
 
 type Secret{
@@ -648,7 +648,7 @@ native class org.w3c.dom.Node as XMLNode{
 }
 
 type String{
-	javaxt.xml.DOM.createDocument as asXMLDocument() : XMLDocument
+  javaxt.xml.DOM.createDocument as asXMLDocument() : XMLDocument
 }
 
 //  section JSON for services
@@ -1402,25 +1402,7 @@ template inputCheckboxSetInternalHelper( set: ref {Entity}, tmpset: {Entity}, e:
   var tmphidden := getRequestParameter( tnamehidden )
   <div inputSetCheckboxElements attributes >
     <input type = "hidden" name = tnamehidden/>
-    <label for = tname + e.id>
-
-      <input type = "checkbox"
-        name = tname
-        if(       tmphidden != null
-               && tmp != null
-            ||
-                  tmphidden == null
-               && e in set
-        ){
-          checked = "true"
-        }
-        id = tname + e.id
-        all attributes
-      />
-
-      outputLabel( e )
-
-    </label>
+    selectionInput(e, (tmphidden != null && tmp != null) || (tmphidden == null && e in set), "checkbox", tname)[all attributes]
   </div>
   databind{
     if(    tmphidden != null
@@ -1672,23 +1654,7 @@ template radioInternal( ent1: ref Entity, ent2: [Entity], tname: String ){
     }
   }
   for( e: Entity in ent2 ){
-    <label radio attributes>
-      <input type = "radio"
-        //either it was submitted or it was not submitted but the value was already p
-        if(       tmp != null
-               && subme == e
-            ||
-                  tmp == null
-               && ent1 == e
-        ){
-          checked = "checked"
-        }
-        name = tname
-        value = e.id
-        all attributes
-      />
-      outputLabel( e )
-    </label>
+    selectionInput(e, (tmp != null && subme == e) || (tmp == null && ent1 == e), "radio", tname)[all attributes]
   }
   databind{
     if(    tmp != null
@@ -1700,7 +1666,18 @@ template radioInternal( ent1: ref Entity, ent2: [Entity], tname: String ){
   }
 }
 
-
+template selectionInput(e : Entity, checked : Bool, type : String, tname : String){
+  <label radio attributes>
+      <input type = type
+        //either it was submitted or it was not submitted but the value was already p
+        if(checked){ checked = "checked" }
+        name = tname
+        value = e.id
+        all attributes
+      />
+      outputLabel( e )
+    </label>
+}
 
 //output(Entity)
 
@@ -2018,7 +1995,7 @@ template inputIntInternal( i: ref Int, tname: String ){
 }
 
 template output( d : Double ){
-	text( d.toString() )
+  text( d.toString() )
 }
 
 //input/output Float
