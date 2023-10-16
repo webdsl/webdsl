@@ -1667,7 +1667,9 @@ template radioInternal( ent1: ref Entity, ent2: [Entity], tname: String ){
 }
 
 template selectionInput(e : Entity, checked : Bool, type : String, tname : String){
-  <label radio attributes>
+  <label
+    if(type=="radio") {radio attributes}
+  >
       <input type = type
         //either it was submitted or it was not submitted but the value was already p
         if(checked){ checked = "checked" }
