@@ -81,7 +81,7 @@ Example application: https://github.com/webdsl/elib-example
 ### IDE build
 
 - Get an Eclipse with latest WebDSL pluging pre-installed at
-http://buildfarm.metaborg.org/view/WebDSL/job/webdsl-eclipsegen/lastSuccessfulBuild/artifact/dist/eclipse/ or use updatesite http://webdsl.org/update to install plugin.
+http://buildfarm.metaborg.org/view/WebDSL/job/webdsl-eclipsegen/lastSuccessfulBuild/artifact/dist/eclipse/ or use updatesite http://update.webdsl.org/update to install plugin.
 - Import the project into your Eclipse workspace.
 - Right-click the project and select 'Convert to a WebDSL Project', click 'Finish' to use default settings.
 - Build the project with ctrl+alt+b or cmd+alt+b, this will also deploy and run the application on Tomcat.
@@ -91,12 +91,12 @@ http://buildfarm.metaborg.org/view/WebDSL/job/webdsl-eclipsegen/lastSuccessfulBu
 
 There is a separate Eclipse updatesite for getting the webdsl editor with dark mode friendly colors:
 
-    https://webdsl.org/update-dark
+    https://update.webdsl.org/update-dark
 
 Additionally, install the DarkestDark theme plugin from eclipse marketplace.
 
 Due to a restriction in the current editor framework this cannot be switched dynamically.
 
 
-[1]: https://webdsl.org/singlepage/Download
-[2]: https://webdsl.org/selectpage/Download/WebDSLplugin
+[1]: https://webdsl.org/howtos/install/#command-line-interface
+[2]: https://webdsl.org/howtos/install/#webdsl-editor

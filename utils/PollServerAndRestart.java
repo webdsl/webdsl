@@ -14,7 +14,7 @@ public class PollServerAndRestart {
         System.out.println(getDateTime()+" started");
         String cmd     = readArgOrElse(args,0,"./restarttomcat.sh");
         System.out.println(getDateTime()+" 1 cmd = "+cmd);
-        String url     = readArgOrElse(args,1,"http://webdsl.org/home");
+        String url     = readArgOrElse(args,1,"http://webdsl.org");
         System.out.println(getDateTime()+" 2 url = "+url);
         String content = readArgOrElse(args,2,"More information about bugs fixed");
         System.out.println(getDateTime()+" 3 content = "+content);
