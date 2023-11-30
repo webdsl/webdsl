@@ -218,15 +218,17 @@ public class HibernateLog {
 					}
 				}
 			}
-			sout.print("<p>");
+			sout.print("<p id=\"logsql-summary\">");
+			sout.print("<a class=\"cp-logsql-summary\" href=\"javascript:navigator.clipboard.writeText( document.getElementById('jump-to-sqllogdetails').textContent ); void(0);\">copy</a>");
 			if(!(source == null || source.isEmpty())) {
 				sout.print("(");
 				sout.print(source);
 				sout.print(") ");
 			}
-			sout.print("<a name=\"logsql\"></a>SQLs = <span id=\"sqllogcount\">" + _list.size() + "</span>, Time = <span id=\"sqllogtime\">" + time + " ms</span>");
+			sout.print("<a name=\"logsql\"></a><a href=\"#sqllogdetails\" id=\"jump-to-sqllogdetails\">SQLs = <span id=\"sqllogcount\">" + _list.size() + "</span>, Time = <span id=\"sqllogtime\">" + time + " ms</span>");
 			if(_entityCounter != null && _collectionCounter != null) {
-				sout.print(", Entities = <span id=\"sqllogentities\">" + _entities + "</span>, Duplicates = <span id=\"sqllogduplicates\">" + _duplicates + "</span>, Collections = <span id=\"sqllogcollections\">" + _collections + "</span></p>");
+				sout.print(", Entities = <span id=\"sqllogentities\">" + _entities + "</span>, Duplicates = <span id=\"sqllogduplicates\">" + _duplicates + "</span>, Collections = <span id=\"sqllogcollections\">" + _collections + "</span></a></p>");
+				sout.print("<a name=\"sqllogdetails\"></a>");
 				sout.print("<table class=\"sqllogdetails\"><tr><th class=\"sqllogdetailsname\">Entity/Collection</th><th class=\"sqllogdetailsinstances\">Instances</th><th class=\"sqllogdetailsduplicates\">Duplicates</th></tr>");
 				java.util.Iterator<String> entKeys = _entityCounter.keySet().iterator();
 				java.util.Iterator<String> colKeys = _collectionCounter.keySet().iterator();
@@ -270,7 +272,8 @@ public class HibernateLog {
 				sout.print("</table>");
 			}
 			else {
-				sout.print(", Entities = <span id=\"sqllogentities\">?</span>, Duplicates = <span id=\"sqllogduplicates\">?</span>, Collections = <span id=\"sqllogcollections\">?</span></p>");
+				sout.print(", Entities = <span id=\"sqllogentities\">?</span>, Duplicates = <span id=\"sqllogduplicates\">?</span>, Collections = <span id=\"sqllogcollections\">?</span></a></p>");
+				sout.print("<a name=\"sqllogdetails\"></a>");
 			}
 			logindex = 0;
 			for(HibernateLogEntry entry : _list)

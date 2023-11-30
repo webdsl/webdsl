@@ -623,15 +623,23 @@ public abstract class AbstractPageServlet{
         sout.write(s.toString());
 
         if(this.isLogSqlEnabled()){
-            if(logSqlCheckAccess()){
-                sout.print("<hr/><div class=\"logsql\">");
-                sout.print("<script type=\"text/javascript\">$('a.navigate').on('click', function(event) { event.target.href += '?logsql' })</script>");
-                utils.HibernateLog.printHibernateLog(sout, this, null);
-                sout.print("</div>");
-            }
-            else{
-                sout.print("<hr/><div class=\"logsql\">Access to SQL logs was denied.</div>");
-            }
+          sout.print("<hr/><div class=\"logsql\">");
+          if(logSqlCheckAccess()){
+            sout.print("<script type=\"text/javascript\">$('a.navigate').on('click', function(event) { event.target.href += '?logsql' })</script>");
+            utils.HibernateLog.printHibernateLog(sout, this, null);
+          }
+          else{
+            sout.print("<p id=\"logsql-summary\">Access to SQL logs was denied.</p>");
+          }
+          
+          sout.println("<style>");
+          sout.println("#logsql-summary{ background-color: #ffffffc2; position: fixed; padding: 0 10px 0 10px; top: 0px; z-index:999999; }");
+          sout.println("#logsql-summary a[href=\"#sqllogdetails\"] { color: red; }");
+          sout.println("#logsql-summary .cp-logsql-summary { float: right; margin-left: 15px; font-size: smaller; }");
+          sout.println("a[name=\"sqllogdetails\"] { display: block;  padding-top: 20px; }");
+          sout.println("</style>");
+          
+          sout.print("</div>");
         }
 
         for(String script : this.tailJavascripts) {
