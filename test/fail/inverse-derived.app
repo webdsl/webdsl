@@ -1,4 +1,4 @@
-// error: The field A.b is a derived property
+// A.b is a derived property
 
 application test
 
@@ -8,5 +8,5 @@ entity A {
   b : B := B{}
 }
 entity B {
-  a : A (inverse=b)
+  a : A ( inverse = b )
 }

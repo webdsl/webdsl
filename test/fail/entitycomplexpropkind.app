@@ -1,12 +1,9 @@
-// Expected: Reference type or Composite type
+// Encountered: String
 
 application test
 
-section datamodel
+entity User {
+  authoredPapers -> String
+}
 
-  entity User {
-    authoredPapers -> String
-  }
-
-  entity Paper {
-  }
+entity Paper {}

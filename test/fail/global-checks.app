@@ -20,104 +20,88 @@
 //Email 'emailCannotBeOverloaded' is defined multiple times
 application test
 
-define page root () { }
+page root {}
 
 entity User {}
 
-var globalVarNoInit : User;
+var globalVarNoInit: User
 
-var globalVarDouble : User := User {}
-var globalVarDouble : User := User {}
+var globalVarDouble: User := User{}
+var globalVarDouble: User := User{}
 
-var globalVarRequest : User := User {}
-request var globalVarRequest : User := User {}
-
-
-
-
+var globalVarRequest: User := User{}
+request var globalVarRequest: User := User{}
 
 entity EntityDouble {}
 entity EntityDouble {}
 
 entity EntityPropDouble {
-  prop :: String
+  prop : String
 }
 extend entity EntityPropDouble {
-  prop :: String
+  prop : String
 }
 
 entity EntityPropDouble1 {
-  prop :: String
+  prop : String
 }
 entity EntityPropDouble2 : EntityPropDouble1 {
-  prop :: String
+  prop : String
 }
 
 entity EntityFuncDouble {
-  function test(a : Int) {}
+  function test( a :Int ){}
 }
 extend entity EntityFuncDouble {
-  function test(b : Int) {}
+  function test( b: Int ){}
 }
 
 entity EntityNoDoubleFunction {
-  function noMatch(a : Int) {}
-  function noMatch(a : String) {} 
+  function noMatch( a: Int ){}
+  function noMatch( a: String ){}
 }
 
 // Overriding a function is permitted
 entity EntityBase {
-  function noMatch() {}
+  function noMatch {}
 }
 entity EntityOverrideFunction : EntityBase {
-  function noMatch() {}
+  function noMatch {}
 }
-
 
 extend entity EntityExtendNonExisting {}
 
+function globalFunctionDouble( a: Int ): Int { return 1; }
+function globalFunctionDouble( b: Int ): String { return "a"; }
 
+function validExtendFunction {}
+extend function validExtendFunction {}
 
-
-function globalFunctionDouble(a : Int) : Int { return 1; }
-function globalFunctionDouble(b : Int) : String{ return "a"; }
-
-
-
-function validExtendFunction() {}
-extend function validExtendFunction() {}
-
-extend function globalFunctionExtendNothing() {}
+extend function globalFunctionExtendNothing {}
 
 entity EntityWithFunctionExtendNothing {
-  extend function InEntityFunctionExtendNothing() {} 
+  extend function InEntityFunctionExtendNothing {}
 }
 
-
-
-// Should be no problem.
-function GlobalFunctionAndEntity(a : Int) { }
-entity GlobalFunctionAndEntity { }
-
-
+// Should be no problem
+function GlobalFunctionAndEntity( a: Int ){}
+entity GlobalFunctionAndEntity {}
 
 // double template signature
-
-define templateDouble(i : Int) {}
-define templateDouble(j : Int) {}
+template templateDouble( i: Int ){}
+template templateDouble( j: Int ){}
 
 // top-level name clash
+template templateDoubleNoArgs {}
+template templateDoubleNoArgs {}
 
-define templateDoubleNoArgs() {}
-define templateDoubleNoArgs() {}
-
-define page templatePageClash() {}
-define page templatePageClash() { 
-  navigate("x", pagenotfound())
+page templatePageClash {}
+page templatePageClash {
+  navigate pagenotfound { "x" }
 }
 
-define email emailNameClash() {from("") to("") subject("")}
-define email emailNameClash() {from("") to("") subject("")}
+email emailNameClash { from("") to("") subject("") }
+email emailNameClash { from("") to("") subject("") }
 
-define email emailCannotBeOverloaded(a: Int) {from("") to("") subject("")}
-define email emailCannotBeOverloaded(a: String) {from("") to("") subject("")}
+email emailCannotBeOverloaded( a: Int ){ from("") to("") subject("") }
+email emailCannotBeOverloaded( a: String ){ from("") to("") subject("") }

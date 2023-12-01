@@ -1,12 +1,9 @@
-// Expected: Simple type. Encountered: Set<Paper>
+// Encountered: {Paper}
 
 application test
 
-section datamodel
+entity User {
+  authoredPapers :: {Paper}
+}
 
-  entity User {
-    authoredPapers :: Set<Paper>
-  }
-
-  entity Paper {
-  }
+entity Paper {}

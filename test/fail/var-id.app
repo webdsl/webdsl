@@ -3,7 +3,7 @@
 
 application test
 
-entity Test{}
+entity Test {}
 
 expand
   id
@@ -14,7 +14,7 @@ to id {
   var id: Test := Test{}
   request var id := Test{}
 
-  page root(){
+  page root {
     var id := 0
 
     var id := 0 // TemplateVarDeclInitInferred

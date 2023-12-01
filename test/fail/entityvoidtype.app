@@ -1,11 +1,9 @@
-//Attribute type Void is not allowed in attribute
+//Type 'Void' is not allowed
 
 application test
 
-section datamodel
+entity User {
+  authoredPapers : Void
+}
 
-  entity User {
-    authoredPapers :: Void
-  }
-
-  define page root(){}
+page root {}

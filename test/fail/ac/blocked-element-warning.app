@@ -2,11 +2,8 @@
 
 application test
 
-entity User{name :: String}
+entity User { name : String }
 
 principal is User with credentials name
 
-
-  define page root(){
-  
-  }
+page root {}
