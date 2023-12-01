@@ -278,27 +278,33 @@ function testpage {
   contains( "aaa bbb ccc" );
 }
 
+request var wait: Int := 2000
+
 function selectVisibleText( class: String, text: String ) {
+  sleep( wait );
   Select( driver.findElement( SelectBy.className( class ) ) ).selectByVisibleText( text );
-  sleep( 1000 );
 }
 
 function setText( class: String, text: String ) {
+  sleep( wait );
   var elem := driver.findElement( SelectBy.className( class ) );
+  sleep( wait );
   elem.clear();
+  sleep( wait );
   elem.sendKeys( text );
-  sleep( 1000 );
 }
 
 function submit( i: Int ){
+  sleep( wait );
   driver.getSubmits()[ i ].click();
-  sleep( 1000 );
 }
 
 function contains( s: String ){
+  sleep( wait );
   assert( driver.getPageSource().contains( s ) );
 }
 
 function notcontains( s: String ){
+  sleep( wait );
   assert( ! driver.getPageSource().contains( s ) );
 }
