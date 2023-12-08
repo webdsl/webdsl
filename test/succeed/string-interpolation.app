@@ -119,3 +119,18 @@ var to1 := TestOutput { name := "to1name" }
 template output( t: TestOutput ){
   ~t.name
 }
+
+
+test {
+  assert( testfuncallwith2args() == "testfirstsecond" );
+}
+
+function testfuncallwith2args: String {
+  var firstArg := "first";
+  var secondArg := "second";
+  return "test~concat( firstArg, secondArg )";
+}
+
+function concat( s1: String, s2: String ): String {
+  return s1 + s2;
+}
