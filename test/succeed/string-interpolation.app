@@ -149,3 +149,17 @@ entity TmpEnt {
 function duration( tz: DateTime, tz2: DateTime ): String {
   return "success";
 }
+
+
+test {
+  assert( rendertemplate( testing ) == "<div class=\"false\"></div>" );
+}
+
+template testing {
+  var set: {TmpEnt}
+  testattr( set )
+}
+
+template testattr( overrideSet: ref {TmpEnt} ){
+  div[ class = "~(overrideSet.length > 0)" ]
+}
