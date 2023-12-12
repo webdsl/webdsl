@@ -139,9 +139,16 @@ exports %% Expression language
     Exp "." Id             -> Exp {cons("FieldAccess")}
 
     CollectionExp "[" Exp "]" -> Exp {cons("CollectionIndex")}
-    SimpleExp -> CollectionExp
+    %% CollectionExp is a workaround for a priorities issue in SDF2 related to Exp "[" Exp "]"
+    VarId -> CollectionVar {cons("Var")}
+    CollectionVar -> CollectionExp
+    CollectionCreation -> CollectionExp
+    CollectionExp "." Id -> CollectionExp {cons("FieldAccess")}
+    Id "(" {Exp ","}* ")" -> CollectionExp {cons("ThisCall")}
+    CollectionExp "." Id "(" {Exp ","}* ")" -> CollectionExp {cons("Call")}
     CollectionExp "[" Exp "]" -> CollectionExp {cons("CollectionIndex")}
     ForExp -> CollectionExp
+    InvokeTemplate -> CollectionExp
     "(" Exp ")" -> CollectionExp {bracket}
 
     Sort "{" ObjectPropertyAssignment* "}"         -> ObjectCreation {cons("ObjectCreation")}
@@ -155,15 +162,16 @@ exports %% Expression language
     Exp ":=" Exp             -> Assignment {cons("Assignment")}
     Assignment				-> Exp
 
-    "[" Mapping* "]"       -> Exp {cons("MapCreation"), avoid} %%avoid to prevent ambiguity between with empty untyped list creation and empty map creation
+    CollectionCreation -> Exp
+
+    "[" Mapping* "]"       -> CollectionCreation {cons("MapCreation"), avoid} %%avoid to prevent ambiguity between with empty untyped list creation and empty map creation
     Exp "->" Exp           -> Mapping {cons("Mapping")}
 
-    "[" {Exp ","}* "]"     -> Exp {cons("ListCreation")}
+    "[" {Exp ","}* "]"     -> CollectionCreation {cons("ListCreation")}
+    "{" {Exp ","}+ "}"     -> CollectionCreation {cons("SetCreation")}
 
-    "{" {Exp ","}+ "}"     -> Exp {cons("SetCreation")}
-
-    "List" "<" Sort ">" "(" {Exp ","}* ")" -> Exp {cons("TypedListCreation"), prefer}
-    "Set" "<" Sort ">" "(" {Exp ","}* ")" -> Exp {cons("TypedSetCreation"), prefer}
+    "List" "<" Sort ">" "(" {Exp ","}* ")" -> CollectionCreation {cons("TypedListCreation"), prefer}
+    "Set" "<" Sort ">" "(" {Exp ","}* ")" -> CollectionCreation {cons("TypedSetCreation"), prefer}
 
   lexical syntax
     Id -> GlobalFunCallId  %% hook for reject rules on global function call names
@@ -286,15 +294,16 @@ context-free syntax %% email functions
 
   Id "(" {Exp ","}* ")" -> EmailCall {cons("EmailCall")}
 
-  "renderemail" "(" EmailCall ")" -> Exp {cons("RenderEmailFunctionCall"),prefer}
+  "renderemail" "(" EmailCall ")" -> InvokeTemplate {cons("RenderEmailFunctionCall"),prefer}
   "email" "(" EmailCall ")" -> Exp {cons("EmailFunctionCall"),prefer}
   "email" EmailCall -> Exp {cons("EmailFunctionCall"),prefer}
   "sendemail" "(" EmailCall ")" -> Exp {cons("SendEmailFunctionCall"),prefer}
 
 context-free syntax %% function to execute a particular template phase
 
-  "rendertemplate" "(" TemplateCall ")" -> Exp {cons("RenderTemplateFunctionCall"),prefer}
-  "validatetemplate" "(" TemplateCall ")" -> Exp {cons("ValidateTemplateFunctionCall"),prefer}
+  InvokeTemplate -> Exp
+  "rendertemplate" "(" TemplateCall ")" -> InvokeTemplate {cons("RenderTemplateFunctionCall"),prefer}
+  "validatetemplate" "(" TemplateCall ")" -> InvokeTemplate {cons("ValidateTemplateFunctionCall"),prefer}
 
 context-free syntax %% template elements passed as template argument
 
