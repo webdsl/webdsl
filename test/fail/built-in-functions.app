@@ -1,4 +1,5 @@
-//#9 collides with a generated function
+//#11 collides with a generated function
+//warning: 'loadEntity' will always return an entity, even if it doesn't exist
 
 application test
 
@@ -16,8 +17,15 @@ function rollback {}
 function rollback( i: Int ){}
 function rollback( i: Int, s: String ){}
 
+function loadEntity( ent: String, eid: UUID ){}
+function getEntity( ent: String, eid: UUID ){}
+
 entity Ent {
   function replace(){}
   function cancel(){}
   function rollback(){}
+}
+
+function load(eid : UUID){
+	loadEntity("Ent", eid);
 }
