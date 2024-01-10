@@ -46,6 +46,22 @@ public final class Utils {
       }
       return b != null && a.equals(b);
     }
+
+	public static boolean equalTuple(Object[] a, Object b) {
+		if (a == null) {
+			return b == null;
+		}
+		if (b == null || !(b instanceof Object[]) || a.length != ((Object[]) b).length) {
+			return false;
+		}
+		for (int i = 0; i < a.length; i++) {
+			if (!equal(a[i], ((Object[]) b)[i])) {
+				return false;
+			}
+		}
+		return true;
+	}
+
 //    public static boolean equal(Long b, Integer a) { return equal(a, b); }
 //    public static boolean equal(Integer a, Long b) {
 //      if(a == null || b == null) {
