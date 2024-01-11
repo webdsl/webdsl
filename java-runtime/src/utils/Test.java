@@ -50,13 +50,7 @@ public abstract class Test {
     }
 
 	public void assertEquals(Object o1, Object o2, String message, String loc) {
-		boolean result;
-		if (o1 instanceof Object[]) {
-			result = org.webdsl.tools.Utils.equalTuple((Object[]) o1, o2);
-		} else {
-			result = org.webdsl.tools.Utils.equal(o1, o2);
-		}
-		assertTrue(result, message + "\nassert equals\nfirst value was:  " + o1 + "\nsecond value was: " + o2, loc);
+		assertTrue(org.webdsl.tools.Utils.equal(o1, o2), message + "\nassert equals\nfirst value was:  " + o1 + "\nsecond value was: " + o2, loc);
 	}
 
     public <T extends Number, Y extends Number> void assertEquals(T o1, Y o2, String message, String loc){
@@ -71,13 +65,7 @@ public abstract class Test {
     }
 
 	public void assertNotSame(Object o1, Object o2, String message, String loc) {
-		boolean result;
-		if (o1 instanceof Object[]) {
-			result = org.webdsl.tools.Utils.equalTuple((Object[]) o1, o2);
-		} else {
-			result = org.webdsl.tools.Utils.equal(o1, o2);
-		}
-		assertTrue(!result, message + "\nassert not same\nfirst value was:  " + o1 + "\nsecond value was: " + o2, loc);
+		assertTrue(!org.webdsl.tools.Utils.equal(o1, o2), message + "\nassert not same\nfirst value was:  " + o1 + "\nsecond value was: " + o2, loc);
 	}
 
     public void assertNotSame(Object o1, Object o2, String loc){

@@ -50,6 +50,16 @@ test {
   assert( (null as Int, 1) != nullvals );
   assert( (null as Int, 1) != (null as Int, 2) );
   assert( (null as Int, 1) == (null as Int, 1) );
+
+  xlist.remove( (1,"123") );
+  assert( xlist.length == 1 );
+  xlist.remove( (1,"123") );
+  assert( xlist.length == 0 );
+
+  var xset: {(Int,String)};
+  xset.add( returntuple() ); 
+  xset.add( (1,"123") );
+  assert( xset.length == 1 ); 
 }
 
 function returntuple: (Int, String) {
