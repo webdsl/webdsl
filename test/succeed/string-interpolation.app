@@ -19,6 +19,13 @@ entity Tmp {
   log(navigate( navfun( this ) ));
     return "~navigate( navfun( this ) )";
   }
+  function multipleRefsInParentheses: String {
+    return "bla: ~(n == null || get() == "")";
+  }
+}
+
+test {
+  assert( t1.multipleRefsInParentheses() == "bla: true" );
 }
 
 var t1 := Tmp { name := "t1" i := 1 }
