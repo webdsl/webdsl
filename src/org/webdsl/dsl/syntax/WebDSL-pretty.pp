@@ -1424,10 +1424,10 @@
    ExpVarArgForInferred                                   -- KW["for"] KW["("] _1 KW["in"] _2 _3 KW[")"] KW["{"] _4 KW["}"],
    ExpVarArgForInferred.4:iter-star                       -- _1 KW[","],
 
-   HTMLWrapper                                            -- H[ KW["htmlwrapper"] _1 _2 _3 ],
+   HTMLWrapper                                            -- H[ KW["htmlwrapper"] _1 _2 _3 _4 ],
    HTMLWrapperAssigns                                     -- KW["["] _1 KW["]"],
    HTMLWrapperMultiple                                    -- V is=2[ H[ KW["htmlwrapper"] KW["{"] ] _1 ] KW["}"],
-   HTMLWrapperBody                                        -- H[ _1 _2 _3 ],
+   HTMLWrapperBody                                        -- H[ _1 _2 _3 _4 ],
 
    TemplateId                                             -- KW["id"],
 
