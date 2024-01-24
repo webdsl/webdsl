@@ -18,7 +18,7 @@ public class BuildProperties {
     
     protected static boolean wikitext_hardwraps = false;
     public static boolean isWikitextHardwrapsEnabled(){
-    	return wikitext_hardwraps;
+      return wikitext_hardwraps;
     }
     
     protected static boolean wikitext_anchors = false;
@@ -28,12 +28,12 @@ public class BuildProperties {
     
     protected static int numcachedpages = 250; // default value, used for both anonymous and logged in page cache
     public static int getNumCachedPages(){
-    	return numcachedpages;
+      return numcachedpages;
     }
     
     protected static int transactionRetries = 3;
     public static int getTransactionRetries(){
-    	return transactionRetries;
+      return transactionRetries;
     }
     
     protected static String appUrlForRenderWithoutRequest;
@@ -41,38 +41,59 @@ public class BuildProperties {
         return appUrlForRenderWithoutRequest;
     }
     
+    protected static int sessionExpirationHoursAfterLastUse = 180*24;
+    public static int getSessionExpirationHoursAfterLastUse(){
+      return sessionExpirationHoursAfterLastUse;
+    }
+    
     static {
         try {    
             props.load(BuildProperties.class.getResourceAsStream("/build.properties"));
+            
             String requestlogprop = props.getProperty("webdsl.requestlog"); 
             if("true".equals(requestlogprop)){
                 isRequestLoggingEnabled = true;
             }
+            
             dbmode = props.getProperty("webdsl.DBMODE");
+
             String hardwraps = props.getProperty("webdsl.wikitext_hardwraps");
             if("true".equals(hardwraps)){
-            	wikitext_hardwraps = true; 
+                wikitext_hardwraps = true; 
             }
+            
             String anchors = props.getProperty("webdsl.wikitext_anchors");
             if("true".equals(anchors)){
-              wikitext_anchors = true; 
+                wikitext_anchors = true; 
             }
+            
             String numcached = props.getProperty("webdsl.numcachedpages");
             try{
-            	numcachedpages = Integer.parseInt(numcached);	
-            	org.webdsl.logging.Logger.info("numcachedpages: "+numcachedpages);
+                numcachedpages = Integer.parseInt(numcached);  
+                org.webdsl.logging.Logger.info("numcachedpages: "+numcachedpages);
             }
             catch(NumberFormatException e){
-            	org.webdsl.logging.Logger.info("numcachedpages not specified, using: "+numcachedpages);
+                org.webdsl.logging.Logger.info("numcachedpages not specified, using: "+numcachedpages);
             }
+            
             String retries = props.getProperty("webdsl.transactionretries");
             try{
-            	transactionRetries = Integer.parseInt(retries);	
-            	org.webdsl.logging.Logger.info("transactionretries: "+retries);
+                transactionRetries = Integer.parseInt(retries);  
+                org.webdsl.logging.Logger.info("transactionretries: "+retries);
             }
             catch(NumberFormatException e){
-            	org.webdsl.logging.Logger.info("transactionretries not specified, using: "+transactionRetries);
+                org.webdsl.logging.Logger.info("transactionretries not specified, using: "+transactionRetries);
             }
+            
+            String sessionExpHours = props.getProperty("webdsl.sessionexpirationhours");
+            try{
+                sessionExpirationHoursAfterLastUse = Integer.parseInt(sessionExpHours);
+                org.webdsl.logging.Logger.info("sessionexpirationhours: "+ sessionExpHours + " (" + sessionExpirationHoursAfterLastUse / 24 + "d" + sessionExpirationHoursAfterLastUse % 24 + "h after last use)");
+            }
+            catch(NumberFormatException e){
+                org.webdsl.logging.Logger.info("sessionexpirationhours not specified, using: "+ sessionExpirationHoursAfterLastUse + " (" + sessionExpirationHoursAfterLastUse / 24 + "d" + sessionExpirationHoursAfterLastUse % 24 + "h)");
+            }
+            
             setAppUrlForRenderWithoutRequest();            
             
         }
@@ -85,13 +106,13 @@ public class BuildProperties {
     }
     
     private static void setAppUrlForRenderWithoutRequest(){
-    	appUrlForRenderWithoutRequest = props.getProperty("webdsl.appurlforrenderwithoutrequest");
+      appUrlForRenderWithoutRequest = props.getProperty("webdsl.appurlforrenderwithoutrequest");
         if (appUrlForRenderWithoutRequest == null || appUrlForRenderWithoutRequest.isEmpty()){
-        	appUrlForRenderWithoutRequest = null;
+          appUrlForRenderWithoutRequest = null;
         } else {
-        	appUrlForRenderWithoutRequest = appUrlForRenderWithoutRequest.trim();
-        	while( appUrlForRenderWithoutRequest.endsWith( "/" ) )
-        		appUrlForRenderWithoutRequest = appUrlForRenderWithoutRequest.substring( 0, appUrlForRenderWithoutRequest.length()-1 );
+          appUrlForRenderWithoutRequest = appUrlForRenderWithoutRequest.trim();
+          while( appUrlForRenderWithoutRequest.endsWith( "/" ) )
+            appUrlForRenderWithoutRequest = appUrlForRenderWithoutRequest.substring( 0, appUrlForRenderWithoutRequest.length()-1 );
         }
     }
     

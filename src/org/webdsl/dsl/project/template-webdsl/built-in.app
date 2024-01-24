@@ -94,8 +94,8 @@ function internalUpdateSessionManagerTimeout() : Bool{
 }
 
 function internalCleanupSessionManagerEntities(){
-  var sessiontimeout := 6; //months
-  var n: DateTime := now().addMonths( -1 * sessiontimeout );
+  var sessiontimeout := BuildProperties.getSessionExpirationHoursAfterLastUse(); //hours
+  var n: DateTime := now().addHours( -1 * sessiontimeout );
   var ses := from SessionManager as sc where sc.lastUse is null or sc.lastUse < ~n limit 25; //use limit to avoid loading all obsolete entities in one transaction
   for( s: SessionManager in ses ){
     s.delete();
@@ -1035,6 +1035,15 @@ native class org.webdsl.lang.ReflectionProperty as ReflectionProperty{
   getName(): String
   hasNotNullAnnotation(): Bool
   getFormatAnnotation(): String
+}
+
+//build properties
+native class utils.BuildProperties as BuildProperties{
+  static getSessionExpirationHoursAfterLastUse() : Int
+  static getAppUrlForRenderWithoutRequest() : String
+  static isWikitextHardwrapsEnabled() : Bool
+  static getTransactionRetries() : Int
+  static getNumCachedPages() : Int
 }
 
 //validation wrapper for submit and submitlink
