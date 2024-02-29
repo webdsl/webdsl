@@ -12,6 +12,7 @@
 //Type 'Entity' is not allowed
 //#2 Expected: primitive or Entity type
 //#1 Type not defined
+//Invalid property annotation 'cached'
 
 application test
 
@@ -66,6 +67,8 @@ entity Test {
   et : Entity (transient)
   et1 -> Entity (transient)
   dt : Double (transient)
+
+  derivedprop : String (cached) := ""  // should be cache
 }
 
 define page root() { }
