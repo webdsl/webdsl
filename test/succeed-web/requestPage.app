@@ -9,7 +9,7 @@ application test
     navigate(test2(0,"",u1)){"test2"}
     navigate(test3(0,u1,"")){"test3"}
     navigate(test4(0,u1,"",0.0)){"test4"}
-        navigate(root()){"root"}
+    navigate(root()){"root"}
   }
   
   entity User {
@@ -73,6 +73,18 @@ application test
       log(d.getTitle());
       assert(text == d.getTitle());
     }
+  }
+  
+  test {
+    var d : WebDriver := getHtmlUnitDriver();
+    //construct URL with too few arguments
+    var urlTooFewArgs := navigate(test(u1,"")).replace("test", "test2");
+    d.get( urlTooFewArgs );
+    assert( d.getPageSource().contains( "custom page not found" ) );
+    //construct URL with too many arguments
+    var urlTooManyArgs := navigate(test(u1,"bla")) + "/more/args";
+    d.get( urlTooManyArgs );
+    assert( d.getPageSource().contains( "custom page not found" ) );
   }
   
 
