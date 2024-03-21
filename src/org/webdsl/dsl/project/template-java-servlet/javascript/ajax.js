@@ -217,7 +217,9 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfe
       if (req.readyState == 4) {
         if (req.status == 200) {
           clientExecute(req.responseText, thisobject);
-        } else if (req.status != 200) {
+        } else if (req.status == 413) {
+          doShowError('The file is too large to upload. Please try compressing the file or uploading a smaller selection.');
+        } else {
           showError(thisobject, 'Error while handling this action, the server returned status ' + req.status + '. The action may no longer be available. Copy your unsaved changes before leaving/refreshing this page.');
         }
         if (loadfeedback) {
@@ -235,6 +237,7 @@ function serverInvoke(template, action, jsonparams, thisform, thisobject, loadfe
     }
   );
 }
+
 
 function showError(thisobject, genericError) {
   var msg = window.actionFailureMessage !== undefined ? actionFailureMessage : genericError;
