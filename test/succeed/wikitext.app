@@ -98,7 +98,40 @@ application text
     assert( rawRendered.contains("</li>") );
     assert( rendered.contains("</div>") );
     assert( rawRendered.contains("</div>") );
-  } 
+  }
+  
+  test formatting{
+    // test TOC (table of contents) generation
+    //no TOC tag
+    var noTOC : WikiText := "# level1-header  \n\ntext  \n\n## level2-header  \n\ntext ";
+    var rendered := rendertemplate( output(noTOC) );
+    
+    assert( !rendered.contains("<ul>") );
+    
+    var tocDefault : WikiText := "[TOC]\n" + noTOC;
+    //default renders TOC for level 2 and up headings
+    rendered := rendertemplate( output(tocDefault) );
+    assert( rendered.contains("<ul>") );
+    assert( !rendered.contains("<li><a href=\"#level1-header\"") );
+    assert( rendered.contains("<li><a href=\"#level2-header\"") );
+
+    var tocLevel1 : WikiText := "[TOC levels=1]\n" + noTOC;
+    //default renders TOC for level 2 and up headings
+    rendered := rendertemplate( output(tocLevel1) );
+    assert( rendered.contains("<ul>") );
+    assert( rendered.contains("<li><a href=\"#level1-header\"") );
+    assert( !rendered.contains("<li><a href=\"#level2-header\"") );
+
+    var tocLevel12 : WikiText := "[TOC levels=1-2]\n" + noTOC;
+    //default renders TOC for level 2 and up headings
+    rendered := rendertemplate( output(tocLevel12) );
+    assert( rendered.contains("<ul>") );
+    assert( rendered.contains("<li><a href=\"#level1-header\"") );
+    assert( rendered.contains("<li><a href=\"#level2-header\"") );
+    
+
+    
+  }
   
   test callStringArg{
     test("4343trg" as WikiText);

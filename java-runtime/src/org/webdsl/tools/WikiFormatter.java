@@ -60,9 +60,10 @@ public final class WikiFormatter{
     whitelist.addEnforcedAttribute("a", "rel", "nofollow");
     
     
-    int pegdownOptions = Extensions.ALL & ~Extensions.HARDWRAPS;
+    int pegdownOptions = Extensions.ALL & ~Extensions.HARDWRAPS | Extensions.TOC;
     if(!BuildProperties.isWikitextAnchorsEnabled()){
       pegdownOptions &= ~Extensions.ANCHORLINKS;
+      pegdownOptions &= ~Extensions.TOC;
     }
     MutableDataSet defaultOptions = new MutableDataSet( PegdownOptionsAdapter.flexmarkOptions(true, pegdownOptions) );
     defaultOptions.set(WikiLinkExtension.LINK_PREFIX, "");
