@@ -44,7 +44,7 @@ public abstract class AbstractPageServlet{
     public String placeholderId = "1";
     
     static{
-    	ajax_js_include_name = "ajax.js";
+      ajax_js_include_name = "ajax.js";
     }
     
     public void serve(HttpServletRequest request, HttpServletResponse httpServletResponse, Map<String, String> parammap, Map<String, List<String>> parammapvalues, Map<String,List<utils.File>> fileUploads) throws Exception
@@ -76,24 +76,24 @@ public abstract class AbstractPageServlet{
         this.isOptimizationEnabled = false;
       }
       if(parammap.get("logsql") != null){
-    	  this.isLogSqlEnabled = true;
-    	  this.isPageCacheDisabled = true;
-    	  reqAppender = utils.RequestAppender.getInstance();
+        this.isLogSqlEnabled = true;
+        this.isPageCacheDisabled = true;
+        reqAppender = utils.RequestAppender.getInstance();
       }
       if(reqAppender != null){
-    	  reqAppender.addRequest(rle.getId().toString());
+        reqAppender.addRequest(rle.getId().toString());
       }
       if(parammap.get("nocache") != null){
-    	  this.isPageCacheDisabled = true;
+        this.isPageCacheDisabled = true;
       }
       initRequestVars();
       hibernateSession = utils.HibernateUtil.getCurrentSession();
       hibernateSession.beginTransaction();
       if(isReadOnly){
-    	  hibernateSession.setFlushMode(org.hibernate.FlushMode.MANUAL);
+        hibernateSession.setFlushMode(org.hibernate.FlushMode.MANUAL);
       }
       else{
-    	  hibernateSession.setFlushMode(org.hibernate.FlushMode.COMMIT);
+        hibernateSession.setFlushMode(org.hibernate.FlushMode.COMMIT);
       }
       try
       {
@@ -130,7 +130,7 @@ public abstract class AbstractPageServlet{
         }
 
         if(isNotValid()){
-      	  // mark transaction so it will be aborted at the end
+          // mark transaction so it will be aborted at the end
           // entered form data can be used to update the form on the client with ajax, taking into account if's and other control flow template elements
           // this also means that data in vars/args and hibernate session should not be cleared until form is rendered
           abortTransaction();
@@ -145,7 +145,7 @@ public abstract class AbstractPageServlet{
           // regular render, or failed action render
           if( hasNotExecutedAction() || isNotValid() ){
             // ajax replace performed during validation, assuming that handles all validation
-        	// all inputajax templates use rollback() to prevent making actual changes -> check for isRollback()
+          // all inputajax templates use rollback() to prevent making actual changes -> check for isRollback()
             if(isAjaxRuntimeRequest() && outstream.length() > 0 && isRollback()){
               response.getWriter().write("[");
               response.getWriter().write(outstream);
@@ -179,7 +179,7 @@ public abstract class AbstractPageServlet{
                 response.getWriter().write("[{\"action\":\"replace\",\"id\":\"" + submittedFormId + "\",\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");
               }
               else{
-            	response.getWriter().write("[{\"action\":\"replace\",\"id\":{submitid:'" + submittedSubmitId + "'},\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");  
+              response.getWriter().write("[{\"action\":\"replace\",\"id\":{submitid:'" + submittedSubmitId + "'},\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");  
               }
             }
             // 1 regular render without any action being executed
@@ -216,8 +216,8 @@ public abstract class AbstractPageServlet{
                     if(addComma){ commands.append(","); }
                     else { addComma = true; }
                     commands.append("{\"action\":\"replace\",\"id\":\"")
-                	            .append(ph)
-                	            .append("\",\"value\":\"")
+                              .append(ph)
+                              .append("\",\"value\":\"")
                               .append(org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(reRenderPlaceholdersContent.get(ph)))
                               .append("\"}");
                 }
@@ -302,13 +302,13 @@ public abstract class AbstractPageServlet{
             hibernateSession.getTransaction().rollback();
           }
           else{
-       	    hibernateSession.flush();
-        	validateEntities();
+             hibernateSession.flush();
+          validateEntities();
             hibernateSession.getTransaction().commit();
             invalidatePageCacheIfNeeded();
           }
           if(exceptionInHibernateInterceptor != null){
-          	throw exceptionInHibernateInterceptor;
+            throw exceptionInHibernateInterceptor;
           }
           response.sendContent();
         }
@@ -316,14 +316,14 @@ public abstract class AbstractPageServlet{
       }
 
       catch(utils.MultipleValidationExceptions mve){
-    	  String url = getRequestURL();
-    	  org.webdsl.logging.Logger.error("Validation exceptions occurred while handling request URL [ " + url + " ]. Transaction is rolled back.");
-    	  for(utils.ValidationException vex : mve.getValidationExceptions()){
-    		  org.webdsl.logging.Logger.error( "Validation error: " + vex.getErrorMessage() , vex );
-    	  }
-    	  hibernateSession.getTransaction().rollback();
-    	  setValidated(false);
-    	  throw mve;
+        String url = getRequestURL();
+        org.webdsl.logging.Logger.error("Validation exceptions occurred while handling request URL [ " + url + " ]. Transaction is rolled back.");
+        for(utils.ValidationException vex : mve.getValidationExceptions()){
+          org.webdsl.logging.Logger.error( "Validation error: " + vex.getErrorMessage() , vex );
+        }
+        hibernateSession.getTransaction().rollback();
+        setValidated(false);
+        throw mve;
       }
       catch(utils.EntityNotFoundException enfe) {
         org.webdsl.logging.Logger.error( enfe.getMessage() + ". Transaction is rolled back." );
@@ -331,6 +331,13 @@ public abstract class AbstractPageServlet{
           hibernateSession.getTransaction().rollback();
         }
         throw enfe;
+      }
+      catch (AjaxWithGetRequestException awge) {
+        if(hibernateSession.isOpen()){
+          hibernateSession.getTransaction().rollback();
+        }
+        org.webdsl.logging.Logger.error("Ajax template request using 'GET' method is not allowed, showing 404.");
+        throw awge;
       }
       catch (Exception e) {
         String url = getRequestURL();
@@ -353,23 +360,23 @@ public abstract class AbstractPageServlet{
     // LoadingCache is thread-safe
     public static boolean pageCacheEnabled = utils.BuildProperties.getNumCachedPages() > 0;
     public static Cache<String, CacheResult> cacheAnonymousPages =
-    		CacheBuilder.newBuilder()
-    		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
+        CacheBuilder.newBuilder()
+        .maximumSize(utils.BuildProperties.getNumCachedPages()).build();
     public boolean invalidateAllPageCache = false;
     protected boolean shouldTryCleanPageCaches = false;
     public String invalidateAllPageCacheMessage;
     public void invalidateAllPageCache(String entityname){
-    	commandingPage.invalidateAllPageCacheInternal(entityname);
+      commandingPage.invalidateAllPageCacheInternal(entityname);
     }
     private void invalidateAllPageCacheInternal(String entityname){
-    	invalidateAllPageCache = true;
-    	invalidateAllPageCacheMessage = entityname;
+      invalidateAllPageCache = true;
+      invalidateAllPageCacheMessage = entityname;
     }
     public void shouldTryCleanPageCaches(){
-  	  commandingPage.shouldTryCleanPageCachesInternal();
+      commandingPage.shouldTryCleanPageCachesInternal();
     }
     private void shouldTryCleanPageCachesInternal(){
-    	shouldTryCleanPageCaches = true;
+      shouldTryCleanPageCaches = true;
     }
     
     public static void doInvalidateAllPageCache( String triggerReason ) {
@@ -383,88 +390,88 @@ public abstract class AbstractPageServlet{
     }
 
     public static Cache<String, CacheResult> cacheUserSpecificPages =
-    		CacheBuilder.newBuilder()
-    		.maximumSize(utils.BuildProperties.getNumCachedPages()).build();
+        CacheBuilder.newBuilder()
+        .maximumSize(utils.BuildProperties.getNumCachedPages()).build();
     public boolean invalidateUserSpecificPageCache = false;
     public String invalidateUserSpecificPageCacheMessage;
     
     public void invalidateUserSpecificPageCache(String entityname){
-    	commandingPage.invalidateUserSpecificPageCacheInternal(entityname);
+      commandingPage.invalidateUserSpecificPageCacheInternal(entityname);
     }
     private void invalidateUserSpecificPageCacheInternal(String entityname){
-    	invalidateUserSpecificPageCache = true;
-    	String propertySetterTrace = Warning.getStackTraceLineAtIndex(4);
-    	invalidateUserSpecificPageCacheMessage = entityname + " - " + propertySetterTrace;
+      invalidateUserSpecificPageCache = true;
+      String propertySetterTrace = Warning.getStackTraceLineAtIndex(4);
+      invalidateUserSpecificPageCacheMessage = entityname + " - " + propertySetterTrace;
     }
     
     public boolean pageCacheWasUsed = false;
 
     public void invalidatePageCacheIfNeeded(){
-    	if(pageCacheEnabled && shouldTryCleanPageCaches){
-	    	if(invalidateAllPageCache){
-	    	  doInvalidateAllPageCache("change in: "+invalidateAllPageCacheMessage);
-	    	}
-	    	else if(invalidateUserSpecificPageCache){
-	    		doInvalidateUserSpecificPageCache("change in: "+invalidateUserSpecificPageCacheMessage);
-	    	}
-    	}
+      if(pageCacheEnabled && shouldTryCleanPageCaches){
+        if(invalidateAllPageCache){
+          doInvalidateAllPageCache("change in: "+invalidateAllPageCacheMessage);
+        }
+        else if(invalidateUserSpecificPageCache){
+          doInvalidateUserSpecificPageCache("change in: "+invalidateUserSpecificPageCacheMessage);
+        }
+      }
     }
 
     public void renderOrInitAction() throws IOException, RuntimeException{
-    	String key = getRequestURL();
-    	String s = "";
-    	Cache<String, CacheResult> cache = null;
-    	AbstractDispatchServletHelper servlet = ThreadLocalServlet.get();
-    	if( // not using page cache if:
-    		this.isPageCacheDisabled // ?nocache added to URL
-    		|| this.isPostRequest() // post parameters are not included in cache key
-    		|| isNotValid() // data validation errors need to be rendered
-    		|| !servlet.getIncomingSuccessMessages().isEmpty() // success messages need to be rendered
-    	){
-    		StringWriter renderedContent = renderPageOrTemplateContents();
-    		if(!mimetypeChanged){
-    			s = renderResponse(renderedContent);
-    		}
-    		else{
-    			s = renderedContent.toString();
-    		}
-    	}
-    	else{ // using page cache
-    		if( // use user-specific page cache if:
-    			servlet.sessionHasChanges() // not necessarily login, any session data changes can be included in a rendered page
-    		    || webdsl.generated.functions.loggedIn_.loggedIn_() // user might have old session from before application start, this check is needed to avoid those logged in pages ending up in the anonymous page cache
-    		){
-    			key = key + servlet.getSessionManager().getId();
-    			cache = cacheUserSpecificPages;
-    		}
-    		else{
-    			cache = cacheAnonymousPages;
-    		}
-    		try{
-    			pageCacheWasUsed = true;
-    			CacheResult result = cache.get(key,
-    			new Callable<CacheResult>(){
-    				public CacheResult call(){
-    					// System.out.println("key not found");
-    					pageCacheWasUsed = false;
-    					StringWriter renderedContent = renderPageOrTemplateContents();
-    					CacheResult result = new CacheResult();
-    					if(!mimetypeChanged){
-    						result.body = renderResponse(renderedContent);
-    					}
-    					else{
-    						result.body = renderedContent.toString();
-    					}
-    					result.mimetype = getMimetype();
-    					return result;
-    				}
-    			});
-    			s = result.body;
-    			setMimetype(result.mimetype);
-    		}
-    		catch(java.util.concurrent.ExecutionException e){
-    			e.printStackTrace();
-    		}
+      String key = getRequestURL();
+      String s = "";
+      Cache<String, CacheResult> cache = null;
+      AbstractDispatchServletHelper servlet = ThreadLocalServlet.get();
+      if( // not using page cache if:
+        this.isPageCacheDisabled // ?nocache added to URL
+        || this.isPostRequest() // post parameters are not included in cache key
+        || isNotValid() // data validation errors need to be rendered
+        || !servlet.getIncomingSuccessMessages().isEmpty() // success messages need to be rendered
+      ){
+        StringWriter renderedContent = renderPageOrTemplateContents();
+        if(!mimetypeChanged){
+          s = renderResponse(renderedContent);
+        }
+        else{
+          s = renderedContent.toString();
+        }
+      }
+      else{ // using page cache
+        if( // use user-specific page cache if:
+          servlet.sessionHasChanges() // not necessarily login, any session data changes can be included in a rendered page
+            || webdsl.generated.functions.loggedIn_.loggedIn_() // user might have old session from before application start, this check is needed to avoid those logged in pages ending up in the anonymous page cache
+        ){
+          key = key + servlet.getSessionManager().getId();
+          cache = cacheUserSpecificPages;
+        }
+        else{
+          cache = cacheAnonymousPages;
+        }
+        try{
+          pageCacheWasUsed = true;
+          CacheResult result = cache.get(key,
+          new Callable<CacheResult>(){
+            public CacheResult call(){
+              // System.out.println("key not found");
+              pageCacheWasUsed = false;
+              StringWriter renderedContent = renderPageOrTemplateContents();
+              CacheResult result = new CacheResult();
+              if(!mimetypeChanged){
+                result.body = renderResponse(renderedContent);
+              }
+              else{
+                result.body = renderedContent.toString();
+              }
+              result.mimetype = getMimetype();
+              return result;
+            }
+          });
+          s = result.body;
+          setMimetype(result.mimetype);
+        }
+        catch(java.util.concurrent.ExecutionException e){
+          e.printStackTrace();
+        }
         catch (com.google.common.util.concurrent.UncheckedExecutionException e) {
           Throwable cause = e.getCause();
           if (cause instanceof AjaxWithGetRequestException) {
@@ -473,22 +480,22 @@ public abstract class AbstractPageServlet{
               throw e;
           }
         }
-    	}
+      }
 
-    	// redirect in init action can be triggered with GET request, the render call in the line above will execute such inits
-    	if( !isPostRequest() && isRedirected() ){
-    		redirect();
-    		if(cache != null){ cache.invalidate(key); } 
-    	}
-    	else if( download != null ){ //File.download() executed in page/template init block
-    		download();
-    		if(cache != null){ cache.invalidate(key); } // don't cache binary file response in this page response cache, can be cached on client with expires header
-    	}
-    	else{
-    		response.setContentType(getMimetype());
-    		PrintWriter sout = response.getWriter(); //reponse.getWriter() must be called after file download checks
-    		sout.write(s);
-    	}
+      // redirect in init action can be triggered with GET request, the render call in the line above will execute such inits
+      if( !isPostRequest() && isRedirected() ){
+        redirect();
+        if(cache != null){ cache.invalidate(key); } 
+      }
+      else if( download != null ){ //File.download() executed in page/template init block
+        download();
+        if(cache != null){ cache.invalidate(key); } // don't cache binary file response in this page response cache, can be cached on client with expires header
+      }
+      else{
+        response.setContentType(getMimetype());
+        PrintWriter sout = response.getWriter(); //reponse.getWriter() must be called after file download checks
+        sout.write(s);
+      }
     }
     
     public boolean renderDynamicFormWithOnlyDirtyData = false;
@@ -501,11 +508,11 @@ public abstract class AbstractPageServlet{
         if(getParammap().get("dynamicform") == null){
           // regular pages and forms
           if(isNotValid()){
-        	clearHibernateCache();
+          clearHibernateCache();
           }
           ThreadLocalOut.push(out);
           templateservlet.render(null, args, new Environment(envGlobalAndSession), null);
-          ThreadLocalOut.popChecked(out);  	
+          ThreadLocalOut.popChecked(out);    
         }
         else{
           shouldReInitializeTemplates = false;
@@ -555,27 +562,27 @@ public abstract class AbstractPageServlet{
     protected StringWriter submitWrapSW;
     protected PrintWriter submitWrapOut;
     public void submitWrapOpenHelper(String submitId){
-    	if( ! inSubmittedForm && validationFormRerender && request != null && getParammap().get(submitId) != null ){
-    		submittedSubmitId = submitId;
-    		submitWrapSW = new java.io.StringWriter();
-    		submitWrapOut = new java.io.PrintWriter(submitWrapSW);
-    		ThreadLocalOut.push(submitWrapOut);
-    		ThreadLocalOut.peek().print("<span submitid=" + submitId + ">");
-    	}
+      if( ! inSubmittedForm && validationFormRerender && request != null && getParammap().get(submitId) != null ){
+        submittedSubmitId = submitId;
+        submitWrapSW = new java.io.StringWriter();
+        submitWrapOut = new java.io.PrintWriter(submitWrapSW);
+        ThreadLocalOut.push(submitWrapOut);
+        ThreadLocalOut.peek().print("<span submitid=" + submitId + ">");
+      }
     }
     public void submitWrapCloseHelper(){
-    	if( ! inSubmittedForm && validationFormRerender && submitWrapSW != null ){
-    		ThreadLocalOut.peek().print("</span>");
-    		ThreadLocalOut.pop();
-    		submittedFormContent = submitWrapSW.toString();
-    		submitWrapSW = null;
-    	}
+      if( ! inSubmittedForm && validationFormRerender && submitWrapSW != null ){
+        ThreadLocalOut.peek().print("</span>");
+        ThreadLocalOut.pop();
+        submittedFormContent = submitWrapSW.toString();
+        submitWrapSW = null;
+      }
     }
-	private static String ajax_js_include_name;
-	
+  private static String ajax_js_include_name;
+  
     public String renderResponse(StringWriter s) {
-    	StringWriter sw = new StringWriter();
-    	PrintWriter sout = new PrintWriter(sw);
+      StringWriter sw = new StringWriter();
+      PrintWriter sout = new PrintWriter(sw);
         ThreadLocalOut.push(sout);
 
         addJavascriptInclude( utils.IncludePaths.jQueryJS() );
@@ -608,7 +615,7 @@ public abstract class AbstractPageServlet{
             sout.print("<link rel=\"stylesheet\" href=\""+ href + "\" type=\"text/css\" />");
         }
         for(String script : this.javascripts) {
-        	String src = computeResourceSrc("javascript", script);
+          String src = computeResourceSrc("javascript", script);
             sout.println("<script type=\"text/javascript\" src=\"" + src + "\"></script>");
         }
         for(Map.Entry<String,String> headEntry : customHeadNoDuplicates.entrySet()) {
@@ -619,7 +626,7 @@ public abstract class AbstractPageServlet{
 
         sout.print("<body id=\""+this.getPageName()+"\"");
         for(String attribute : this.bodyAttributes) {
-        	sout.print(attribute);
+          sout.print(attribute);
         }
         sout.print(">");
 
@@ -651,7 +658,7 @@ public abstract class AbstractPageServlet{
         }
 
         for(String script : this.tailJavascripts) {
-        	String src = computeResourceSrc("javascript", script);
+          String src = computeResourceSrc("javascript", script);
             sout.println("<script type=\"text/javascript\" src=\"" + src + "\"></script>");
         }
         sout.print("</body>");
@@ -903,13 +910,13 @@ public abstract class AbstractPageServlet{
 
     public abstract String getAbsoluteLocation();
 
-	public String getXForwardedProto() {
-		if (request == null) {
-			return null;
-		} else {
-			return request.getHeader("x-forwarded-proto");
-		}
-	}
+  public String getXForwardedProto() {
+    if (request == null) {
+      return null;
+    } else {
+      return request.getHeader("x-forwarded-proto");
+    }
+  }
 
     protected TemplateContext templateContext = new TemplateContext();
     public String getTemplateContextString() {
@@ -945,13 +952,13 @@ public abstract class AbstractPageServlet{
     boolean allowAddingEntitiesForValidation = true;
 
     public void clearEntitiesToBeValidated(){
-    	entitiesToBeValidated = new ArrayList<WebDSLEntity>();
+      entitiesToBeValidated = new ArrayList<WebDSLEntity>();
         allowAddingEntitiesForValidation = true;
     }
 
     public void addEntityToBeValidated(WebDSLEntity w){
         if(allowAddingEntitiesForValidation){
-        	entitiesToBeValidated.add(w);
+          entitiesToBeValidated.add(w);
         }
     }
     public void validateEntities(){
@@ -1036,7 +1043,7 @@ public abstract class AbstractPageServlet{
     public void addJavascriptTailInclude(String filename) { commandingPage.addJavascriptTailIncludeInternal( filename ); }
     public void addJavascriptTailIncludeInternal(String filename) {
         if(!tailJavascripts.contains(filename))
-        	tailJavascripts.add(filename);
+          tailJavascripts.add(filename);
     }
     public void addStylesheetInclude(String filename) { commandingPage.addStylesheetIncludeInternal( filename ); }
     public void addStylesheetIncludeInternal(String filename) {
@@ -1046,7 +1053,7 @@ public abstract class AbstractPageServlet{
     }
     public void addStylesheetInclude(String filename, String media) { commandingPage.addStylesheetIncludeInternal( filename, media ); }
     public void addStylesheetIncludeInternal(String filename, String media) {
-    	String combined = media != null && !media.isEmpty() ? filename + "\" media=\""+ media : filename;
+      String combined = media != null && !media.isEmpty() ? filename + "\" media=\""+ media : filename;
         if(!stylesheets.contains(combined)){
             stylesheets.add(combined);
         }
@@ -1060,7 +1067,7 @@ public abstract class AbstractPageServlet{
     
     public void addBodyAttribute(String key, String value) { commandingPage.addBodyAttributeInternal(key, value); }
     public void addBodyAttributeInternal(String key, String value) {
-    	bodyAttributes.add(" "+key+"=\""+value+"\"");
+      bodyAttributes.add(" "+key+"=\""+value+"\"");
     }
 
     protected abstract void initialize();
@@ -1090,9 +1097,9 @@ public abstract class AbstractPageServlet{
     }
 
     protected org.hibernate.Session openNewTransactionThroughGetCurrentSession(){
-    	hibernateSession = utils.HibernateUtil.getCurrentSession();
-    	hibernateSession.beginTransaction();
-    	return hibernateSession;
+      hibernateSession = utils.HibernateUtil.getCurrentSession();
+      hibernateSession.beginTransaction();
+      return hibernateSession;
     }
 
     protected HttpServletRequest request;
@@ -1186,16 +1193,16 @@ public abstract class AbstractPageServlet{
     // used for runtime check to detect nested forms
     protected String inForm = null;
     public boolean isInForm() {
-    	return inForm != null;
+      return inForm != null;
     }
     public void enterForm(String t) {
-    	inForm = t;
+      inForm = t;
     }
     public String getEnclosingForm() {
-    	return inForm;
+      return inForm;
     }
     public void leaveForm() {
-    	inForm = null;
+      inForm = null;
     }
 
     public void clearParammaps(){
@@ -1280,7 +1287,7 @@ public abstract class AbstractPageServlet{
         this.mimetype = mimetype;
         mimetypeChanged = true;
         if(!isMarkupLangMimeType.matcher(mimetype).find()){
-        	enableRawoutput();
+          enableRawoutput();
         }
         disableTemplateSpans();
     }
@@ -1672,8 +1679,8 @@ public abstract class AbstractPageServlet{
       }
       //session manager
       public void reloadSessionManagerFromExistingSessionId(UUID sessionId){
-    	  ThreadLocalServlet.get().reloadSessionManagerFromExistingSessionId(hibernateSession, sessionId);
-    	  initialize(); //reload session variables
+        ThreadLocalServlet.get().reloadSessionManagerFromExistingSessionId(hibernateSession, sessionId);
+        initialize(); //reload session variables
       }
 
       //request vars
@@ -1701,16 +1708,16 @@ public abstract class AbstractPageServlet{
       }
 
       public void addRequestScopedVar(String key, Object val){
-    	  if(val != null){
+        if(val != null){
               commandingPage.requestScopedVariables.put(key, val);
-    	  }
+        }
       }
 
       public void addRequestScopedVar(String key, WebDSLEntity val){
-    	  if(val != null){
+        if(val != null){
               val.setRequestVar();
               commandingPage.requestScopedVariables.put(key, val);
-    	  }
+        }
       }
       // statistics to be shown in log
       protected abstract void increaseStatReadOnly();
@@ -1724,36 +1731,36 @@ public abstract class AbstractPageServlet{
       protected boolean hasWrites = false;
       
       public void setHasWrites(boolean b){
-    	  commandingPage.hasWrites = b;
+        commandingPage.hasWrites = b;
       }
 
       protected void updatePageRequestStatistics(){
-    	  if(hasNotExecutedAction()){
-    		  if(!hasWrites || isRollback()){
-    			  if(pageCacheWasUsed){
-    				  increaseStatReadOnlyFromCache();
-    			  }
-    			  else{
-    				  increaseStatReadOnly();
-    			  }
-    		  }
-    		  else{
-    			  increaseStatUpdate();
-    		  }
-    	  }
-    	  else{
-    		  if(isNotValid()){
-    			  increaseStatActionFail();
-    		  }
-    		  else{
-    			  if(!hasWrites || isRollback()){
-    				  increaseStatActionReadOnly();
-    			  }
-    			  else{
-    				  increaseStatActionUpdate();
-    			  }
-    		  }
-    	  }
+        if(hasNotExecutedAction()){
+          if(!hasWrites || isRollback()){
+            if(pageCacheWasUsed){
+              increaseStatReadOnlyFromCache();
+            }
+            else{
+              increaseStatReadOnly();
+            }
+          }
+          else{
+            increaseStatUpdate();
+          }
+        }
+        else{
+          if(isNotValid()){
+            increaseStatActionFail();
+          }
+          else{
+            if(!hasWrites || isRollback()){
+              increaseStatActionReadOnly();
+            }
+            else{
+              increaseStatActionUpdate();
+            }
+          }
+        }
       }
       
       // Hibernate interceptor hooks (such as beforeTransactionCompletion) catch Throwable but then only log the error, e.g. when db transaction conflict occurs
@@ -1761,36 +1768,36 @@ public abstract class AbstractPageServlet{
       // workaround: store the exception in this variable and explicitly rethrow before sending page content to output stream
       public Exception exceptionInHibernateInterceptor = null;
 
-	public static Environment loadTemplateMap(Class<?> clazz) {
-		return loadTemplateMap(clazz, null, staticEnv);
-	}
-	public static Environment loadTemplateMap(Class<?> clazz, String keyOverwrite, Environment env) {
-		reflectionLoadClassesHelper(clazz, "loadTemplateMap", new Object[] { keyOverwrite, env });
-		return env;
- 	}
-	public static Object[] loadEmailAndTemplateMapArgs = new Object[] { staticEnv, emails };
-	public static void loadEmailAndTemplateMap(Class<?> clazz) {
-		reflectionLoadClassesHelper(clazz, "loadEmailAndTemplateMap", loadEmailAndTemplateMapArgs);
-	}
-	public static Object[] loadLiftedTemplateMapArgs = new Object[] { staticEnv };
-	public static void loadLiftedTemplateMap(Class<?> clazz) {
-		reflectionLoadClassesHelper(clazz, "loadLiftedTemplateMap", loadLiftedTemplateMapArgs);
-	}
-	public static Object[] loadRefArgClassesArgs = new Object[] { refargclasses };
-	public static void loadRefArgClasses(Class<?> clazz) {
-		reflectionLoadClassesHelper(clazz, "loadRefArgClasses", loadRefArgClassesArgs);
-	}
-	public static void reflectionLoadClassesHelper(Class<?> clazz, String method, Object[] args) {
-		for (java.lang.reflect.Method m : clazz.getMethods()) {
-			if (method.equals(m.getName())) {  // will just skip if not defined, so the code generator does not need to generate empty methods
-				try {
-					m.invoke(null, args);
-				} catch (IllegalAccessException | IllegalArgumentException | java.lang.reflect.InvocationTargetException e) {
-					e.printStackTrace();
-				}
-				break;
-			}
-		}
-	}
+  public static Environment loadTemplateMap(Class<?> clazz) {
+    return loadTemplateMap(clazz, null, staticEnv);
+  }
+  public static Environment loadTemplateMap(Class<?> clazz, String keyOverwrite, Environment env) {
+    reflectionLoadClassesHelper(clazz, "loadTemplateMap", new Object[] { keyOverwrite, env });
+    return env;
+   }
+  public static Object[] loadEmailAndTemplateMapArgs = new Object[] { staticEnv, emails };
+  public static void loadEmailAndTemplateMap(Class<?> clazz) {
+    reflectionLoadClassesHelper(clazz, "loadEmailAndTemplateMap", loadEmailAndTemplateMapArgs);
+  }
+  public static Object[] loadLiftedTemplateMapArgs = new Object[] { staticEnv };
+  public static void loadLiftedTemplateMap(Class<?> clazz) {
+    reflectionLoadClassesHelper(clazz, "loadLiftedTemplateMap", loadLiftedTemplateMapArgs);
+  }
+  public static Object[] loadRefArgClassesArgs = new Object[] { refargclasses };
+  public static void loadRefArgClasses(Class<?> clazz) {
+    reflectionLoadClassesHelper(clazz, "loadRefArgClasses", loadRefArgClassesArgs);
+  }
+  public static void reflectionLoadClassesHelper(Class<?> clazz, String method, Object[] args) {
+    for (java.lang.reflect.Method m : clazz.getMethods()) {
+      if (method.equals(m.getName())) {  // will just skip if not defined, so the code generator does not need to generate empty methods
+        try {
+          m.invoke(null, args);
+        } catch (IllegalAccessException | IllegalArgumentException | java.lang.reflect.InvocationTargetException e) {
+          e.printStackTrace();
+        }
+        break;
+      }
+    }
+  }
 
 }
