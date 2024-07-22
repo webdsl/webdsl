@@ -410,7 +410,7 @@ public abstract class AbstractPageServlet{
     	}
     }
 
-    public void renderOrInitAction() throws IOException{
+    public void renderOrInitAction() throws IOException, RuntimeException{
     	String key = getRequestURL();
     	String s = "";
     	Cache<String, CacheResult> cache = null;
@@ -465,6 +465,14 @@ public abstract class AbstractPageServlet{
     		catch(java.util.concurrent.ExecutionException e){
     			e.printStackTrace();
     		}
+        catch (com.google.common.util.concurrent.UncheckedExecutionException e) {
+          Throwable cause = e.getCause();
+          if (cause instanceof AjaxWithGetRequestException) {
+              throw (AjaxWithGetRequestException) cause;
+          } else {
+              throw e;
+          }
+        }
     	}
 
     	// redirect in init action can be triggered with GET request, the render call in the line above will execute such inits
