@@ -93,6 +93,11 @@ public abstract class AbstractDispatchServletHelper{
     return response;
   }
   
+  String redirectUrl = null;
+  public void setRedirectUrl(String a) {
+    this.redirectUrl = a;
+  }
+  
   public void forwardRequest(String to){
   	RequestDispatcher dispatcher = request.getRequestDispatcher(to);
   	String ExceptionString = "EXCEPTION";
