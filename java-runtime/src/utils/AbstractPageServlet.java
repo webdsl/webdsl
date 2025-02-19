@@ -151,7 +151,7 @@ public abstract class AbstractPageServlet{
               response.getWriter().write(outstream);
               if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
                 if(logSqlCheckAccess()){
-                  response.getWriter().write("{\"action\":\"logsql\",\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
+                  response.getWriter().write("{\"action\":\"logsql\",\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeJava(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
                 }
                 else{
                   response.getWriter().write("{\"action\":\"logsql\",\"value\":\"Access to SQL logs was denied.\"}");
@@ -169,17 +169,17 @@ public abstract class AbstractPageServlet{
             // action inside ajax template called and failed
             else if( isAjaxTemplateRequest() && isActionSubmit() ){
               StringWriter s1 = renderPageOrTemplateContents();
-              response.getWriter().write("[{\"action\":\"replace\",\"id\":{\"type\":\"enclosing-placeholder\"},\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(s1.toString()) + "\"}]");
+              response.getWriter().write("[{\"action\":\"replace\",\"id\":{\"type\":\"enclosing-placeholder\"},\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeJava(s1.toString()) + "\"}]");
             }
             //actionLink or ajax action used (request came through js runtime), and action failed
             else if( isActionLinkUsed() || isAjaxRuntimeRequest() ){
               validationFormRerender = true;
               renderPageOrTemplateContents();
               if(submittedFormId != null){
-                response.getWriter().write("[{\"action\":\"replace\",\"id\":\"" + submittedFormId + "\",\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");
+                response.getWriter().write("[{\"action\":\"replace\",\"id\":\"" + submittedFormId + "\",\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeJava( submittedFormContent ) + "\"}]");
               }
               else{
-              response.getWriter().write("[{\"action\":\"replace\",\"id\":{submitid:'" + submittedSubmitId + "'},\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript( submittedFormContent ) + "\"}]");  
+              response.getWriter().write("[{\"action\":\"replace\",\"id\":{submitid:'" + submittedSubmitId + "'},\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeJava( submittedFormContent ) + "\"}]");  
               }
             }
             // 1 regular render without any action being executed
@@ -218,7 +218,7 @@ public abstract class AbstractPageServlet{
                     commands.append("{\"action\":\"replace\",\"id\":\"")
                               .append(ph)
                               .append("\",\"value\":\"")
-                              .append(org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(reRenderPlaceholdersContent.get(ph)))
+                              .append(org.apache.commons.lang3.StringEscapeUtils.escapeJava(reRenderPlaceholdersContent.get(ph)))
                               .append("\"}");
                 }
                 if( outstream.length() > 0 ){
@@ -242,7 +242,7 @@ public abstract class AbstractPageServlet{
               responseWriter.write(outstream);
               if(this.isLogSqlEnabled()){ // Cannot use (parammap.get("logsql") != null) here, because the parammap is cleared by actions
                     if(logSqlCheckAccess()){
-                      responseWriter.write("{\"action\":\"logsql\",\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
+                      responseWriter.write("{\"action\":\"logsql\",\"value\":\"" + org.apache.commons.lang3.StringEscapeUtils.escapeJava(utils.HibernateLog.printHibernateLog(this, "ajax")) + "\"}");
                     }
                     else{
                       responseWriter.write("{\"action\":\"logsql\",\"value\":\"Access to SQL logs was denied.\"}");
@@ -687,7 +687,7 @@ public abstract class AbstractPageServlet{
           addComma = true;
         }
         String src = computeResourceSrc("javascript", script);
-        aStr.append( "\"" ).append( org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(src) ).append("\"");
+        aStr.append( "\"" ).append( org.apache.commons.lang3.StringEscapeUtils.escapeJava(src) ).append("\"");
       }
       aStr.append("] }");
       return aStr.toString();
@@ -702,7 +702,7 @@ public abstract class AbstractPageServlet{
           addComma = true;
         }
         String href = computeResourceSrc("stylesheets", sheet);
-        aStr.append( "\"" ).append( org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(href) ).append("\"");
+        aStr.append( "\"" ).append( org.apache.commons.lang3.StringEscapeUtils.escapeJava(href) ).append("\"");
       }
       aStr.append("] }");
       return aStr.toString();
