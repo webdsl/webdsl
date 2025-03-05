@@ -98,6 +98,15 @@ application text
     assert( rawRendered.contains("</li>") );
     assert( rendered.contains("</div>") );
     assert( rawRendered.contains("</div>") );
+    
+    //check for pretty printing being disabled, i.e. rendered html is without indentation
+    t := "<div>\n<div>\n<div>\n</div>\n</div>\n</div>";
+    rendered := rendertemplate( output(t) );
+    rawRendered := rendertemplate( rawoutput(t) );
+    assert( rendered.contains("<div><div><div>") );
+    assert( rendered.contains("</div></div></div>") );
+    assert( rawRendered.contains("<div><div><div>") );
+    assert( rawRendered.contains("</div></div></div>") );
   }
   
   test formatting{

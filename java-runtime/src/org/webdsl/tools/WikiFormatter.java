@@ -4,6 +4,7 @@ package org.webdsl.tools;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+import org.jsoup.nodes.Document.OutputSettings;
 import org.jsoup.safety.Whitelist;
 import org.webdsl.logging.Logger;
 
@@ -134,10 +135,12 @@ public final class WikiFormatter{
     return cache.getUnchecked(text);
   }
   
+  private static OutputSettings jsoupOutputSettings = new OutputSettings().prettyPrint(false);
+  
   public static String wikiFormat(String text, String hardWrapsOverrideAttribute){
     if ( text == null ) { return ""; }
     String rendered = cachedRender(text, hardWrapsOverrideAttribute);
-    return org.jsoup.Jsoup.clean( rendered , whitelist );
+    return org.jsoup.Jsoup.clean( rendered , "",  whitelist, jsoupOutputSettings );
   }
   
   //Similar to wikiFormat( text ) , but without cleaning by JSoup
