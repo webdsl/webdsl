@@ -1399,6 +1399,9 @@ public abstract class AbstractPageServlet{
             if(!downloadInline) {
                 response.setHeader("Content-Disposition", "attachment; filename=\"" + download.getFileNameForDownload() + "\"");
             }
+            
+            response.setHeader("X-Content-Type-Options", "nosniff");
+            
             java.io.BufferedOutputStream bufout = new java.io.BufferedOutputStream(outstream);
             byte bytes[] = new byte[32768];
             int index = in.read(bytes, 0, 32768);
