@@ -153,7 +153,7 @@ public abstract class Test {
     public static HtmlUnitDriver htmlunitdriver = null;
     public static HtmlUnitDriver getHtmlUnitDriver(){
         if(htmlunitdriver==null){
-            htmlunitdriver = new HtmlUnitDriver(com.gargoylesoftware.htmlunit.BrowserVersion.CHROME);
+            htmlunitdriver = new HtmlUnitDriver();
 //            htmlunitdriver.setJavascriptEnabled(true);  // TODO: if enabled, clickAndWait() method fails, it cannot look up __requestcount for some reason.
             ThreadLocalWebDriver.set(htmlunitdriver);
         }
