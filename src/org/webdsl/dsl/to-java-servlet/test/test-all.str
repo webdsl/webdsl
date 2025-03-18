@@ -83,6 +83,7 @@ strategies
 
           public static final boolean isPost = false;
           public static int SERVLET_PORT = 8080;
+          public static int SERVLET_PORT_SSL = 8443;
           public static int RMI_PORT = 0;
           public static int DEBUG_PORT = 8000;
           public static String contextpath;
@@ -93,7 +94,7 @@ strategies
             try
             {
               java.util.Properties properties = new java.util.Properties();
-              properties.load(new java.io.FileInputStream("build.properties"));
+              properties.load( utils.DispatchServletHelper.class.getResourceAsStream("/build.properties") );
               warfilename = properties.getProperty("webdsl.warfilename");
               if(warfilename.equals("ROOT"))
               {
@@ -129,15 +130,17 @@ strategies
             System.out.println(warfile);
             Deployable war = new WAR(warfile);
 
-            org.codehaus.cargo.container.configuration.LocalConfiguration configuration = new Tomcat7xStandaloneLocalConfiguration("tomcat7x");
+            org.codehaus.cargo.container.configuration.LocalConfiguration configuration = new Tomcat9xStandaloneLocalConfiguration("tomcat9x");
 
             if(findPorts){
               // find free ports
               try {
                 ServerSocket ss1 = new ServerSocket(0);
+                ServerSocket ss1_ssl = new ServerSocket(0);
                 ServerSocket ss2 = new ServerSocket(0);
                 ServerSocket ss3 = new ServerSocket(0);
                 SERVLET_PORT = ss1.getLocalPort();
+                SERVLET_PORT_SSL = ss1_ssl.getLocalPort();
                 RMI_PORT = ss2.getLocalPort();
                 DEBUG_PORT = ss3.getLocalPort();
                 ss1.close();
@@ -147,22 +150,35 @@ strategies
                 org.webdsl.logging.Logger.error("Cannot find free port for test context.",ioex);
                 System.exit(1);
               }
-              configuration.setProperty(GeneralPropertySet.RMI_PORT, new Integer(RMI_PORT).toString());
+              configuration.setProperty(GeneralPropertySet.RMI_PORT, RMI_PORT + "");
             }
             org.webdsl.logging.Logger.info("************Going to start tomcat on SERVLET_PORT: " + SERVLET_PORT);
-            configuration.setProperty(ServletPropertySet.PORT, new Integer(SERVLET_PORT).toString());
-            configuration.setProperty(TomcatPropertySet.AJP_PORT, new Integer(SERVLET_PORT+1).toString());
+            configuration.setProperty(ServletPropertySet.PORT, SERVLET_PORT + "");
+            configuration.setProperty(TomcatPropertySet.AJP_PORT, SERVLET_PORT+1 + "");
+//When https config is needed, the following properties need to be set. However, other (webdsl) configurations may need changes as well, as we saw action lookup failures with this config alone
+/*
+configuration.setProperty(ServletPropertySet.PORT,SERVLET_PORT_SSL+"");
+configuration.setProperty(TomcatPropertySet.AJP_PORT,SERVLET_PORT_SSL+1+"");
+configuration.setProperty("cargo.tomcat.https.port",SERVLET_PORT_SSL+"");
+configuration.setProperty("cargo.tomcat.ssl.enabled","true");
+configuration.setProperty(TomcatPropertySet.CONNECTOR_KEY_STORE_FILE, "../.keystore");
+configuration.setProperty(TomcatPropertySet.CONNECTOR_KEY_STORE_PASSWORD,"g5o2jD93FQ83Ge52");
+configuration.setProperty(TomcatPropertySet.CONNECTOR_KEY_STORE_TYPE, "JKS");
+configuration.setProperty("cargo.tomcat.ssl.protocols","TLSv1.2,TLSv1.3");
+*/
+            
+            
             if(enableDebugging)
             {
               //enable remote debugging
-              configuration.setProperty("cargo.jvmargs", "-Djava.security.egd=file:/dev/./urandom -Dservletport=" + SERVLET_PORT + " -agentlib:jdwp=transport=dt_socket,address=" + DEBUG_PORT + ",server=y,suspend=n -Xmx2g -XX:MaxPermSize=384m");
+              configuration.setProperty("cargo.jvmargs", "-Djava.security.egd=file:/dev/./urandom -Dservletport=" + SERVLET_PORT + " -agentlib:jdwp=transport=dt_socket,address=" + DEBUG_PORT + ",server=y,suspend=n -Xmx2g");
             }
             else
             {
               configuration.setProperty("cargo.jvmargs", "-Djava.security.egd=file:/dev/./urandom -Dservletport=" + SERVLET_PORT);
             }
             configuration.addDeployable(war);
-            InstalledLocalContainer container = new Tomcat7xInstalledLocalContainer(configuration);
+            InstalledLocalContainer container = new Tomcat9xInstalledLocalContainer(configuration);
             String tomcathome = "./tomcat/tomcat/";
             System.out.println(tomcathome);
             container.setHome(tomcathome);

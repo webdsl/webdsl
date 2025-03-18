@@ -5,7 +5,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import org.jsoup.nodes.Document.OutputSettings;
-import org.jsoup.safety.Whitelist;
+import org.jsoup.safety.Safelist;
 import org.webdsl.logging.Logger;
 
 import com.google.common.cache.CacheBuilder;
@@ -31,7 +31,7 @@ public final class WikiFormatter{
   //    private static final Pattern verbatim = Pattern.compile("<verbatim>(.+?)</verbatim>", Pattern.DOTALL | Pattern.MULTILINE);
   private static String currentRootUrl = "";
   //    private static LinkRenderer currentLinkRenderer = null;
-  private static final Whitelist whitelist = org.jsoup.safety.Whitelist.relaxed();
+  private static final Safelist whitelist = org.jsoup.safety.Safelist.relaxed();
   public static final Pattern DISABLE_HARDWRAPS_PATTERN = Pattern.compile("^<!--(DISABLE_HARDWRAPS|NO_HARDWRAPS)-->", Pattern.CASE_INSENSITIVE);
   public static final Pattern ENABLE_HARDWRAPS_PATTERN = Pattern.compile("^<!--(ENABLE_HARDWRAPS|USE_HARDWRAPS)-->", Pattern.CASE_INSENSITIVE);
   private static MutableDataSet optionsNoHardWraps;
