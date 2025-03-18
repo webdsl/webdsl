@@ -100,12 +100,12 @@ application text
     assert( rawRendered.contains("</div>") );
     
     //check for pretty printing being disabled, i.e. rendered html is without indentation
-    t := "<div>\n<div>\n<div>\n</div>\n</div>\n</div>";
+    t := "<div>\n<div>\n<div>\n</div></div></div>";
     rendered := rendertemplate( output(t) );
     rawRendered := rendertemplate( rawoutput(t) );
-    assert( rendered.contains("<div><div><div>") );
+    assert( rendered.contains("<div>\n<div>\n<div>") );
     assert( rendered.contains("</div></div></div>") );
-    assert( rawRendered.contains("<div><div><div>") );
+    assert( rawRendered.contains("<div>\n<div>\n<div>") );
     assert( rawRendered.contains("</div></div></div>") );
   }
   

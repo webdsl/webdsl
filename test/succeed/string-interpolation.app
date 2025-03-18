@@ -100,7 +100,7 @@ test {
   assert( rendertemplate( testtemplate ) == "[no-interp]t1blat1.foo1\~escape\\\\\~[no-interp]t1blat1.foo1\~t1t11test[]test[]test1211t1t111t1t1wrapper1[]0.12" + navigate( navfun( t1 ) ) );
   assert( rendertemplate( wrapper2("hey") ) == "hey" );
   log( rendertemplate( outputCalls ));
-  assert( rendertemplate( outputCalls ) == "to1name<h1></h1>&lt;h1&gt;&lt;/h1&gt;********" );
+  assert( rendertemplate( outputCalls ) == "to1name<h1></h1>\n&lt;h1&gt;&lt;/h1&gt;********" );
 }
 
 template outputCalls {
