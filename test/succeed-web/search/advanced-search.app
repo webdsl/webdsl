@@ -60,9 +60,16 @@ analyzer testSyntaxAnalyzer{
       // token filter = StopFilter (words="analyzerfiles/stopwords.txt")
   }
 
+  page initSuggestionIndexes( doClear : Bool, doIndex : Bool){
+    init{
+      if(doClear){ IndexManager.clearAutoCompleteIndex("Item"); }
+      if(doIndex){ IndexManager.indexSuggestions(); }
+    }
+    if(doClear){ "AutoCompleteIndex cleared for 'Item'" }
+    if(doIndex){ "Suggestion Indexes created" }
+  }
 
-
-  define page root(){
+  page root(){
       var d : DateThingy;
     init{
         d := DateThingy{date := Date("01/02/2003") datetime := now() time := Time("12:34")}; //DateTime("01/02/2003 12:34")
@@ -89,7 +96,7 @@ analyzer testSyntaxAnalyzer{
       navigate searchPageNativeJava() { "go to search" }
   }
 
-  define page searchPageNativeJava(){
+  page searchPageNativeJava(){
     var personSearcher := PersonSearcher();
     var personSearcher2 := PersonSearcher();
     var personSearcher3 := PersonSearcher();
@@ -134,7 +141,7 @@ analyzer testSyntaxAnalyzer{
 
   }
 
-  define page BooleanResultPage(ps : PersonSearcher){
+  page BooleanResultPage(ps : PersonSearcher){
       var count := ps.count();
       var p := if (count > 0) ps.results()[0] else null;
       "searcherPageArg:" output(ps.count())
@@ -147,11 +154,11 @@ analyzer testSyntaxAnalyzer{
           }
       } {"reindex"}
   }
-  define page ReindexedPage(ps : PersonSearcher){
+  page ReindexedPage(ps : PersonSearcher){
        if (ps.count() > 0) { "reindexed" }
   }
 
-  define page searchPageDSL(){
+  page searchPageDSL(){
 
     var personSearcher := search Person;
     var personSearcher2 := search Person;
@@ -202,18 +209,19 @@ analyzer testSyntaxAnalyzer{
 
 
   test AdvancedSearch {
-    IndexManager.clearAutoCompleteIndex("Item");
+    
     var d : WebDriver := getFirefoxDriver();
+    //clear suggestion index
+    d.get(navigate(initSuggestionIndexes(true,false)));
+    //create data
     d.get(navigate(root()));
-
-    IndexManager.indexSuggestions();
-
-    var link := d.findElement(SelectBy.className("navigate"));
-    link.click();
+    //create suggestion index after creation of data tx
+    d.get(navigate(initSuggestionIndexes(false,true)));
+        
 
     var runTwice := 0;
     var pagesource : String;
-
+    d.get(navigate(searchPageNativeJava()));
     while (runTwice < 2){
 
         var pagePreFix := if (runTwice < 1) "[SearchPageNativeJava]" else "[SearchPageDSL]";
@@ -247,7 +255,7 @@ analyzer testSyntaxAnalyzer{
         // assert(pagesource.contains("customstopfilter-1:0"), pagePreFix + "Searching for a stopword defined in custom stopword list should give 0 results");
         // assert(pagesource.contains("customstopfilter-2:1"), pagePreFix + "Searching for 'bottle' defined in custom stopword list should give 1 results");
 
-        link := d.findElement(SelectBy.className("navigate"));
+        var link := d.findElement(SelectBy.className("navigate"));
         link.click();
         pagesource := d.getPageSource();
 
