@@ -1391,11 +1391,16 @@ public abstract class AbstractPageServlet{
             java.io.InputStream in;
 
             in = blob.getBinaryStream();
-            if(this.commandingPage.mimetypeChanged) {
-              response.setContentType(this.commandingPage.getMimetype());
-            } else {
-              response.setContentType(download.getContentType());
+            
+            String contentType = download.getContentType();
+            if( this.commandingPage.mimetypeChanged ) {
+              boolean isDefaultServiceMimeType = this.commandingPage.isWebService() && this.commandingPage.getMimetype().equals("application/json");
+              if( !isDefaultServiceMimeType ) {
+                contentType = this.commandingPage.getMimetype();
+              }
             }
+            response.setContentType(contentType);
+            
             if(!downloadInline) {
                 response.setHeader("Content-Disposition", "attachment; filename=\"" + download.getFileNameForDownload() + "\"");
             }
