@@ -355,7 +355,7 @@ public abstract class AbstractIndexManager {
 				if (f.exists()) {
 					acDir = FSDirectory.open(f);
 					if (IndexReader.lastModified(acDir) > lastModified) {
-						log("no updates");
+						log("no updates since last modified");
 						continue;
 					}
 				} else {
@@ -363,7 +363,7 @@ public abstract class AbstractIndexManager {
 				}
 				rdr = getNamespaceFilteredReader(sourceReader, namespace);
 				if (rdr.numDocs() < 1) {
-					log("no updates");
+					log("no items to index");
 					continue;
 				}
 				ac = new AutoCompleter(acDir);
@@ -448,7 +448,7 @@ public abstract class AbstractIndexManager {
 				if (f.exists()) {
 					scDir = FSDirectory.open(f);
 					if (IndexReader.lastModified(scDir) > lastModified) {
-						log("no updates");
+						log("no updates since last modified");
 						continue;
 					}
 				} else {
@@ -456,7 +456,7 @@ public abstract class AbstractIndexManager {
 				}
 				rdr = getNamespaceFilteredReader(sourceReader, namespace);
 				if (rdr.numDocs() < 1) {
-					log("no updates");
+					log("no items to index");
 					continue;
 				}
 				sc = new SpellChecker(scDir);
@@ -513,6 +513,8 @@ public abstract class AbstractIndexManager {
 		IndexReader sourceReader = readerProvider
 				.openReader(directoryProviders);
 		Directory sourceDir = (Directory) directoryProviders[0].getDirectory();
+		
+		Logger.info("reindexSuggestions sourceDir: " + sourceReader);
 
 		try {
 			LuceneDictionary dict = null;
