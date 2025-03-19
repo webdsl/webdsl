@@ -268,7 +268,5 @@ analyzer testSyntaxAnalyzer{
         runTwice := runTwice + 1;
     }
 
-
-    d.close();
   }
 
