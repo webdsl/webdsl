@@ -513,8 +513,6 @@ public abstract class AbstractIndexManager {
 		IndexReader sourceReader = readerProvider
 				.openReader(directoryProviders);
 		Directory sourceDir = (Directory) directoryProviders[0].getDirectory();
-		
-		Logger.info("reindexSuggestions sourceDir: " + sourceReader);
 
 		try {
 			LuceneDictionary dict = null;
