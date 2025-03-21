@@ -1,5 +1,6 @@
 package utils;
 
+import java.awt.GraphicsEnvironment;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -17,8 +18,11 @@ import org.openqa.selenium.OutputType;
 import org.openqa.selenium.TakesScreenshot;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
 import org.openqa.selenium.firefox.FirefoxDriver;
+import org.openqa.selenium.firefox.FirefoxOptions;
 import org.openqa.selenium.htmlunit.HtmlUnitDriver;
+import org.webdsl.logging.Logger;
 
 public abstract class Test {
 
@@ -144,7 +148,12 @@ public abstract class Test {
     public static FirefoxDriver firefoxdriver = null;
     public static FirefoxDriver getFirefoxDriver(){
         if(firefoxdriver==null){
-            firefoxdriver = new FirefoxDriver();
+            FirefoxOptions options = new FirefoxOptions();
+            if(isHeadlessEnvironment()) {
+              options.addArguments("-headless");
+              Logger.info("No display found, starting Firefox driver in headless mode");
+            }
+            firefoxdriver = new FirefoxDriver(options);
             ThreadLocalWebDriver.set(firefoxdriver);
         }
         return firefoxdriver;
@@ -163,11 +172,20 @@ public abstract class Test {
     public static ChromeDriver chromedriver = null;
     public static ChromeDriver getChromeDriver(){
         if(chromedriver==null){
+          ChromeOptions options = new ChromeOptions();
+          if(isHeadlessEnvironment()) {
+            options.addArguments("--headless=new");
+            Logger.info("No display found, starting Chrome driver in headless mode");
+          }
         	chromedriver = new ChromeDriver();
-            ThreadLocalWebDriver.set(chromedriver);
+          ThreadLocalWebDriver.set(chromedriver);
         }
         return chromedriver;
     }
+    
+    private static boolean isHeadlessEnvironment() {
+      return GraphicsEnvironment.isHeadless();
+  }
     
 
     public static void closeDrivers(){
