@@ -21,6 +21,13 @@ strategies
        import org.codehaus.cargo.container.deployable.*;
        import org.codehaus.cargo.container.tomcat.*;
        import org.codehaus.cargo.container.property.*;
+       
+       import java.util.concurrent.ExecutorService;
+       import java.util.concurrent.Executors;
+       import java.util.concurrent.Future;
+       import java.util.concurrent.TimeUnit;
+       import java.util.concurrent.TimeoutException;
+       import java.util.concurrent.atomic.AtomicBoolean;
 
        public class TestAll
        {
@@ -61,21 +68,23 @@ strategies
               utils.Test.closeDrivers();
           }
 
-          public void runTests(){
+          public boolean runTests(){
             boolean exitWithError = false;
 
             bstm*
 
             beforeQuit();
-
-            if(exitWithError){
-              System.exit(1);
-            }
+            
+            return !exitWithError;
           }
 
           public static void main(String[] args) {
-            new TestAll().runTests();
-            System.exit(0); //force exit for now as some background threads may hang in some cases (not investigated yet)
+            boolean testPassed = new TestAll().runTests();
+            if(testPassed){
+              System.exit(0); //force exit for now as some background threads may hang in some cases (not investigated yet)
+            } else {
+              System.exit(1); 
+            }
           }
 
 
@@ -121,10 +130,6 @@ strategies
 
           public void runInWebAppContainer(boolean findPorts, boolean enableDebugging, long timeout){
 
-            utils.DispatchServletHelper d = new utils.DispatchServletHelper(null, isPost, contextpath);
-            utils.ThreadLocalServlet.set(d);
-            d.loadSessionManager(utils.HibernateUtil.getCurrentSession(), null);
-            
 
             String warfile = "./"+warfilename+".war";
             System.out.println(warfile);
@@ -190,14 +195,52 @@ configuration.setProperty("cargo.tomcat.ssl.protocols","TLSv1.2,TLSv1.3");
                 System.out.println(message);
               }
             });
-
-            container.start();
-
-            runTests();
-
+            
+            
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            AtomicBoolean testSuccess = new AtomicBoolean(false);
+            
+            Future<?> future = executor.submit(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        utils.DispatchServletHelper d = new utils.DispatchServletHelper(null, isPost, contextpath);
+                        utils.ThreadLocalServlet.set(d);
+                        d.loadSessionManager(utils.HibernateUtil.getCurrentSession(), null);
+                        container.start();
+                        boolean testResult = runTests();
+                        testSuccess.set(testResult); // Store result in AtomicBoolean
+                    } catch (Exception ex) {
+                        org.webdsl.logging.Logger.error("Exception occurred while running tests in container.", ex);
+                    }
+                }
+            });
+            
+            int exitCode = 1; // Default to failure
+            
+            
+            try {
+              if (timeout > 0) {
+                future.get(timeout, TimeUnit.MILLISECONDS); // Wait for completion or timeout
+              } else {
+                future.get(); // Wait indefinitely if timeout is 0
+              }
+                exitCode = testSuccess.get() ? 0 : 1;
+            } catch (TimeoutException ex) {
+                org.webdsl.logging.Logger.error("Test execution timed out after " + timeout + " ms. Stopping container.");
+                future.cancel(true);
+            } catch (Exception ex) {
+                org.webdsl.logging.Logger.error("Unexpected exception occurred.", ex);
+            }
+            
+            
+            // Ensure proper cleanup before exiting
             container.stop();
-
+            executor.shutdownNow();
+            utils.Test.closeDrivers();
             utils.ThreadLocalServlet.set(null);
+            System.exit(exitCode);
+
           }
        }
      ]|
