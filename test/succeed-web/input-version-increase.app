@@ -835,8 +835,6 @@ test EntityInput{
   log(d.findElements(SelectBy.className("input-trigger")).length);
   sel.selectByVisibleText("3");
   
-  sleep(4000);
-  
   var button4 := d.findElements(SelectBy.className("saveb"))[0];
   button4.click();
   log(d.getPageSource());
