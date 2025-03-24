@@ -185,7 +185,27 @@ public abstract class Test {
     }
     
     private static boolean isHeadlessEnvironment() {
-      return GraphicsEnvironment.isHeadless();
+      // Check the system property for headless mode
+      String headlessProperty = System.getProperty("java.awt.headless");
+      if (headlessProperty != null) {
+          return Boolean.parseBoolean(headlessProperty);
+      }
+
+      // Check the platform and set specific conditions
+      String osName = System.getProperty("os.name").toLowerCase();
+
+      // For Linux and Windows, check if no X11 server or display is available
+      if (osName.contains("linux") || osName.contains("windows")) {
+          return GraphicsEnvironment.isHeadless() || System.getenv("DISPLAY") == null;
+      }
+
+      // For macOS, assume it's headless if no display is available
+      if (osName.contains("mac")) {
+          return GraphicsEnvironment.isHeadless();
+      }
+
+      // Default to false for unknown OS types
+      return false;
   }
     
 
