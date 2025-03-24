@@ -111,7 +111,7 @@ function hardwrapsTest( d: WebDriver ){
 
   //test in-text hardwraps override
   //defined input
-  inputDefinedCheck( d, "<!--ENABLE_HARDWRAPS-->\n\nrender\nnew\nline", [ "render<br />new<br />line" ], [ "rendernewline" ] );
+  inputDefinedCheck( d, "<!--ENABLE_HARDWRAPS-->\n\nrender\nnew\nline", [ "render<br>new<br>line" ], [ "rendernewline" ] );
   //drop in-text override
   inputDefinedCheck( d, "no \nnew\n line", [ "no new line" ] );
 }
