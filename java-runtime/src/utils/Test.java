@@ -12,6 +12,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.commons.io.FileUtils;
+import org.htmlunit.BrowserVersion;
 import org.openqa.selenium.Alert;
 import org.openqa.selenium.JavascriptExecutor;
 import org.openqa.selenium.OutputType;
@@ -162,7 +163,7 @@ public abstract class Test {
     public static HtmlUnitDriver htmlunitdriver = null;
     public static HtmlUnitDriver getHtmlUnitDriver(){
         if(htmlunitdriver==null){
-            htmlunitdriver = new HtmlUnitDriver();
+            htmlunitdriver = new HtmlUnitDriver(BrowserVersion.CHROME);
 //            htmlunitdriver.setJavascriptEnabled(true);  // TODO: if enabled, clickAndWait() method fails, it cannot look up __requestcount for some reason.
             ThreadLocalWebDriver.set(htmlunitdriver);
         }
