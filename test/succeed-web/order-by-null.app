@@ -47,5 +47,5 @@ test{
   log(source);
   assert(source.contains("01nullnull"));
   assert(source.contains("15/09/2015 15:0915/09/2015 18:09"));
-  assert(source.contains("012nullnull<br />210nullnull"));
+  assert(source.contains("012nullnull<br>210nullnull"));
 }
