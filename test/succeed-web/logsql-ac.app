@@ -8,7 +8,7 @@ application test
 
   define page root(){
     form{
-      submit root()[class="button"]{"login"}
+      submit root()[class="button", style="margin-top:100px;"]{"login"}
     }
     action root(){
       securityContext.principal  := u1;
