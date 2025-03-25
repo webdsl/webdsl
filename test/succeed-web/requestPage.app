@@ -55,7 +55,7 @@ application test
   }
   
   test {
-    var d : WebDriver := getHtmlUnitDriver();
+    var d : WebDriver := getFirefoxDriver();
     d.get(navigate(root()));
     
     var elist : List<WebElement> := d.findElements(SelectBy.tagName("a"));
@@ -76,7 +76,7 @@ application test
   }
   
   test {
-    var d : WebDriver := getHtmlUnitDriver();
+    var d : WebDriver := getFirefoxDriver();
     //construct URL with too few arguments
     var urlTooFewArgs := navigate(test(u1,"")).replace("test", "test2");
     d.get( urlTooFewArgs );
