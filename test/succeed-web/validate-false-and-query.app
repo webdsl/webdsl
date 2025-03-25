@@ -27,7 +27,7 @@ application canceltest
     var d : WebDriver := getHtmlUnitDriver();
     d.get(navigate(root()));
     assert(d.getPageSource().contains("testvalue"), "'testvalue' on initial page");
-    var elist : List<WebElement> := d.findElements(SelectBy.tagName("input"));
+    var elist : List<WebElement> := d.findElements(SelectBy.tagName("textarea"));
     var size := elist.length;
     assert(size==1,"expected 1 input elements");
     elist[0].sendKeys("1");
