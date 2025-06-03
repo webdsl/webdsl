@@ -1,5 +1,8 @@
 package org.webdsl.tools;
 
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -8,11 +11,21 @@ import java.util.List;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.cfg.Configuration;
+import org.hibernate.cfg.Environment;
 import org.hibernate.dialect.Dialect;
 import org.hibernate.tool.hbm2ddl.DatabaseMetadata;
 import org.hibernate.tool.hbm2ddl.SchemaExport;
 import org.hibernate.tool.hbm2ddl.SchemaUpdate;
+import org.sqlite.JDBC;
 import org.webdsl.WebDSLEntity;
+
+import com.mysql.cj.jdbc.AbandonedConnectionCleanupThread;
+
+import org.apache.log4j.Logger;
+import org.apache.log4j.Level;
+import org.apache.log4j.BasicConfigurator;
+
+
 
 public final class Utils {
     public static Object[] concatArrays(Object[] ar1, Object[] ar2) {
@@ -235,13 +248,15 @@ public final class Utils {
         //return fieldHandler.readObject(entity, fieldName, value);
     }
 
-    public static void handleSchemaCreateUpdate(SessionFactory sessionFactory, Configuration annotationConfiguration) throws java.sql.SQLException {
+    public static void handleSchemaCreateUpdate(SessionFactory sessionFactory, Configuration annotationConfiguration) throws java.sql.SQLException {    
+      
         //database schema create/update
         String dbmode = utils.BuildProperties.getDbMode();
         if("update".equals(dbmode) || "create-drop".equals(dbmode)){
           Dialect dialect = Dialect.getDialect(annotationConfiguration.getProperties());
           Session session = sessionFactory.openSession();
-          DatabaseMetadata meta = new DatabaseMetadata(session.connection(), dialect);
+          Connection con = session.connection();
+          DatabaseMetadata meta = new DatabaseMetadata(con, dialect);
           StringBuffer sb;
           if("create-drop".equals(dbmode)){
             String[] dropscript = annotationConfiguration.generateDropSchemaScript(dialect);
