@@ -16,6 +16,16 @@ public class BuildProperties {
         return dbmode;
     }
     
+    enum DefaultCharSet{
+        UTF8MB4,
+        UTF8MB3
+    }
+    
+    protected static DefaultCharSet defaultCharSet = DefaultCharSet.UTF8MB3;
+    public static DefaultCharSet getDefaultCharSet(){
+        return defaultCharSet;
+    }
+    
     protected static boolean wikitext_hardwraps = false;
     public static boolean isWikitextHardwrapsEnabled(){
       return wikitext_hardwraps;
@@ -61,6 +71,12 @@ public class BuildProperties {
             if("true".equals(hardwraps)){
                 wikitext_hardwraps = true; 
             }
+            
+            //use utf8mb3 as default for now
+            String propCharSet = props.getProperty("webdsl.DEFAULTCHARSET", "utf8mb3").toLowerCase();
+            defaultCharSet = "utf8mb4".equals(propCharSet) ? DefaultCharSet.UTF8MB4 : DefaultCharSet.UTF8MB3;
+            org.webdsl.logging.Logger.info("Using '" + new MySQL5InnoDBDialectUTF8().getTableTypeString().trim() + "' for mysql table creation");
+            
             
             String anchors = props.getProperty("webdsl.wikitext_anchors");
             if("true".equals(anchors)){
