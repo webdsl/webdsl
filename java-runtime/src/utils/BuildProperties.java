@@ -1,6 +1,7 @@
 package utils;
 
 import java.io.IOException;
+import java.util.Set;
 
 public class BuildProperties {
 
@@ -25,6 +26,12 @@ public class BuildProperties {
     public static DefaultCharSet getDefaultCharSet(){
         return defaultCharSet;
     }
+    
+    protected static boolean supports_unicode = true;
+    public static boolean isUnicodeSupported(){
+        return supports_unicode;
+    }
+    
     
     protected static boolean wikitext_hardwraps = false;
     public static boolean isWikitextHardwrapsEnabled(){
@@ -76,6 +83,11 @@ public class BuildProperties {
             String propCharSet = props.getProperty("webdsl.DEFAULTCHARSET", "utf8mb3").toLowerCase();
             defaultCharSet = "utf8mb4".equals(propCharSet) ? DefaultCharSet.UTF8MB4 : DefaultCharSet.UTF8MB3;
             org.webdsl.logging.Logger.info("Using '" + new MySQL5InnoDBDialectUTF8().getTableTypeString().trim() + "' for mysql table creation");
+            
+            String dbProp = props.getProperty("webdsl.DB", "");
+            boolean noMysql = Set.of("postgres","jndi","h2","h2mem", "sqlite" ).contains(dbProp);
+            supports_unicode = noMysql || defaultCharSet == DefaultCharSet.UTF8MB4;
+            
             
             
             String anchors = props.getProperty("webdsl.wikitext_anchors");

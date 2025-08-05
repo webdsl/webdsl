@@ -1044,6 +1044,7 @@ native class utils.BuildProperties as BuildProperties{
   static isWikitextHardwrapsEnabled() : Bool
   static getTransactionRetries() : Int
   static getNumCachedPages() : Int
+  static isUnicodeSupported() : Bool
 }
 
 //validation wrapper for submit and submitlink
