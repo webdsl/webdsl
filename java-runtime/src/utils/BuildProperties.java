@@ -1,7 +1,7 @@
 package utils;
 
 import java.io.IOException;
-import java.util.Set;
+import java.util.Arrays;
 
 public class BuildProperties {
 
@@ -85,7 +85,7 @@ public class BuildProperties {
             org.webdsl.logging.Logger.info("Using '" + new MySQL5InnoDBDialectUTF8().getTableTypeString().trim() + "' for mysql table creation");
             
             String dbProp = props.getProperty("webdsl.DB", "");
-            boolean noMysql = Set.of("postgres","jndi","h2","h2mem", "sqlite" ).contains(dbProp);
+            boolean noMysql = Arrays.asList("postgres", "jndi", "h2", "h2mem", "sqlite").contains(dbProp);
             supports_unicode = noMysql || defaultCharSet == DefaultCharSet.UTF8MB4;
             
             
