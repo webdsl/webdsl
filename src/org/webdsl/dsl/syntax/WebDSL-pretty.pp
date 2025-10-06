@@ -1170,7 +1170,7 @@
    Milliseconds                                           -- _1 KW["milliseconds"],
    TimeInterval                                           -- KW["every"] _1,
    TimeInterval.1:iter-star                               -- _1,
-   OnServletInit                                          -- KW["on servlet init"],
+   OnAppStart                                             -- KW["on application start"],
    InvokeTimedTask -- KW["invoke"] _1 _2,
    NotEmptyAnno -- KW["not empty"],
    PropertySubmit -- _1 KW["="] _2,
