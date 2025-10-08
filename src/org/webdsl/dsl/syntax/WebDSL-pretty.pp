@@ -1171,6 +1171,7 @@
    TimeInterval                                           -- KW["every"] _1,
    TimeInterval.1:iter-star                               -- _1,
    OnAppStart                                             -- KW["on application start"],
+   OnAppStop                                              -- KW["on application stop"],
    InvokeTimedTask -- KW["invoke"] _1 _2,
    NotEmptyAnno -- KW["not empty"],
    PropertySubmit -- _1 KW["="] _2,
