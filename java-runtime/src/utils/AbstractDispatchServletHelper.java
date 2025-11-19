@@ -73,6 +73,9 @@ public abstract class AbstractDispatchServletHelper{
     }
     return requestURICached;
   }
+  public String getRequestServerName() {
+    return getRequest() != null ? getRequest().getServerName() : null;
+  }
   private String replaceProtoInURI( String u ) {
     String proto = getRequest().getHeader("x-forwarded-proto");
     return proto == null ? u : u.replaceFirst("\\w+://", proto + "://");

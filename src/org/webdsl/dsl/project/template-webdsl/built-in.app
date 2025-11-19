@@ -500,6 +500,7 @@ native class utils.AbstractDispatchServletHelper as DispatchServlet{
   clearSuccessMessages()
   getRequest(): HttpServletRequest
   getRequestURL() : String
+  getRequestServerName(): String
   getRemoteAddress() : String
   static get(): DispatchServlet
   getBaseUrl(): String
