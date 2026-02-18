@@ -42,25 +42,40 @@ strategies  // language server
   ; collect-all(\ appl(prod(_,lit(l),_),_){loc} -> (l,loc,<if "if"<+"as"<+"is"<+"or"<+"by"<+"in"<+string-length;<gt> (<id>,2) then !"keyword" else !"operator" end> l) \)
 
   lsp-resolve =
-    set-default-config
-  ; parse-options(webdsl-set-working-dir-option <+ io-options <+ lsp-resolve-option-line <+ lsp-resolve-option-column <+ lsp-resolve-option-file)
-  ; !FILE(<get-config> "-i")
-  ; set-appname-and-dirs
-  ; where( line := <ResolveLine; string-to-int>
-         ; column := <ResolveColumn; string-to-int>
-         ; file := <ResolveFile> )
-  ; xtc-parse-webdsl
-  ; dsl-to-core-analysis
-  ; rules( ApplicationASTCache := <id> )
+    lsp-analysis-init(?line,?column,?file)
   ; collect-one( lsp-resolve-element(|file,line,column); ?_{<id>} )
 
   lsp-resolve-cached =
-    parse-options(webdsl-set-working-dir-option <+ io-options <+ lsp-resolve-option-line <+ lsp-resolve-option-column <+ lsp-resolve-option-file)
-  ; where( line := <ResolveLine; string-to-int>
-         ; column := <ResolveColumn; string-to-int>
-         ; file := <ResolveFile> )
+    parse-options(webdsl-set-working-dir-option <+ io-options <+ lsp-option-line(?line) <+ lsp-option-column(?column) <+ lsp-option-file(?file))
   ; ApplicationASTCache
   ; collect-one( lsp-resolve-element(|file,line,column); ?_{<id>} )
+
+  lsp-analysis-init(line,column,file) =
+    set-default-config
+  ; parse-options(webdsl-set-working-dir-option <+ io-options <+ lsp-option-line(line) <+ lsp-option-column(column) <+ lsp-option-file(file))
+  ; !FILE(<get-config> "-i")
+  ; set-appname-and-dirs
+  ; xtc-parse-webdsl
+  ; dsl-to-core-analysis
+  ; rules( ApplicationASTCache := <id> )
+
+  lsp-option-file(file) =
+    ArgOption("-file"
+    , file
+    , !HelpString("-file x", "file of element to resolve")
+    )
+
+  lsp-option-line(line) =
+    ArgOption("-line"
+    , string-to-int; line
+    , !HelpString("-line x", "line of element to resolve")
+    )
+
+  lsp-option-column(column) =
+    ArgOption("-column"
+    , string-to-int; column
+    , !HelpString("-column x", "column of element to resolve")
+    )
 
   is-between(|l,bc,ec,el,c) = <geq> (c,bc); (<geq> (ec,c) <+ <gt> (el,l))
 
@@ -70,23 +85,29 @@ strategies  // language server
     where def := <collect-one( lsp-resolve-element(|f,l,c) )> (args,passigns,body)
        <+ def := <CallToDefinedTemplate; TemplateDecl> nm
 
-  lsp-resolve-option-file =
-    ArgOption("-file"
-    , ?x; rules( ResolveFile := x )
-    , !HelpString("-file x", "file of element to resolve")
-    )
+  lsp-complete =
+    lsp-analysis-init(?line,?column,?file)
+  ; collect-one( lsp-complete-element(|file,line,column) )
 
-  lsp-resolve-option-line =
-    ArgOption("-line"
-    , ?x; rules( ResolveLine := x )
-    , !HelpString("-line x", "line of element to resolve")
-    )
+  lsp-complete-cached =
+    parse-options(webdsl-set-working-dir-option <+ io-options <+ lsp-option-line(?line) <+ lsp-option-column(?column) <+ lsp-option-file(?file))
+  ; ApplicationASTCache
+  ; collect-one( lsp-complete-element(|file,line,column) )
 
-  lsp-resolve-option-column =
-    ArgOption("-column"
-    , ?x; rules( ResolveColumn := x )
-    , !HelpString("-column x", "column of element to resolve")
-    )
+  lsp-complete-element(|f,l,c) :
+    TemplateCall(nm,args,passigns,body){At(f,l,bc,el,ec)} -> completions
+    where is-between(|l,bc,ec,el,c)
+    where completions := <collect-one( lsp-complete-element(|f,l,c) )> (args,passigns,body)
+       <+ completions := <all-keys-TopLevelTemplateDecl;map(TopLevelTemplateDecl; \Define(_,name,fargs,_,_)->(name,fargs)\; func-sig-to-complete-proposal)>
+
+  func-sig-to-complete-proposal :
+    (x,farg) -> <func-sig-to-complete-proposal> (x,farg,SimpleSort("Void"))
+
+  func-sig-to-complete-proposal :
+    tup@(x,farg,return) -> (sig-no-return,full-sig)
+    with  sig-no-return := <pp-func-sig-arg-names> (x,<map(?Arg(<id>,_))>farg)
+        ; if(<?SimpleSort("Void")>return) then full-sig := <pp-func-sig-farg> (x,farg)
+                                          else full-sig := <pp-func-sig-farg> tup end
 
 strategies  // command-line compiler
 
@@ -99,7 +120,7 @@ strategies  // command-line compiler
       , ![] // xtc dependencies
       , xtc-webdslc
         ; <exit> 0
-        ; if fail then lsp-main; lsp-parse; lsp-resolve; lsp-resolve-cached end  // dummy call to get lsp strategies compiled
+        ; if fail then lsp-main; lsp-parse; lsp-resolve; lsp-resolve-cached; lsp-complete; lsp-complete-cached end  // dummy call to get lsp strategies compiled
     )
 
   xtc-webdslc = id
