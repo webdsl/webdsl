@@ -3,7 +3,7 @@ application test
 imports imported
 
 page root {
-  templatedef
+  templatedef tcallnotdefined
   templatedefimported
 }
 
