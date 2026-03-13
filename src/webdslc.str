@@ -43,12 +43,15 @@ strategies  // language server
 
   lsp-resolve =
     lsp-analysis-init(?line,?column,?file)
-  ; collect-one( lsp-resolve-element(|file,line,column); ?_{<id>} )
+  ; collect-one( lsp-resolve-element(|file,line,column); get-at-anno )
 
   lsp-resolve-cached =
     parse-options(webdsl-set-working-dir-option <+ io-options <+ lsp-option-line(?line) <+ lsp-option-column(?column) <+ lsp-option-file(?file))
   ; ApplicationASTCache
-  ; collect-one( lsp-resolve-element(|file,line,column); ?_{<id>} )
+  ; collect-one( lsp-resolve-element(|file,line,column); get-at-anno )
+
+  get-at-anno :
+    _{anno*} -> <fetch-elem(?At(_,_,_,_,_))> anno*
 
   lsp-analysis-init(line,column,file) =
     set-default-config
@@ -80,10 +83,32 @@ strategies  // language server
   is-between(|l,bc,ec,el,c) = <geq> (c,bc); (<geq> (ec,c) <+ <gt> (el,l))
 
   lsp-resolve-element(|f,l,c) :
-    TemplateCall(nm,args,passigns,body){At(f,l,bc,el,ec)} -> def
+    TemplateCall(nm,arg*,passign*,body){At(f,l,bc,el,ec)} -> def
     where is-between(|l,bc,ec,el,c)
-    where def := <collect-one( lsp-resolve-element(|f,l,c) )> (args,passigns,body)
+    where def := <collect-one( lsp-resolve-element(|f,l,c) )> (arg*,passign*,body)
        <+ def := <CallToDefinedTemplate; TemplateDecl> nm
+
+  lsp-resolve-element(|f,l,c) =
+    ?Entity(nm,_,body) <+ ?ExtendEntity(nm,body)
+  ; {| EntityName :
+      rules( EntityName := nm )
+    ; <lsp-resolve-element(|f,l,c)> body
+    |}
+
+  // resolve global function call or entity function self call
+  lsp-resolve-element(|f,l,c) :
+    ThisCall(nm,arg*){At(f,l,bc,el,ec)} -> def
+    where is-between(|l,bc,ec,el,c)
+    where def := <collect-one( lsp-resolve-element(|f,l,c) )> arg*
+       <+ def := <resolve-function-call-to-decl> (SimpleSort(<EntityName>), <strip-annos> nm, <map(type-of)> arg*)
+       <+ def := <resolve-function-call-to-decl> (None(), <strip-annos> nm, <map(type-of)> arg*)
+
+  // resolve entity function call
+  lsp-resolve-element(|f,l,c) :
+    Call(expr,nm,arg*){At(f,l,bc,el,ec)} -> def
+    where is-between(|l,bc,ec,el,c)
+    where def := <collect-one( lsp-resolve-element(|f,l,c) )> (expr,arg*)
+       <+ def := <resolve-function-call-to-decl> (<type-of> expr, <strip-annos> nm, <map(type-of)> arg*)
 
   lsp-complete =
     lsp-analysis-init(?line,?column,?file)

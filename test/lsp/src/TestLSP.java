@@ -9,9 +9,32 @@ public class TestLSP {
 
 	public static void runTests() {
 		checkerrors("testapp.app","Template with signature tcallnotdefined() not defined");
+		// TemplateCall - resolve
 		resolve(6, 3, "testapp.app", "At(\"testapp.app\",10,1,10,24)");
+		resolve(6, 8, "testapp.app", "At(\"testapp.app\",10,1,10,24)");
 		resolve(4, 3, "./imported.app", "At(\"testapp.app\",10,1,10,24)");
 		resolve(7, 3, "testapp.app", "At(\"./imported.app\",3,1,5,2)");
+		// ThisCall - global function resolve
+		resolve(16, 4, "testapp.app", "At(\"testapp.app\",15,1,20,2)");
+		resolve(17, 3, "testapp.app", "At(\"testapp.app\",21,1,21,36)");
+		resolve(17, 14, "testapp.app", "At(\"testapp.app\",22,1,22,50)");
+		resolve(17, 32, "testapp.app", "At(\"testapp.app\",15,1,20,2)");
+		resolve(18, 5, "testapp.app", "At(\"testapp.app\",22,1,22,50)");
+		resolve(19, 5, "testapp.app", null);
+		// ThisCall - entity function resolve
+		resolve(35, 6, "testapp.app", "At(\"testapp.app\",25,3,25,30)");
+		resolve(36, 7, "testapp.app", "At(\"testapp.app\",33,3,33,38)");
+		resolve(37, 11, "testapp.app", "At(\"testapp.app\",26,3,26,59)");
+		resolve(38, 9, "testapp.app", "At(\"testapp.app\",42,3,45,4)");
+		resolve(43, 7, "testapp.app", "At(\"testapp.app\",25,3,25,30)");
+		resolve(44, 11, "testapp.app", "At(\"testapp.app\",42,3,45,4)");
+		// Call - entity function resolve
+		resolve(30, 8, "testapp.app", "At(\"testapp.app\",25,3,25,30)");
+		resolve(30, 16, "testapp.app", "At(\"testapp.app\",26,3,26,59)");
+		resolve(30, 34, "testapp.app", "At(\"testapp.app\",27,3,27,49)");
+		resolve(31, 9, "testapp.app", "At(\"testapp.app\",26,3,26,59)");
+		
+		// TemplateCall - completion
 		complete(6, 3, "testapp.app", "(\"example(key)\",\"example(key : String)\"),(\"example(num)\",\"example(num : Int)\")");
 	}
 
@@ -24,12 +47,13 @@ public class TestLSP {
 			"-file", file
 		};
 		IStrategoTerm result = context.invokeStrategyCLI(org.webdsl.webdslc.lsp_resolve_cached_0_0.instance, "Main", args);
-		if (result != null && result.toString().equals(expected)) {
+		if (result != null && result.toString().equals(expected) || expected == null && result == null) {
 			System.out.println("resolve successful: " + result);
 		} else {
 			testsFailed++;
-			System.out.println("resolve failed - received: " + result);
-			System.out.println("               - expected: " + expected);
+			System.out.println("resolve (" + line + "," + column + "," + file + ") failed");
+			System.out.println("  - received: " + result);
+			System.out.println("  - expected: " + expected);
 		}
 	}
 
@@ -46,8 +70,9 @@ public class TestLSP {
 			System.out.println("completion successful: " + expected);
 		} else {
 			testsFailed++;
-			System.out.println("completion failed - received: " + result);
-			System.out.println("                  - expected to contain: " + expected);
+			System.out.println("completion (" + line + "," + column + "," + file + ") failed");
+			System.out.println("  - received: " + result);
+			System.out.println("  - expected to contain: " + expected);
 		}
 	}
 
