@@ -33,6 +33,11 @@ public class TestLSP {
 		resolve(30, 16, "testapp.app", "At(\"testapp.app\",26,3,26,59)");
 		resolve(30, 34, "testapp.app", "At(\"testapp.app\",27,3,27,49)");
 		resolve(31, 9, "testapp.app", "At(\"testapp.app\",26,3,26,59)");
+		// Var - resolve
+		resolve(50, 9, "testapp.app", "At(\"testapp.app\",49,3,49,17)");
+		resolve(50, 16, "testapp.app", "At(\"testapp.app\",48,16,48,27)");
+		resolve(57, 8, "testapp.app", "At(\"testapp.app\",53,1,53,25)");
+		resolve(58, 10, "testapp.app", "At(\"testapp.app\",54,9,54,32)");
 		
 		// TemplateCall - completion
 		complete(6, 3, "testapp.app", "(\"example(key)\",\"example(key : String)\"),(\"example(num)\",\"example(num : Int)\")");

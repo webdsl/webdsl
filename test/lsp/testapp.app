@@ -44,3 +44,16 @@ extend entity User {
     morecalls();
   }
 }
+
+function vars( arg: String ){
+  var abc := "";
+  log( abc + arg );
+}
+
+var globaluser := User{}
+request var requestscoped := ""
+
+function morevars {
+  log( globaluser.name + "!" );
+  log( requestscoped.toString() );
+}
