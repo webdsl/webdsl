@@ -38,9 +38,15 @@ public class TestLSP {
 		resolve(50, 16, "testapp.app", "At(\"testapp.app\",48,16,48,27)");
 		resolve(57, 8, "testapp.app", "At(\"testapp.app\",53,1,53,25)");
 		resolve(58, 10, "testapp.app", "At(\"testapp.app\",54,9,54,32)");
+		resolve(59, 10, "testapp.app", "At(\"testapp.app\",62,1,62,35)");
 		
 		// TemplateCall - completion
-		complete(6, 3, "testapp.app", "(\"example(key)\",\"example(key : String)\"),(\"example(num)\",\"example(num : Int)\")");
+		complete(6, 3, "testapp.app", "(\"example(key)\",\"example(key: String) - template call\"),(\"example(num)\",\"example(num: Int) - template call\")");		
+		// Var - completion
+		complete(50, 9, "testapp.app", "(\"abc\",\"abc: String - local variable\"),(\"arg\",\"arg: String - local variable\"),(\"globaluser\",\"globaluser: User - global variable\"),(\"usersession\",\"usersession: Usersession - session variable\"),(\"requestscoped\",\"requestscoped: String - request variable\")");
+		complete(57, 12, "testapp.app", "(\"globaluser\",\"globaluser: User - global variable\"),(\"usersession\",\"usersession: Usersession - session variable\"),(\"requestscoped\",\"requestscoped: String - request variable\")");
+		complete(58, 12, "testapp.app", "(\"globaluser\",\"globaluser: User - global variable\"),(\"usersession\",\"usersession: Usersession - session variable\"),(\"requestscoped\",\"requestscoped: String - request variable\")");
+		complete(59, 12, "testapp.app", "(\"globaluser\",\"globaluser: User - global variable\"),(\"usersession\",\"usersession: Usersession - session variable\"),(\"requestscoped\",\"requestscoped: String - request variable\")");
 	}
 
 	public static void resolve(int line, int column, String file, String expected) {

@@ -56,4 +56,7 @@ request var requestscoped := ""
 function morevars {
   log( globaluser.name + "!" );
   log( requestscoped.toString() );
+  log( usersession.s );
 }
+
+session usersession { s : String }

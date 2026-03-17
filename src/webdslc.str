@@ -113,7 +113,7 @@ strategies  // language server
        <+ def := <resolve-function-call-to-decl> (<type-of> expr, <strip-annos> nm, <map(type-of)> arg*)
 
   lsp-resolve-element(|f,l,c) :
-    Var(x){At(f,l,bc,el,ec)} -> def
+    Var(x){_,At(f,l,bc,el,ec)} -> def
     where is-between(|l,bc,ec,el,c)
     where def := <VarDecl> x
 
@@ -130,16 +130,49 @@ strategies  // language server
     TemplateCall(nm,args,passigns,body){At(f,l,bc,el,ec)} -> completions
     where is-between(|l,bc,ec,el,c)
     where completions := <collect-one( lsp-complete-element(|f,l,c) )> (args,passigns,body)
-       <+ completions := <all-keys-TopLevelTemplateDecl;map(TopLevelTemplateDecl; \Define(_,name,fargs,_,_)->(name,fargs)\; func-sig-to-complete-proposal)>
+       <+ completions := <all-keys-TopLevelTemplateDecl;map(TopLevelTemplateDecl;\ Define(_,name,fargs,_,_) -> (name,fargs) \;lsp-func-sig-to-complete-proposal(|"template call"))>
 
-  func-sig-to-complete-proposal :
-    (x,farg) -> <func-sig-to-complete-proposal> (x,farg,SimpleSort("Void"))
+  lsp-func-sig-to-complete-proposal(|desc) :
+    (x,farg) -> <lsp-func-sig-to-complete-proposal(|desc)> (x,farg,SimpleSort("Void"))
 
-  func-sig-to-complete-proposal :
-    tup@(x,farg,return) -> (sig-no-return,full-sig)
+  lsp-func-sig-to-complete-proposal(|desc) :
+    tup@(x,farg,return) -> (sig-no-return,$[[full-sig] - [desc]])
     with  sig-no-return := <pp-func-sig-arg-names> (x,<map(?Arg(<id>,_))>farg)
         ; if(<?SimpleSort("Void")>return) then full-sig := <pp-func-sig-farg> (x,farg)
                                           else full-sig := <pp-func-sig-farg> tup end
+
+  lsp-complete-element(|f,l,c) :
+    v@Var(_){_,At(f,l,bc,el,ec)} -> completions
+    where is-between(|l,bc,ec,el,c)
+    where var* := <lsp-var-complete-vars <+ ![]> v
+        ; glo* := <lsp-var-complete-globals <+ ![]> v
+        ; ses* := <lsp-var-complete-sessions <+ ![]> v
+        ; req* := <lsp-var-complete-request-vars <+ ![]> v
+        ; fun* := <lsp-var-complete-funs <+ ![]> v
+        ; completions := [var*, glo*, ses*, req*, fun*]
+
+  lsp-var-complete-vars :
+    Var(_){ClosureInAnno(varlist),_} -> result
+    with  result := <map(\ v@Var(x) -> <lsp-prop-to-complete-proposal> (x, <type-of> v, "local variable") \)> varlist
+
+  lsp-var-complete-globals :
+    _ -> result
+    with  result := <all-keys-IsGlobal; map( \x -> <lsp-prop-to-complete-proposal> (x, <type-of> Var(x), "global variable")\ )>
+
+  lsp-var-complete-request-vars :
+    _ -> result
+    with  result := <all-keys-IsRequestScopedVarDecl; map( \x -> <lsp-prop-to-complete-proposal> (x, <type-of> Var(x), "request variable")\ )>
+
+  lsp-var-complete-sessions :
+    _ -> result
+    with  result := <all-keys-IsSessionEntityType; map( \srt@SimpleSort(x) -> <lsp-prop-to-complete-proposal> (<decapitalize-string>x, srt, "session variable")\ )>
+
+  lsp-var-complete-funs :
+    _ -> result
+    with result := <all-keys-FunctionDecl; map(FunctionDecl;\ Function(name,fargs,ret,_) -> (name,fargs,ret) \); map(lsp-func-sig-to-complete-proposal(|"function call"))>
+
+  lsp-prop-to-complete-proposal :
+    (name,type,desc) -> (name{},$[[name]: [<pp-type> type] [<if not(?"") then !$[- [<id>]] end> desc]])
 
 strategies  // command-line compiler
 
