@@ -94,15 +94,14 @@ strategies  // language server
     ?Entity(nm,_,body) <+ ?ExtendEntity(nm,body)
   ; {| EntityName :
       rules( EntityName := nm )
-    ; <lsp-resolve-element(|f,l,c)> body
+    ; <collect-one( lsp-resolve-element(|f,l,c) )> body
     |}
 
-  // resolve global function call or entity function self call
+  // resolve global function call
   lsp-resolve-element(|f,l,c) :
     ThisCall(nm,arg*){At(f,l,bc,el,ec)} -> def
     where is-between(|l,bc,ec,el,c)
     where def := <collect-one( lsp-resolve-element(|f,l,c) )> arg*
-       <+ def := <resolve-function-call-to-decl> (SimpleSort(<EntityName>), <strip-annos> nm, <map(type-of)> arg*)
        <+ def := <resolve-function-call-to-decl> (None(), <strip-annos> nm, <map(type-of)> arg*)
 
   // resolve entity function call
@@ -141,6 +140,13 @@ strategies  // language server
         ; if(<?SimpleSort("Void")>return) then full-sig := <pp-func-sig-farg> (x,farg)
                                           else full-sig := <pp-func-sig-farg> tup end
 
+  lsp-complete-element(|f,l,c) =
+    ?Entity(nm,_,body) <+ ?ExtendEntity(nm,body)
+  ; {| EntityName :
+      rules( EntityName := nm )
+    ; <collect-one( lsp-complete-element(|f,l,c) )> body
+    |}
+
   lsp-complete-element(|f,l,c) :
     v@Var(_){_,At(f,l,bc,el,ec)} -> completions
     where is-between(|l,bc,ec,el,c)
@@ -148,8 +154,9 @@ strategies  // language server
         ; glo* := <lsp-var-complete-globals <+ ![]> v
         ; ses* := <lsp-var-complete-sessions <+ ![]> v
         ; req* := <lsp-var-complete-request-vars <+ ![]> v
-        ; fun* := <lsp-var-complete-funs <+ ![]> v
-        ; completions := [var*, glo*, ses*, req*, fun*]
+        ; lfun* := <lsp-var-complete-local-funs <+ ![]> v
+        ; gfun* := <lsp-var-complete-global-funs <+ ![]> v
+        ; completions := [var*, glo*, ses*, req*, lfun*, gfun*]
 
   lsp-var-complete-vars :
     Var(_){ClosureInAnno(varlist),_} -> result
@@ -167,9 +174,14 @@ strategies  // language server
     _ -> result
     with  result := <all-keys-IsSessionEntityType; map( \srt@SimpleSort(x) -> <lsp-prop-to-complete-proposal> (<decapitalize-string>x, srt, "session variable")\ )>
 
-  lsp-var-complete-funs :
+  lsp-var-complete-global-funs :
     _ -> result
-    with result := <all-keys-FunctionDecl; map(FunctionDecl;\ Function(name,fargs,ret,_) -> (name,fargs,ret) \); map(lsp-func-sig-to-complete-proposal(|"function call"))>
+    with  result := <all-keys-FunctionDecl; map(FunctionDecl;\ Function(name,fargs,ret,_) -> (name,fargs,ret) \); map(lsp-func-sig-to-complete-proposal(|"function call"))>
+
+  lsp-var-complete-local-funs :
+    _ -> result
+    where name := <EntityName>
+    with  result := <all-functions; map(\ Function(name,fargs,ret,_) -> (name,fargs,ret) \); map(lsp-func-sig-to-complete-proposal(|"function call"))> name
 
   lsp-prop-to-complete-proposal :
     (name,type,desc) -> (name{},$[[name]: [<pp-type> type] [<if not(?"") then !$[- [<id>]] end> desc]])

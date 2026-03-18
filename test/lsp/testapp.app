@@ -64,3 +64,9 @@ session usersession { s : String }
 function unresolved_var_completion( arg1: Int ){
   aaa;
 }
+
+extend entity User {
+  function complete_entity_functions {
+    aaa;
+  }
+}
