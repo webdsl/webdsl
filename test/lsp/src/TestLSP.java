@@ -39,6 +39,8 @@ public class TestLSP {
 		resolve(57, 8, "testapp.app", "At(\"testapp.app\",53,1,53,25)");
 		resolve(58, 10, "testapp.app", "At(\"testapp.app\",54,9,54,32)");
 		resolve(59, 10, "testapp.app", "At(\"testapp.app\",62,1,62,35)");
+		// FieldAccess - resolve
+		resolve(75, 12, "testapp.app", "At(\"testapp.app\",72,3,73,1)");
 		
 		// TemplateCall - completion
 		complete(6, 3, "testapp.app", "(\"example(key)\",\"example(key: String) - template call\"),(\"example(num)\",\"example(num: Int) - template call\")");		

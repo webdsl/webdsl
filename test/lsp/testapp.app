@@ -69,4 +69,8 @@ extend entity User {
   function complete_entity_functions {
     aaa;
   }
+  userprop : String
+}
+function resolve_field_access {
+  User{}.userprop;
 }
