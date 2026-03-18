@@ -60,3 +60,7 @@ function morevars {
 }
 
 session usersession { s : String }
+
+function unresolved_var_completion( arg1: Int ){
+  aaa;
+}

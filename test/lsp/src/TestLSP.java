@@ -47,6 +47,7 @@ public class TestLSP {
 		complete(57, 12, "testapp.app", "(\"globaluser\",\"globaluser: User - global variable\"),(\"usersession\",\"usersession: Usersession - session variable\"),(\"requestscoped\",\"requestscoped: String - request variable\")");
 		complete(58, 12, "testapp.app", "(\"globaluser\",\"globaluser: User - global variable\"),(\"usersession\",\"usersession: Usersession - session variable\"),(\"requestscoped\",\"requestscoped: String - request variable\")");
 		complete(59, 12, "testapp.app", "(\"globaluser\",\"globaluser: User - global variable\"),(\"usersession\",\"usersession: Usersession - session variable\"),(\"requestscoped\",\"requestscoped: String - request variable\")");
+		complete(65, 4, "testapp.app", "(\"arg1\",\"arg1: Int - local variable\"),(\"globaluser\",\"globaluser: User - global variable\"),(\"usersession\",\"usersession: Usersession - session variable\"),(\"requestscoped\",\"requestscoped: String - request variable\")");
 	}
 
 	public static void resolve(int line, int column, String file, String expected) {
