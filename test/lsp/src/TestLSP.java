@@ -39,6 +39,7 @@ public class TestLSP {
 		resolve(57, 8, "testapp.app", "At(\"testapp.app\",53,1,53,25)");
 		resolve(58, 10, "testapp.app", "At(\"testapp.app\",54,9,54,32)");
 		resolve(59, 10, "testapp.app", "At(\"testapp.app\",62,1,62,35)");
+		resolve(90, 18, "testapp.app", "At(\"testapp.app\",88,30,88,39)");
 		// FieldAccess - resolve
 		resolve(80, 15, "testapp.app", "At(\"testapp.app\",72,3,73,3)");
 		resolve(81, 15, "testapp.app", "At(\"testapp.app\",72,3,73,3)");
@@ -46,6 +47,9 @@ public class TestLSP {
 		resolve(83, 16, "testapp.app", "At(\"testapp.app\",73,3,74,1)");
 		resolve(84, 14, "testapp.app", "At(\"testapp.app\",73,3,74,1)");
 		resolve(85, 15, "testapp.app", "At(\"testapp.app\",77,3,78,1)");
+		// ObjectPropertyAssignment - resolve
+		resolve(90, 12, "testapp.app", "At(\"testapp.app\",72,3,73,3)");
+		resolve(91, 12, "testapp.app", "At(\"testapp.app\",76,3,77,3)");
 		
 		// TemplateCall - completion
 		complete(6, 3, "testapp.app", "(\"example(key)\",\"example(key: String) - template call\"),(\"example(num)\",\"example(num: Int) - template call\")");		
@@ -56,8 +60,11 @@ public class TestLSP {
 		complete(59, 12, "testapp.app", "(\"globaluser\",\"globaluser: User - global variable\"),(\"usersession\",\"usersession: Usersession - session variable\"),(\"requestscoped\",\"requestscoped: String - request variable\")");
 		complete(65, 4, "testapp.app", "(\"arg1\",\"arg1: Int - local variable\"),(\"globaluser\",\"globaluser: User - global variable\"),(\"usersession\",\"usersession: Usersession - session variable\"),(\"requestscoped\",\"requestscoped: String - request variable\")");
 		complete(70, 7, "testapp.app", "\"two(i: Int, s: String): String - function call\"),(\"two(s)\",\"two(s: String) - function call\")");
+		complete(90, 18, "testapp.app", "(\"s\",\"s: String - local variable\")");
 		// FieldAccess - completion
 		complete(81, 12, "testapp.app", "(\"subderived\",\"subderived: User - entity property\"),(\"subprop\",\"subprop: Bool - entity property\"),(\"derived\",\"derived: Int - entity property\"),(\"userprop\",\"userprop: String - entity property\"),(\"complete_entity_functions()\",\"complete_entity_functions() - function call\")");
+		// ObjectPropertyAssignment - completion
+		complete(90, 12, "testapp.app", "(\"subderived\",\"subderived: User - entity property\"),(\"subprop\",\"subprop: Bool - entity property\"),(\"derived\",\"derived: Int - entity property\"),(\"userprop\",\"userprop: String - entity property\")");
 	}
 
 	public static void resolve(int line, int column, String file, String expected) {

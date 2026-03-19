@@ -123,6 +123,12 @@ strategies  // language server
        <+ ent := <type-of;?SimpleSort(<id>)> e
         ; def := <all-properties; fetch-elem(?Property(prop,_,_,_))> ent
 
+  lsp-resolve-element(|f,l,c) :
+    ObjectPropertyAssignment(prop,e){ObjectCreationTypeAnno(nm),At(f,l,bc,el,ec)} -> def
+    where is-between(|l,bc,ec,el,c)
+    where def := <collect-one( lsp-resolve-element(|f,l,c) )> e
+       <+ def := <all-properties; fetch-elem(?Property(prop,_,_,_))> nm
+
   lsp-complete =
     lsp-analysis-init(?line,?column,?file)
   ; collect-one( lsp-complete-element(|file,line,column) )
@@ -137,6 +143,9 @@ strategies  // language server
     where is-between(|l,bc,ec,el,c)
     where completions := <collect-one( lsp-complete-element(|f,l,c) )> (args,passigns,body)
        <+ completions := <all-keys-TopLevelTemplateDecl;map(TopLevelTemplateDecl;\ Define(_,name,fargs,_,_) -> (name,fargs) \;lsp-func-sig-to-complete-proposal(|"template call"))>
+
+  lsp-function-to-complete-proposal(|desc) :
+    Function(name,fargs,ret,_) -> <lsp-func-sig-to-complete-proposal(|desc)> (name,fargs,ret)
 
   lsp-func-sig-to-complete-proposal(|desc) :
     (x,farg) -> <lsp-func-sig-to-complete-proposal(|desc)> (x,farg,SimpleSort("Void"))
@@ -183,12 +192,15 @@ strategies  // language server
 
   lsp-var-complete-global-funs :
     _ -> result
-    with  result := <all-keys-FunctionDecl; map(FunctionDecl;\ Function(name,fargs,ret,_) -> (name,fargs,ret) \); map(lsp-func-sig-to-complete-proposal(|"function call"))>
+    with  result := <all-keys-FunctionDecl; map(FunctionDecl;lsp-function-to-complete-proposal(|"function call"))>
 
   lsp-var-complete-local-funs :
     _ -> result
     where name := <EntityName>
-    with  result := <all-functions; map(\ Function(name,fargs,ret,_) -> (name,fargs,ret) \); map(lsp-func-sig-to-complete-proposal(|"function call"))> name
+    with  result := <all-functions; map(lsp-function-to-complete-proposal(|"function call"))> name
+
+  lsp-property-to-complete-proposal(|desc) :
+    Property(name,_,type,_) -> <lsp-prop-to-complete-proposal(|desc)> (name,type)
 
   lsp-prop-to-complete-proposal(|desc) :
     (name,type) -> (name{},$[[name]: [<pp-type> type] [<if not(?"") then !$[- [<id>]] end> desc]])
@@ -198,9 +210,15 @@ strategies  // language server
     where is-between(|l,bc,ec,el,c)
     where completions := <collect-one( lsp-complete-element(|f,l,c) )> e
        <+ SimpleSort(nm) := <type-of> e
-        ; prop* := <all-properties; map(\ Property(name,_,type,_) -> (name,type) \; lsp-prop-to-complete-proposal(|"entity property")) <+ ![]> nm
-        ; func* := <all-functions;  map(\ Function(name,fargs,ret,_) -> (name,fargs,ret) \; lsp-func-sig-to-complete-proposal(|"function call")) <+ ![]> nm
+        ; prop* := <all-properties; map(lsp-property-to-complete-proposal(|"entity property")) <+ ![]> nm
+        ; func* := <all-functions;  map(lsp-function-to-complete-proposal(|"function call")) <+ ![]> nm
         ; completions := [prop*, func*]
+
+  lsp-complete-element(|f,l,c) :
+    ObjectPropertyAssignment(prop,e){ObjectCreationTypeAnno(nm),At(f,l,bc,el,ec)} -> completions
+    where is-between(|l,bc,ec,el,c)
+    where completions := <collect-one( lsp-complete-element(|f,l,c) )> e
+       <+ completions := <all-properties; map(lsp-property-to-complete-proposal(|"entity property")) <+ ![]> nm
 
 strategies  // command-line compiler
 

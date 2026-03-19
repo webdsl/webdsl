@@ -85,4 +85,9 @@ function resolve_field_access {
   SubUser{}.subderived;
 }
 
-
+function entity_prop_assign( s: String ){
+  SubUser {
+    userprop := s
+    subprop := false
+  };
+}
