@@ -40,7 +40,12 @@ public class TestLSP {
 		resolve(58, 10, "testapp.app", "At(\"testapp.app\",54,9,54,32)");
 		resolve(59, 10, "testapp.app", "At(\"testapp.app\",62,1,62,35)");
 		// FieldAccess - resolve
-		resolve(75, 12, "testapp.app", "At(\"testapp.app\",72,3,73,1)");
+		resolve(80, 15, "testapp.app", "At(\"testapp.app\",72,3,73,3)");
+		resolve(81, 15, "testapp.app", "At(\"testapp.app\",72,3,73,3)");
+		resolve(82, 15, "testapp.app", "At(\"testapp.app\",76,3,77,3)");
+		resolve(83, 16, "testapp.app", "At(\"testapp.app\",73,3,74,1)");
+		resolve(84, 14, "testapp.app", "At(\"testapp.app\",73,3,74,1)");
+		resolve(85, 15, "testapp.app", "At(\"testapp.app\",77,3,78,1)");
 		
 		// TemplateCall - completion
 		complete(6, 3, "testapp.app", "(\"example(key)\",\"example(key: String) - template call\"),(\"example(num)\",\"example(num: Int) - template call\")");		
@@ -51,6 +56,8 @@ public class TestLSP {
 		complete(59, 12, "testapp.app", "(\"globaluser\",\"globaluser: User - global variable\"),(\"usersession\",\"usersession: Usersession - session variable\"),(\"requestscoped\",\"requestscoped: String - request variable\")");
 		complete(65, 4, "testapp.app", "(\"arg1\",\"arg1: Int - local variable\"),(\"globaluser\",\"globaluser: User - global variable\"),(\"usersession\",\"usersession: Usersession - session variable\"),(\"requestscoped\",\"requestscoped: String - request variable\")");
 		complete(70, 7, "testapp.app", "\"two(i: Int, s: String): String - function call\"),(\"two(s)\",\"two(s: String) - function call\")");
+		// FieldAccess - completion
+		complete(81, 12, "testapp.app", "(\"subderived\",\"subderived: User - entity property\"),(\"subprop\",\"subprop: Bool - entity property\"),(\"derived\",\"derived: Int - entity property\"),(\"userprop\",\"userprop: String - entity property\"),(\"complete_entity_functions()\",\"complete_entity_functions() - function call\")");
 	}
 
 	public static void resolve(int line, int column, String file, String expected) {

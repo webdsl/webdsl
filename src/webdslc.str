@@ -91,7 +91,7 @@ strategies  // language server
        <+ def := <CallToDefinedTemplate; TemplateDecl> nm
 
   lsp-resolve-element(|f,l,c) =
-    ?Entity(nm,_,body) <+ ?ExtendEntity(nm,body)
+    (?Entity(nm,_,body) <+ ?ExtendEntity(nm,body))
   ; {| EntityName :
       rules( EntityName := nm )
     ; <collect-one( lsp-resolve-element(|f,l,c) )> body
@@ -121,7 +121,7 @@ strategies  // language server
     where is-between(|l,bc,ec,el,c)
     where def := <collect-one( lsp-resolve-element(|f,l,c) )> e
        <+ ent := <type-of;?SimpleSort(<id>)> e
-        ; def := <PropertyDecl> (ent,prop)
+        ; def := <all-properties; fetch-elem(?Property(prop,_,_,_))> ent
 
   lsp-complete =
     lsp-analysis-init(?line,?column,?file)
@@ -148,7 +148,7 @@ strategies  // language server
                                           else full-sig := <pp-func-sig-farg> tup end
 
   lsp-complete-element(|f,l,c) =
-    ?Entity(nm,_,body) <+ ?ExtendEntity(nm,body)
+    (?Entity(nm,_,body) <+ ?ExtendEntity(nm,body))
   ; {| EntityName :
       rules( EntityName := nm )
     ; <collect-one( lsp-complete-element(|f,l,c) )> body
@@ -167,19 +167,19 @@ strategies  // language server
 
   lsp-var-complete-vars :
     Var(_){ClosureInAnno(varlist),_} -> result
-    with  result := <map(\ v@Var(x) -> <lsp-prop-to-complete-proposal> (x, <type-of> v, "local variable") \)> varlist
+    with  result := <map(\ v@Var(x) -> <lsp-prop-to-complete-proposal(|"local variable")> (x, <type-of> v) \)> varlist
 
   lsp-var-complete-globals :
     _ -> result
-    with  result := <all-keys-IsGlobal; map( \x -> <lsp-prop-to-complete-proposal> (x, <type-of> Var(x), "global variable")\ )>
+    with  result := <all-keys-IsGlobal; map( \x -> <lsp-prop-to-complete-proposal(|"global variable")> (x, <type-of> Var(x))\ )>
 
   lsp-var-complete-request-vars :
     _ -> result
-    with  result := <all-keys-IsRequestScopedVarDecl; map( \x -> <lsp-prop-to-complete-proposal> (x, <type-of> Var(x), "request variable")\ )>
+    with  result := <all-keys-IsRequestScopedVarDecl; map( \x -> <lsp-prop-to-complete-proposal(|"request variable")> (x, <type-of> Var(x))\ )>
 
   lsp-var-complete-sessions :
     _ -> result
-    with  result := <all-keys-IsSessionEntityType; map( \srt@SimpleSort(x) -> <lsp-prop-to-complete-proposal> (<decapitalize-string>x, srt, "session variable")\ )>
+    with  result := <all-keys-IsSessionEntityType; map( \srt@SimpleSort(x) -> <lsp-prop-to-complete-proposal(|"session variable")> (<decapitalize-string>x, srt)\ )>
 
   lsp-var-complete-global-funs :
     _ -> result
@@ -190,8 +190,17 @@ strategies  // language server
     where name := <EntityName>
     with  result := <all-functions; map(\ Function(name,fargs,ret,_) -> (name,fargs,ret) \); map(lsp-func-sig-to-complete-proposal(|"function call"))> name
 
-  lsp-prop-to-complete-proposal :
-    (name,type,desc) -> (name{},$[[name]: [<pp-type> type] [<if not(?"") then !$[- [<id>]] end> desc]])
+  lsp-prop-to-complete-proposal(|desc) :
+    (name,type) -> (name{},$[[name]: [<pp-type> type] [<if not(?"") then !$[- [<id>]] end> desc]])
+
+  lsp-complete-element(|f,l,c) :
+    FieldAccess(e,_){At(f,l,bc,el,ec)} -> completions
+    where is-between(|l,bc,ec,el,c)
+    where completions := <collect-one( lsp-complete-element(|f,l,c) )> e
+       <+ SimpleSort(nm) := <type-of> e
+        ; prop* := <all-properties; map(\ Property(name,_,type,_) -> (name,type) \; lsp-prop-to-complete-proposal(|"entity property")) <+ ![]> nm
+        ; func* := <all-functions;  map(\ Function(name,fargs,ret,_) -> (name,fargs,ret) \; lsp-func-sig-to-complete-proposal(|"function call")) <+ ![]> nm
+        ; completions := [prop*, func*]
 
 strategies  // command-line compiler
 

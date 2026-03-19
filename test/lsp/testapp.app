@@ -70,7 +70,19 @@ extend entity User {
     aaa;
   }
   userprop : String
+  derived : Int
+}
+entity SubUser : User {
+  subprop : Bool
+  subderived : User
 }
 function resolve_field_access {
   User{}.userprop;
+  SubUser{}.userprop;
+  SubUser{}.subprop;
+  User{}.derived;
+  SubUser{}.derived;
+  SubUser{}.subderived;
 }
+
+
