@@ -51,7 +51,7 @@ public class TestLSP {
 		resolve(90, 12, "testapp.app", "At(\"testapp.app\",72,3,73,3)");
 		resolve(91, 12, "testapp.app", "At(\"testapp.app\",76,3,77,3)");
 		// PageCall - resolve
-		resolve(99, 14, "testapp.app", "At(\"testapp.app\",95,1,95,37)");
+		resolve(99, 14, "testapp.app", "At(\"testapp.app\",95,1,95,35)");
 		resolve(100, 14, "testapp.app", "At(\"testapp.app\",5,1,8,2)");
 		// EmailCall - resolve
 		resolve(101, 26, "testapp.app", "At(\"testapp.app\",96,1,96,58)");
@@ -71,9 +71,12 @@ public class TestLSP {
 		// ObjectPropertyAssignment - completion
 		complete(90, 12, "testapp.app", "(\"subderived\",\"subderived: User - entity property\"),(\"subprop\",\"subprop: Bool - entity property\"),(\"derived\",\"derived: Int - entity property\"),(\"userprop\",\"userprop: String - entity property\")");
 		// PageCall - completion
-		complete(99, 14, "testapp.app", "(\"testpage(s, i)\",\"testpage(s: String, i: Int) - page navigate\")");
+		complete(99, 14, "testapp.app", "(\"testpage(b, i)\",\"testpage(b: Bool, i: Int) - page navigate\")");
 		// EmailCall - completion
 		complete(101, 26, "testapp.app", "(\"testemail(b)\",\"testemail(b: Bool)");
+		
+		// Define - find usages
+		findUsages(95, 10, "testapp.app", "(At(\"testapp.app\",106,12,106,34),\"testpage(false, 456)\"),(At(\"testapp.app\",105,12,105,33),\"testpage(true, 123)\"),(At(\"testapp.app\",99,12,99,32),\"testpage(false, 0)\")]");
 	}
 
 	public static void resolve(int line, int column, String file, String expected) {
@@ -109,6 +112,25 @@ public class TestLSP {
 		} else {
 			testsFailed++;
 			System.out.println("completion (" + line + "," + column + "," + file + ") failed");
+			System.out.println("  - received: " + result);
+			System.out.println("  - expected to contain: " + expected);
+		}
+	}
+
+	public static void findUsages(int line, int column, String file, String expected) {
+		String[] args = {
+				"-i", "testapp.app",
+				"--dir", System.getProperty("user.dir"),
+				"-line", Integer.toString(line),
+				"-column", Integer.toString(column),
+				"-file", file
+		};
+		IStrategoTerm result = context.invokeStrategyCLI(org.webdsl.webdslc.lsp_find_usages_cached_0_0.instance, "Main", args);
+		if (result != null && result.toString().contains(expected)) {
+			System.out.println("find usages successful: " + expected);
+		} else {
+			testsFailed++;
+			System.out.println("find usages (" + line + "," + column + "," + file + ") failed");
 			System.out.println("  - received: " + result);
 			System.out.println("  - expected to contain: " + expected);
 		}

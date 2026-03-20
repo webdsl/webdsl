@@ -92,11 +92,16 @@ function entity_prop_assign( s: String ){
   };
 }
 
-page testpage( s: String, i: Int ){}
+page testpage( b: Bool, i: Int ){}
 email testemail( b: Bool ){ from("") to("") subject("") }
 
 template navigates {  // unused template should not get skipped when doing lsp analysis
-  navigate testpage( "", 0 ){ "testpage" }
+  navigate testpage( false, 0 ){ "testpage" }
   navigate root { "root" }
   action send { email testemail( false ); }
+}
+
+template find_usages {
+  navigate testpage( true, 123 ){ "test 123" }
+  navigate testpage( false, 456 ){ "test 456" }
 }

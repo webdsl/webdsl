@@ -232,3 +232,34 @@ strategies  // content completion
     where is-between(|l,bc,ec,el,c)
     where completions := <collect-one( lsp-complete-element(|f,l,c) )> e
        <+ completions := <all-properties; map(lsp-property-to-complete-proposal(|"entity property")) <+ ![]> nm
+
+strategies  // find usages
+
+  lsp-find-usages =
+    lsp-analysis-init(?line,?column,?file)
+  ; analyze-usages(|file,line,column)
+
+  lsp-find-usages-cached =
+    parse-options(webdsl-set-working-dir-option <+ io-options <+ lsp-option-line(?line) <+ lsp-option-column(?column) <+ lsp-option-file(?file))
+  ; ApplicationASTCache
+  ; analyze-usages(|file,line,column)
+
+  analyze-usages(|file,line,column) =
+  {| PageUsage :
+    alltd( analyze-usage-element )
+  ; collect-one( lsp-find-usages-element(|file,line,column) )
+  |}
+
+  analyze-usage-element =
+    ?p@PageCall(nm,_){anno*}
+  ; rules( PageUsage :+ nm -> p )
+
+  lsp-find-usages-element(|f,l,c) :
+    Define(mod*,nm,arg*,targ*,elem*){At(f,l,bc,el,ec)} -> def
+    where <fetch( ?Page() )> mod*
+    where is-between(|l,bc,ec,el,c)
+    where def := <collect-one( lsp-find-usages-element(|f,l,c) )> elem*
+       <+ def := <bagof-PageUsage; map( lsp-show-usage-element )> nm
+
+  lsp-show-usage-element :
+    p@PageCall(_,_){at-anno} -> (at-anno, <pp-webdsl-to-string> p)
