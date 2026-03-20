@@ -50,6 +50,11 @@ public class TestLSP {
 		// ObjectPropertyAssignment - resolve
 		resolve(90, 12, "testapp.app", "At(\"testapp.app\",72,3,73,3)");
 		resolve(91, 12, "testapp.app", "At(\"testapp.app\",76,3,77,3)");
+		// PageCall - resolve
+		resolve(99, 14, "testapp.app", "At(\"testapp.app\",95,1,95,37)");
+		resolve(100, 14, "testapp.app", "At(\"testapp.app\",5,1,8,2)");
+		// EmailCall - resolve
+		resolve(101, 26, "testapp.app", "At(\"testapp.app\",96,1,96,58)");
 		
 		// TemplateCall - completion
 		complete(6, 3, "testapp.app", "(\"example(key)\",\"example(key: String) - template call\"),(\"example(num)\",\"example(num: Int) - template call\")");		
@@ -65,6 +70,10 @@ public class TestLSP {
 		complete(81, 12, "testapp.app", "(\"subderived\",\"subderived: User - entity property\"),(\"subprop\",\"subprop: Bool - entity property\"),(\"derived\",\"derived: Int - entity property\"),(\"userprop\",\"userprop: String - entity property\"),(\"complete_entity_functions()\",\"complete_entity_functions() - function call\")");
 		// ObjectPropertyAssignment - completion
 		complete(90, 12, "testapp.app", "(\"subderived\",\"subderived: User - entity property\"),(\"subprop\",\"subprop: Bool - entity property\"),(\"derived\",\"derived: Int - entity property\"),(\"userprop\",\"userprop: String - entity property\")");
+		// PageCall - completion
+		complete(99, 14, "testapp.app", "(\"testpage(s, i)\",\"testpage(s: String, i: Int) - page navigate\")");
+		// EmailCall - completion
+		complete(101, 26, "testapp.app", "(\"testemail(b)\",\"testemail(b: Bool)");
 	}
 
 	public static void resolve(int line, int column, String file, String expected) {

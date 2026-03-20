@@ -91,3 +91,12 @@ function entity_prop_assign( s: String ){
     subprop := false
   };
 }
+
+page testpage( s: String, i: Int ){}
+email testemail( b: Bool ){ from("") to("") subject("") }
+
+template navigates {  // unused template should not get skipped when doing lsp analysis
+  navigate testpage( "", 0 ){ "testpage" }
+  navigate root { "root" }
+  action send { email testemail( false ); }
+}

@@ -77,6 +77,18 @@ strategies  // reference resolving
     where def := <collect-one( lsp-resolve-element(|f,l,c) )> (arg*,passign*,body)
        <+ def := <CallToDefinedTemplate; TemplateDecl> nm
 
+  lsp-resolve-element(|f,l,c) :
+    PageCall(nm,arg*){At(f,l,bc,el,ec)} -> def
+    where is-between(|l,bc,ec,el,c)
+    where def := <collect-one( lsp-resolve-element(|f,l,c) )> arg*
+       <+ def := <PageDecl> nm
+
+  lsp-resolve-element(|f,l,c) :
+    EmailCall(nm,arg*){At(f,l,bc,el,ec)} -> def
+    where is-between(|l,bc,ec,el,c)
+    where def := <collect-one( lsp-resolve-element(|f,l,c) )> arg*
+       <+ def := <EmailDefinition> nm
+
   lsp-resolve-element(|f,l,c) =
     (?Entity(nm,_,body) <+ ?ExtendEntity(nm,body))
   ; {| EntityName :
@@ -128,10 +140,22 @@ strategies  // content completion
   ; collect-one( lsp-complete-element(|file,line,column) )
 
   lsp-complete-element(|f,l,c) :
-    TemplateCall(nm,args,passigns,body){At(f,l,bc,el,ec)} -> completions
+    TemplateCall(nm,arg*,passign*,body){At(f,l,bc,el,ec)} -> completions
     where is-between(|l,bc,ec,el,c)
-    where completions := <collect-one( lsp-complete-element(|f,l,c) )> (args,passigns,body)
+    where completions := <collect-one( lsp-complete-element(|f,l,c) )> (arg*,passign*,body)
        <+ completions := <all-keys-TopLevelTemplateDecl;map(TopLevelTemplateDecl;\ Define(_,name,fargs,_,_) -> (name,fargs) \;lsp-func-sig-to-complete-proposal(|"template call"))>
+
+  lsp-complete-element(|f,l,c) :
+    PageCall(nm,arg*){At(f,l,bc,el,ec)} -> completions
+    where is-between(|l,bc,ec,el,c)
+    where completions := <collect-one( lsp-complete-element(|f,l,c) )> arg*
+       <+ completions := <all-keys-PageDecl;map(PageDecl;\ Define(_,name,fargs,_,_) -> (name,fargs) \;lsp-func-sig-to-complete-proposal(|"page navigate"))>
+
+  lsp-complete-element(|f,l,c) :
+    EmailCall(nm,arg*){At(f,l,bc,el,ec)} -> completions
+    where is-between(|l,bc,ec,el,c)
+    where completions := <collect-one( lsp-complete-element(|f,l,c) )> arg*
+       <+ completions := <all-keys-EmailDefinition;map(EmailDefinition;\ Define(_,name,fargs,_,_) -> (name,fargs) \;lsp-func-sig-to-complete-proposal(|"email call"))>
 
   lsp-function-to-complete-proposal(|desc) :
     Function(name,fargs,ret,_) -> <lsp-func-sig-to-complete-proposal(|desc)> (name,fargs,ret)
