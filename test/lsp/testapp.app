@@ -101,7 +101,7 @@ template navigates {  // unused template should not get skipped when doing lsp a
   action send { email testemail( false ); }
 }
 
-template find_usages {
+template find_references {
   navigate testpage( true, 123 ){ "test 123" }
   navigate testpage( false, 456 ){ "test 456" }
 }

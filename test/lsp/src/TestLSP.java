@@ -75,8 +75,8 @@ public class TestLSP {
 		// EmailCall - completion
 		complete(101, 26, "testapp.app", "(\"testemail(b)\",\"testemail(b: Bool)");
 		
-		// Define - find usages
-		findUsages(95, 10, "testapp.app", "At(\"testapp.app\",106,12,106,34),At(\"testapp.app\",105,12,105,33),At(\"testapp.app\",99,12,99,32)");
+		// Define - find references
+		findReferences(95, 10, "testapp.app", "At(\"testapp.app\",106,12,106,34),At(\"testapp.app\",105,12,105,33),At(\"testapp.app\",99,12,99,32)");
 		
 		// TemplateCall - inlay hints
 		inlayHints("testapp.app", "(At(\"testapp.app\",111,17,111,23),\"user\"),(At(\"testapp.app\",111,25,111,27),\"s1\"),(At(\"testapp.app\",111,29,111,32),\"t\"),(At(\"testapp.app\",112,17,112,31),\"user\"),(At(\"testapp.app\",112,33,112,36),\"s1\"),(At(\"testapp.app\",112,38,112,41),\"t\")");
@@ -120,7 +120,7 @@ public class TestLSP {
 		}
 	}
 
-	public static void findUsages(int line, int column, String file, String expected) {
+	public static void findReferences(int line, int column, String file, String expected) {
 		String[] args = {
 				"-i", "testapp.app",
 				"--dir", System.getProperty("user.dir"),
@@ -128,12 +128,12 @@ public class TestLSP {
 				"-column", Integer.toString(column),
 				"-file", file
 		};
-		IStrategoTerm result = context.invokeStrategyCLI(org.webdsl.webdslc.lsp_find_usages_cached_0_0.instance, "Main", args);
+		IStrategoTerm result = context.invokeStrategyCLI(org.webdsl.webdslc.lsp_find_references_cached_0_0.instance, "Main", args);
 		if (result != null && result.toString().contains(expected)) {
-			System.out.println("find usages successful: " + expected);
+			System.out.println("find references successful: " + expected);
 		} else {
 			testsFailed++;
-			System.out.println("find usages (" + line + "," + column + "," + file + ") failed");
+			System.out.println("find references (" + line + "," + column + "," + file + ") failed");
 			System.out.println("  - received: " + result);
 			System.out.println("  - expected to contain: " + expected);
 		}
