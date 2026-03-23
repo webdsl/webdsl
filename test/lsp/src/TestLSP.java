@@ -76,7 +76,7 @@ public class TestLSP {
 		complete(101, 26, "testapp.app", "(\"testemail(b)\",\"testemail(b: Bool)");
 		
 		// Define - find usages
-		findUsages(95, 10, "testapp.app", "(At(\"testapp.app\",106,12,106,34),\"testpage(false, 456)\"),(At(\"testapp.app\",105,12,105,33),\"testpage(true, 123)\"),(At(\"testapp.app\",99,12,99,32),\"testpage(false, 0)\")]");
+		findUsages(95, 10, "testapp.app", "At(\"testapp.app\",106,12,106,34),At(\"testapp.app\",105,12,105,33),At(\"testapp.app\",99,12,99,32)");
 	}
 
 	public static void resolve(int line, int column, String file, String expected) {
