@@ -105,3 +105,9 @@ template find_usages {
   navigate testpage( true, 123 ){ "test 123" }
   navigate testpage( false, 456 ){ "test 456" }
 }
+
+template testwithargs( user: User, s1: String, t: Int){}
+template inlay_hints {
+  testwithargs( User{}, "", 123 )
+  testwithargs( (from User)[0], "s", 456 )
+}
