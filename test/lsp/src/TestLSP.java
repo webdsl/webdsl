@@ -177,9 +177,14 @@ public class TestLSP {
 	public static Context context;
 	public static int testsFailed = 0;
 
+	public static Context initContext() {
+		Context c = Main.init();
+		c.setStandAlone(true);
+		return c;
+	}
+
 	public static void main(String[] args) {
-		context = Main.init();
-		context.setStandAlone(true);
+		context = initContext();
 		try {
 			try {
 				runTests();
