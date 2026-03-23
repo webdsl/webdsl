@@ -50,6 +50,8 @@ public class TestLSP {
 		// ObjectPropertyAssignment - resolve
 		resolve(90, 12, "testapp.app", "At(\"testapp.app\",72,3,73,3)");
 		resolve(91, 12, "testapp.app", "At(\"testapp.app\",76,3,77,3)");
+		// IncompleteObjectPropertyAssignment - resolve
+		resolve(117, 8, "testapp.app", "At(\"testapp.app\",72,3,73,3)");
 		// PageCall - resolve
 		resolve(99, 14, "testapp.app", "At(\"testapp.app\",95,1,95,35)");
 		resolve(100, 14, "testapp.app", "At(\"testapp.app\",5,1,8,2)");
@@ -70,6 +72,8 @@ public class TestLSP {
 		complete(81, 12, "testapp.app", "(\"subderived\",\"subderived: User - entity property\"),(\"subprop\",\"subprop: Bool - entity property\"),(\"derived\",\"derived: Int - entity property\"),(\"userprop\",\"userprop: String - entity property\"),(\"complete_entity_functions()\",\"complete_entity_functions() - function call\")");
 		// ObjectPropertyAssignment - completion
 		complete(90, 12, "testapp.app", "(\"subderived\",\"subderived: User - entity property\"),(\"subprop\",\"subprop: Bool - entity property\"),(\"derived\",\"derived: Int - entity property\"),(\"userprop\",\"userprop: String - entity property\")");
+		// IncompleteObjectPropertyAssignment - completion
+		complete(117, 8, "testapp.app", "(\"subderived\",\"subderived: User - entity property\"),(\"subprop\",\"subprop: Bool - entity property\"),(\"derived\",\"derived: Int - entity property\"),(\"userprop\",\"userprop: String - entity property\")");
 		// PageCall - completion
 		complete(99, 14, "testapp.app", "(\"testpage(b, i)\",\"testpage(b: Bool, i: Int) - page navigate\")");
 		// EmailCall - completion

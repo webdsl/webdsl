@@ -111,3 +111,9 @@ template inlay_hints {
   testwithargs( User{}, "", 123 )
   testwithargs( (from User)[0], "s", 456 )
 }
+
+function entity_incomplete_prop_assign( s: String ){
+  SubUser {
+    userprop
+  };
+}
