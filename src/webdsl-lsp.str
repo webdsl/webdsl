@@ -245,21 +245,37 @@ strategies  // find references
   ; analyze-references(|file,line,column)
 
   analyze-references(|file,line,column) =
-  {| PageRef :
-    alltd( analyze-references-element )
+  {| PageRef, TemplateRef :
+    topdown(try( analyze-references-element ))
   ; collect-one( lsp-find-references-element(|file,line,column) )
   |}
 
   analyze-references-element =
-    ?p@PageCall(nm,_){anno*}
-  ; rules( PageRef :+ nm -> p )
+    ?p@PageCall(nm,_){anno}
+  ; rules( PageRef :+ nm -> anno )
 
   lsp-find-references-element(|f,l,c) :
     Define(mod*,nm,arg*,targ*,elem*){At(f,l,bc,el,ec)} -> def
     where <fetch( ?Page() )> mod*
     where is-between(|l,bc,ec,el,c)
     where def := <collect-one( lsp-find-references-element(|f,l,c) )> elem*
-       <+ def := <bagof-PageRef; map( ?PageCall(_,_){<id>} )> nm
+       <+ def := <bagof-PageRef> nm
+
+  analyze-references-element =
+    ?t@TemplateCall(nm,_,_,_){anno}
+  ; where(
+      defname := <CallToDefinedTemplate> nm
+    ; rules( TemplateRef :+ defname -> anno )
+    )
+
+  lsp-find-references-element(|f,l,c) :
+    Define(mod*,nm,arg*,targ*,elem*) -> def
+    where get-at-anno; ?At(f,l,bc,el,ec)
+    where <not(fetch( ?Page() ))> mod*
+    where is-between(|l,bc,ec,el,c)
+    where def := <collect-one( lsp-find-references-element(|f,l,c) )> elem*
+       <+ sig := <normalize-signature> (nm,arg*)
+        ; def := <TemplateNewName; bagof-TemplateRef> sig
 
 strategies  // inlay hints
 

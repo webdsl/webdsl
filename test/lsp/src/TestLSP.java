@@ -75,8 +75,11 @@ public class TestLSP {
 		// EmailCall - completion
 		complete(101, 26, "testapp.app", "(\"testemail(b)\",\"testemail(b: Bool)");
 		
-		// Define - find references
+		// Define (page) - find references
 		findReferences(95, 10, "testapp.app", "At(\"testapp.app\",106,12,106,34),At(\"testapp.app\",105,12,105,33),At(\"testapp.app\",99,12,99,32)");
+		// Define (template) - find references
+		findReferences(109, 16, "testapp.app", "[At(\"testapp.app\",112,3,113,1),At(\"testapp.app\",111,3,112,3)]");
+		findReferences(10, 15, "testapp.app", "[At(\"./imported.app\",4,3,5,1),At(\"testapp.app\",6,3,6,15)]");
 		
 		// TemplateCall - inlay hints
 		inlayHints("testapp.app", "(At(\"testapp.app\",111,17,111,23),\"user\"),(At(\"testapp.app\",111,25,111,27),\"s1\"),(At(\"testapp.app\",111,29,111,32),\"t\"),(At(\"testapp.app\",112,17,112,31),\"user\"),(At(\"testapp.app\",112,33,112,36),\"s1\"),(At(\"testapp.app\",112,38,112,41),\"t\")");
