@@ -78,6 +78,8 @@ public class TestLSP {
 		complete(99, 14, "testapp.app", "(\"testpage(b, i)\",\"testpage(b: Bool, i: Int) - page navigate\")");
 		// EmailCall - completion
 		complete(101, 26, "testapp.app", "(\"testemail(b)\",\"testemail(b: Bool)");
+		// Call - completion
+		complete(35, 7, "testapp.app", "(\"two(i, s)\",\"two(i: Int, s: String): String - function call\")");
 		
 		// Define (page) - find references
 		findReferences(95, 10, "testapp.app", "At(\"testapp.app\",106,12,106,34),At(\"testapp.app\",105,12,105,33),At(\"testapp.app\",99,12,99,32)");
