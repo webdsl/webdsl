@@ -117,3 +117,9 @@ function entity_incomplete_prop_assign( s: String ){
     userprop
   };
 }
+
+function objectcreations {
+  User{}.userprop;
+  SubUser{};
+}
+

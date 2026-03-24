@@ -57,6 +57,9 @@ public class TestLSP {
 		resolve(100, 14, "testapp.app", "At(\"testapp.app\",5,1,8,2)");
 		// EmailCall - resolve
 		resolve(101, 26, "testapp.app", "At(\"testapp.app\",96,1,96,58)");
+		// ObjectCreation - resolve
+		resolve(122, 5, "testapp.app", "At(\"testapp.app\",24,1,40,2)");
+		resolve(123, 5, "testapp.app", "At(\"testapp.app\",75,1,78,2)");
 		
 		// TemplateCall - completion
 		complete(6, 3, "testapp.app", "(\"example(key)\",\"example(key: String) - template call\"),(\"example(num)\",\"example(num: Int) - template call\")");		
@@ -69,7 +72,7 @@ public class TestLSP {
 		complete(70, 7, "testapp.app", "\"two(i: Int, s: String): String - function call\"),(\"two(s)\",\"two(s: String) - function call\")");
 		complete(90, 18, "testapp.app", "(\"s\",\"s: String - local variable\")");
 		// FieldAccess - completion
-		complete(81, 12, "testapp.app", "(\"subderived\",\"subderived: User - entity property\"),(\"subprop\",\"subprop: Bool - entity property\"),(\"derived\",\"derived: Int - entity property\"),(\"userprop\",\"userprop: String - entity property\"),(\"complete_entity_functions()\",\"complete_entity_functions() - function call\")");
+		complete(81, 13, "testapp.app", "(\"subderived\",\"subderived: User - entity property\"),(\"subprop\",\"subprop: Bool - entity property\"),(\"derived\",\"derived: Int - entity property\"),(\"userprop\",\"userprop: String - entity property\"),(\"complete_entity_functions()\",\"complete_entity_functions() - function call\")");
 		// ObjectPropertyAssignment - completion
 		complete(90, 12, "testapp.app", "(\"subderived\",\"subderived: User - entity property\"),(\"subprop\",\"subprop: Bool - entity property\"),(\"derived\",\"derived: Int - entity property\"),(\"userprop\",\"userprop: String - entity property\")");
 		// IncompleteObjectPropertyAssignment - completion
@@ -80,6 +83,9 @@ public class TestLSP {
 		complete(101, 26, "testapp.app", "(\"testemail(b)\",\"testemail(b: Bool)");
 		// Call - completion
 		complete(35, 7, "testapp.app", "(\"two(i, s)\",\"two(i: Int, s: String): String - function call\")");
+		// ObjectCreation - completion
+		complete(122, 5, "testapp.app", "(\"User\",\"User - entity\")");
+		complete(123, 5, "testapp.app", "(\"SubUser\",\"SubUser - entity\")");//show sub
 		
 		// Define (page) - find references
 		findReferences(95, 10, "testapp.app", "At(\"testapp.app\",106,12,106,34),At(\"testapp.app\",105,12,105,33),At(\"testapp.app\",99,12,99,32)");
