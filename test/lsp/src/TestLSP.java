@@ -95,6 +95,10 @@ public class TestLSP {
 		
 		// TemplateCall - inlay hints
 		inlayHints("testapp.app", "(At(\"testapp.app\",111,17,111,23),\"user\"),(At(\"testapp.app\",111,25,111,27),\"s1\"),(At(\"testapp.app\",111,29,111,32),\"t\"),(At(\"testapp.app\",112,17,112,31),\"user\"),(At(\"testapp.app\",112,33,112,36),\"s1\"),(At(\"testapp.app\",112,38,112,41),\"t\")");
+		
+		parse("testapp.app","(\"page\",Location(5,1,5,5),\"keyword\"),(\"{\",Location(5,11,5,12),\"operator\"),(\"}\",Location(8,1,8,2),\"operator\")");
+		parse("./imported.app","(\"module\",Location(1,1,1,7),\"keyword\"),(\"template\",Location(3,1,3,9),\"keyword\"),(\"{\",Location(3,30,3,31),\"operator\")");
+		parse("./importedfolder/test.app","(\"module\",Location(1,1,1,7),\"keyword\"),(\"/\",Location(1,22,1,23),\"operator\"),(\"template\",Location(3,1,3,9),\"keyword\")");
 	}
 
 	public static void resolve(int line, int column, String file, String expected) {
@@ -137,11 +141,11 @@ public class TestLSP {
 
 	public static void findReferences(int line, int column, String file, String expected) {
 		String[] args = {
-				"-i", "testapp.app",
-				"--dir", System.getProperty("user.dir"),
-				"-line", Integer.toString(line),
-				"-column", Integer.toString(column),
-				"-file", file
+			"-i", "testapp.app",
+			"--dir", System.getProperty("user.dir"),
+			"-line", Integer.toString(line),
+			"-column", Integer.toString(column),
+			"-file", file
 		};
 		IStrategoTerm result = context.invokeStrategyCLI(org.webdsl.webdslc.lsp_find_references_cached_0_0.instance, "Main", args);
 		if (result != null && result.toString().contains(expected)) {
@@ -156,9 +160,9 @@ public class TestLSP {
 
 	public static void inlayHints(String file, String expected) {
 		String[] args = {
-				"-i", "testapp.app",
-				"--dir", System.getProperty("user.dir"),
-				"-file", file
+			"-i", "testapp.app",
+			"--dir", System.getProperty("user.dir"),
+			"-file", file
 		};
 		IStrategoTerm result = context.invokeStrategyCLI(org.webdsl.webdslc.lsp_inlay_hints_cached_0_0.instance, "Main", args);
 		if (result != null && result.toString().contains(expected)) {
@@ -166,6 +170,22 @@ public class TestLSP {
 		} else {
 			testsFailed++;
 			System.out.println("inlay hints (" + file + ") failed");
+			System.out.println("  - received: " + result);
+			System.out.println("  - expected to contain: " + expected);
+		}
+	}
+
+	public static void parse(String file, String expected) {
+		String[] args = {
+			"-i", file,
+			"--dir", System.getProperty("user.dir"),
+		};
+		IStrategoTerm result = context.invokeStrategyCLI(org.webdsl.webdslc.lsp_parse_cached_0_0.instance, "Main", args);
+		if (result != null && result.toString().contains(expected)) {
+			System.out.println("parse successful: " + expected);
+		} else {
+			testsFailed++;
+			System.out.println("parse (" + file + ") failed");
 			System.out.println("  - received: " + result);
 			System.out.println("  - expected to contain: " + expected);
 		}

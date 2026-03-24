@@ -26,8 +26,15 @@ strategies
     ; xtc-parse-webdsl-unit(|path)
     ; check-for-ambiguities(|path)
   
-  implode-with-location-annos(|path) =
+  implode-with-location-annos(|path,cachepathlsp) =
     asfix-anno-location
+  ; if is-lsp-mode-enabled
+    then where(
+      lsp-extract-syntax-highlighting
+    ; ?highlightcache
+    ; rules( SyntaxHLCacheLSP : path -> highlightcache )
+    ; <WriteToBinaryFile> (cachepathlsp,<id>)
+    ) end
   ; implode-asfix
   ; topdown(
         try(\t {Location(r, c, endr, endc)} -> t {At(path, r, c, endr, endc)}\)
@@ -46,6 +53,7 @@ strategies
     with(
         tbl := <get-webdsl-parse-table>
       ; cachepath := <concat-strings> [<DirName>,"/.webdsl-parsecache/",<trim-initial-dots-slashes> path,<get-webdsl-version>,".parsecache"]
+      ; cachepathlsp := <concat-strings> [<DirName>,"/.webdsl-parsecache/",<trim-initial-dots-slashes> path,<get-webdsl-version>,".parsecachelsp"]
       ; dirs := <dirname; string-tokenize(|['/'])> cachepath
       ; <create-dirs> dirs
       )
@@ -53,12 +61,17 @@ strategies
       then
         if not(<file-exists> cachepath) <+ <gt> (<modification-time> path, <modification-time> cachepath) 
         then
-          parse-and-write-cache(|path,tbl,cachepath) //current term relevant
+          parse-and-write-cache(|path,tbl,cachepath,cachepathlsp) //current term relevant
         else
            // if cache read fails for some reason, e.g. it contains an invalid term because 
            // the write was interrupted with ctrl+c, then it should just parse again and ignore the cache
-           <ReadFromFile> cachepath 
-        <+ parse-and-write-cache(|path,tbl,cachepath) //current term relevant
+           <ReadFromFile> cachepath
+         ; if is-lsp-mode-enabled
+           then where(
+             highlightcache := <ReadFromFile> cachepathlsp
+           ; rules( SyntaxHLCacheLSP : path -> highlightcache )
+           ) end
+        <+ parse-and-write-cache(|path,tbl,cachepath,cachepathlsp) //current term relevant
         end
       else
         <debug> "File does not exist: "
@@ -66,11 +79,11 @@ strategies
       ; <exit> 1
       end
       
-  parse-and-write-cache(|path,tbl,cachepath) =
+  parse-and-write-cache(|path,tbl,cachepath,cachepathlsp) =
    ( parse-xtc-file-pt(err(|["cannot open file ", <trim-initial-dots-slashes> path]), strsglr-report-parse-error | tbl, "Unit", path) 
      <+ not(is-verbose-2); <exit> 1 
    )
-   ; implode-with-location-annos(|path)
+   ; implode-with-location-annos(|path,cachepathlsp)
    ; where(
        <WriteToBinaryFile> (cachepath,<id>)
      )
@@ -87,7 +100,7 @@ strategies
   parse-webdsl-string-pt =
     where(tbl := <get-webdsl-parse-table>)
     ; parse-string-pt(strsglr-report-parse-error | tbl, "Unit", "string")
-    ; implode-with-location-annos(|"")
+    ; implode-with-location-annos(|"","")
 
   /**
    * Returns an open parse table for the given sort.

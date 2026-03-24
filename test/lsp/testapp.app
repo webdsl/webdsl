@@ -1,7 +1,7 @@
 application test
 
 imports imported
-
+imports importedfolder/test
 page root {
   templatedef tcallnotdefined
   templatedefimported
