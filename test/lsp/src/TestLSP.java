@@ -83,6 +83,7 @@ public class TestLSP {
 		complete(101, 26, "testapp.app", "(\"testemail(b)\",\"testemail(b: Bool)");
 		// Call - completion
 		complete(35, 7, "testapp.app", "(\"two(i, s)\",\"two(i: Int, s: String): String - function call\")");
+		complete(127, 14, "testapp.app", "(\"two(i, s)\",\"two(i: Int, s: String): String - function call\")");
 		// ThisCall - completion
 		complete(17, 5, "testapp.app", "(\"one(j, i)\",\"one(j: Int, i: Int): Int - function call\")");
 		// ObjectCreation - completion
@@ -97,7 +98,12 @@ public class TestLSP {
 		
 		// TemplateCall - inlay hints
 		inlayHints("testapp.app", "(At(\"testapp.app\",111,17,111,23),\"user\"),(At(\"testapp.app\",111,25,111,27),\"s1\"),(At(\"testapp.app\",111,29,111,32),\"t\"),(At(\"testapp.app\",112,17,112,31),\"user\"),(At(\"testapp.app\",112,33,112,36),\"s1\"),(At(\"testapp.app\",112,38,112,41),\"t\")");
+		// Call - inlay hints
+		inlayHints("testapp.app", "(At(\"testapp.app\",37,15,37,16),\"i\")");
+		// ThisCall - inlay hints
+		inlayHints("testapp.app", "(At(\"testapp.app\",17,8,17,10),\"a\")");
 		
+		// parse
 		parse("testapp.app","(\"page\",Location(5,1,5,5),\"keyword\"),(\"{\",Location(5,11,5,12),\"operator\"),(\"}\",Location(8,1,8,2),\"operator\")");
 		parse("./imported.app","(\"module\",Location(1,1,1,7),\"keyword\"),(\"template\",Location(3,1,3,9),\"keyword\"),(\"{\",Location(3,30,3,31),\"operator\")");
 		parse("./importedfolder/test.app","(\"module\",Location(1,1,1,7),\"keyword\"),(\"/\",Location(1,22,1,23),\"operator\"),(\"template\",Location(3,1,3,9),\"keyword\")");

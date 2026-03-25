@@ -123,3 +123,6 @@ function objectcreations {
   SubUser{};
 }
 
+function unresolved_call {
+  User{}.notresolved();
+}
