@@ -285,7 +285,7 @@ strategies  // find references
   ; analyze-references(|file,line,column)
 
   analyze-references(|file,line,column) =
-  {| PageRef, TemplateRef :
+  {| PageRef, TemplateRef, CallRef :
     topdown(try( analyze-references-element ))
   ; collect-one( lsp-find-references-element(|file,line,column) )
   |}
@@ -309,13 +309,33 @@ strategies  // find references
     )
 
   lsp-find-references-element(|f,l,c) :
-    Define(mod*,nm,arg*,targ*,elem*) -> def
+    Define(mod*,nm,arg*,targ*,elem*) -> refs
     where get-at-anno; ?At(f,l,bc,el,ec)
     where <not(fetch( ?Page() ))> mod*
     where is-between(|l,bc,ec,el,c)
-    where def := <collect-one( lsp-find-references-element(|f,l,c) )> elem*
+    where refs := <collect-one( lsp-find-references-element(|f,l,c) )> elem*
        <+ sig := <normalize-signature> (nm,arg*)
-        ; def := <TemplateNewName; bagof-TemplateRef> sig
+        ; refs := <TemplateNewName; bagof-TemplateRef> sig
+
+  analyze-references-element =
+    ?ThisCall(nm,e*){anno}
+  ; where(
+      resolvedloc := <resolve-function-call-to-decl; get-at-anno> (None(), <strip-annos> nm, <map(type-of)> e*)
+    ; rules( CallRef :+ resolvedloc -> anno )
+    )
+
+  analyze-references-element =
+    ?Call(expr,nm,e*){anno}
+  ; where(
+      resolvedloc := <resolve-function-call-to-decl; get-at-anno> (<type-of> expr, <strip-annos> nm, <map(type-of)> e*)
+    ; rules( CallRef :+ resolvedloc -> anno )
+    )
+
+  lsp-find-references-element(|f,l,c) :
+    Function(nm,arg*,_,body) -> refs
+    where get-at-anno; ?At(f,l,bc,el,ec); ?atanno
+    where is-between(|l,bc,ec,el,c)
+    where refs := <bagof-CallRef> atanno
 
 strategies  // inlay hints
 

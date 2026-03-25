@@ -95,6 +95,10 @@ public class TestLSP {
 		// Define (template) - find references
 		findReferences(109, 16, "testapp.app", "[At(\"testapp.app\",112,3,113,1),At(\"testapp.app\",111,3,112,3)]");
 		findReferences(10, 15, "testapp.app", "[At(\"./imported.app\",4,3,5,1),At(\"testapp.app\",6,3,6,15)]");
+		// Function - find references
+		findReferences(15, 16, "testapp.app", "[At(\"testapp.app\",17,27,17,42),At(\"testapp.app\",16,3,16,18)]");
+		findReferences(25, 14, "testapp.app", "[At(\"testapp.app\",43,5,43,14),At(\"testapp.app\",35,5,35,15),At(\"testapp.app\",30,5,30,29)]");
+		
 		
 		// TemplateCall - inlay hints
 		inlayHints("testapp.app", "(At(\"testapp.app\",111,17,111,23),\"user\"),(At(\"testapp.app\",111,25,111,27),\"s1\"),(At(\"testapp.app\",111,29,111,32),\"t\"),(At(\"testapp.app\",112,17,112,31),\"user\"),(At(\"testapp.app\",112,33,112,36),\"s1\"),(At(\"testapp.app\",112,38,112,41),\"t\")");
