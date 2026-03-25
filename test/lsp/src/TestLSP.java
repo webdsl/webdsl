@@ -83,9 +83,11 @@ public class TestLSP {
 		complete(101, 26, "testapp.app", "(\"testemail(b)\",\"testemail(b: Bool)");
 		// Call - completion
 		complete(35, 7, "testapp.app", "(\"two(i, s)\",\"two(i: Int, s: String): String - function call\")");
+		// ThisCall - completion
+		complete(17, 5, "testapp.app", "(\"one(j, i)\",\"one(j: Int, i: Int): Int - function call\")");
 		// ObjectCreation - completion
 		complete(122, 5, "testapp.app", "(\"User\",\"User - entity\")");
-		complete(123, 5, "testapp.app", "(\"SubUser\",\"SubUser - entity\")");//show sub
+		complete(123, 5, "testapp.app", "(\"SubUser\",\"SubUser - entity\")");
 		
 		// Define (page) - find references
 		findReferences(95, 10, "testapp.app", "At(\"testapp.app\",106,12,106,34),At(\"testapp.app\",105,12,105,33),At(\"testapp.app\",99,12,99,32)");
