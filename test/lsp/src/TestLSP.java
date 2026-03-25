@@ -104,6 +104,8 @@ public class TestLSP {
 		inlayHints("testapp.app", "(At(\"testapp.app\",17,8,17,10),\"a\")");
 		// PageCall - inlay hints
 		inlayHints("testapp.app", "(At(\"testapp.app\",105,28,105,31),\"i\")");
+		// EmailCall - inlay hints
+		inlayHints("testapp.app", "(At(\"testapp.app\",101,34,101,39),\"b\")");
 		
 		// parse
 		parse("testapp.app","(\"page\",Location(5,1,5,5),\"keyword\"),(\"{\",Location(5,11,5,12),\"operator\"),(\"}\",Location(8,1,8,2),\"operator\")");
