@@ -11,6 +11,12 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 BIN="sdf2table"
 
+# Portable realpath for macOS/Linux
+realpath() {
+    [[ $1 = "-s" ]] && shift
+    python3 -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$1"
+}
+
 usage() { echo "sdf2table in Docker
 
 Use this program to generate a parse table from an SDF definition.
@@ -106,14 +112,36 @@ done
 echo $volumes
 
 # Create the docker container with the volumes mounted
+# Define the name for our persistent 32-bit environment
+IMAGE_NAME="sdf-32bit-env"
+
+# Check if the image already exists locally
+if [[ "$(docker images -q $IMAGE_NAME 2> /dev/null)" == "" ]]; then
+    echo "First-time setup: Creating 32-bit x86 emulation image..." > /dev/tty
+    
+    # Build the image from an inline Dockerfile
+    docker build --platform linux/386 -t $IMAGE_NAME - <<EOF
+FROM i386/ubuntu:focal
+RUN apt-get update && apt-get install -y libc6 libstdc++6 libgcc1
+WORKDIR /bundle
+EOF
+    
+    if [ $? -ne 0 ]; then
+        echo "Error: Failed to create the docker image." > /dev/tty
+        exit 1
+    fi
+fi
+
+# Now run your container using that pre-existing image
 container_id=$(docker container create \
+  --platform linux/386 \
   --mount type=bind,source="$DIR",target=/bundle \
   ${volumes} \
-  ubuntu:focal \
-  /bin/bash -c "/bundle/$BIN-linux ${newopts}")
+  $IMAGE_NAME \
+  /bundle/$BIN-linux ${newopts})
 
-# Start the container
-docker container start $container_id
+# Start it and capture output
+docker start -a "$container_id"
 
 # Show container output
 docker container logs --since 0 -f $container_id
