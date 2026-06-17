@@ -165,6 +165,7 @@ public class CachedResourceFileNameHelper {
       return;
     }
     try {
+      org.webdsl.logging.Logger.info("cleanup: unregistering directory watcher for cached resources");
       watcher.close();
     } catch (IOException e) {
       Logger.error(e);

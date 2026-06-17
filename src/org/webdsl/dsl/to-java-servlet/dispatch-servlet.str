@@ -99,15 +99,50 @@ rules
             org.webdsl.logging.Logger.info("cleanup: closing Hibernate session factory");
             HibernateUtil.getSessionFactory().close();
             org.webdsl.logging.Logger.info("cleanup: done");
-            super.destroy();
-            org.webdsl.logging.Logger.info("cleanup: stopping JDBC AbandonedConnectionCleanupThread");
+
+            try {
+                 // Stop C3P0's internal DeferredStatementDestroyerThread and all pooled connections
+                Class<?> poolMgr = Class.forName("com.mchange.v2.c3p0.impl.C3P0PooledConnectionPoolManager");
+                java.lang.reflect.Method resetAll = poolMgr.getMethod("reset");
+                resetAll.invoke(null);
+             } catch (NoClassDefFoundError ex) {
+                 // C3P0 may not be on the classpath for this app, which is fine
+             } catch (ClassNotFoundException ex) {
+                org.webdsl.logging.Logger.info("cleanup: C3P0 PooledConnectionPoolManager not found");
+             } catch (Exception ex) {
+                org.webdsl.logging.Logger.info("cleanup: C3P0 pool shutdown already done or not applicable");
+             }
+
+            org.webdsl.logging.Logger.info("cleanup: stopping C3P0 pool threads & deregistering JDBC drivers");
             try {
                 com.mysql.cj.jdbc.AbandonedConnectionCleanupThread.checkedShutdown();
-            } catch (Exception ex) {
+             } catch (Exception ex) {
                 org.webdsl.logging.Logger.error(ex);
-            }
+             }
+
+            try {
+                 // Deregister all JDBC drivers loaded by this webapp
+                java.util.Enumeration<java.sql.Driver> drivers = java.sql.DriverManager.getDrivers();
+                while( drivers.hasMoreElements() ) {
+                    java.sql.Driver driver = drivers.nextElement();
+                    try {
+                        java.sql.DriverManager.deregisterDriver(driver);
+                     } catch (java.sql.SQLException ex) {
+                        org.webdsl.logging.Logger.error("Error deregistering JDBC driver: " + driver.getClass().getName(), ex);
+                     }
+                 }
+             } catch (Exception ex) {
+                org.webdsl.logging.Logger.info("cleanup: JDBC driver deregistration not available");
+             }
+            super.destroy();
             utils.ThreadManager.tryFindAndKillBobobrowseDaemonThread();
+            
             utils.CachedResourceFileNameHelper.cleanupOnServletDestroy();
+            utils.ImageRegistryCleanupHelper.deregisterWebappProviders();
+            try{ 
+              org.webdsl.logging.Logger.info("cleanup: Wait 5 seconds for C3P0PooledConnectionPoolManager to close");
+              Thread.sleep(5000);
+            } catch( Exception ex){} 
             org.webdsl.logging.Logger.info("cleanup: done");
             org.webdsl.logging.Logger.warn("Application has been undeployed");
           }
