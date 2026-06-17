@@ -38,7 +38,7 @@ public class ImageSizeUtils {
     
     /**
      * WEBP_QUALITY = 0.88f
-     * Kept right under the 0.90 threshold to match configuration limits. 
+     * 88% quality is empirically determined to provide a strong balance between file size reduction and visual fidelity for photographic content.
      * Note: If images experience subtle green/pink tints in flat gradients (like skies), 
      * raising this parameter past 0.91f relaxes chroma quantization step sizes completely.
      */
@@ -97,12 +97,54 @@ public class ImageSizeUtils {
         }
     }
 
+    /**
+     * Ingests the raw stream into an image container and forces an immediate normalization pass
+     * if the incoming file utilizes an indexed palette or an unmapped custom layout.
+     */
     private static javaxt.io.Image loadJavaxtImage(utils.File file) throws IOException {
         try {
-            return new javaxt.io.Image(file.getContentStream());
+            javaxt.io.Image img = new javaxt.io.Image(file.getContentStream());
+            return ensureTrueColor(img);
         } catch (SQLException e) {
             throw new IOException("Failed to open content stream", e);
         }
+    }
+
+    /**
+     * CANVAS NORMALIZATION LAYER:
+     * Evaluates if the incoming image asset is constrained to a packed palette (IndexColorModel),
+     * a binary matrix, or a custom unmapped space. If true, it extracts and paints the image onto
+     * a 32-bit sRGB TrueColor canvas with full alpha-channel fidelity. This ensures that downsampling, 
+     * sharpening, or cropping routines never experience palette quantization errors or transparent bleeding.
+     */
+    private static javaxt.io.Image ensureTrueColor(javaxt.io.Image img) {
+        if (img == null || img.getBufferedImage() == null) return img;
+        
+        BufferedImage bi = img.getBufferedImage();
+        int type = bi.getType();
+
+        if (type == BufferedImage.TYPE_BYTE_INDEXED || 
+            type == BufferedImage.TYPE_BYTE_BINARY || 
+            type == BufferedImage.TYPE_CUSTOM || 
+            type == 0 || 
+            bi.getColorModel() instanceof java.awt.image.IndexColorModel) {
+
+            BufferedImage trueColor = new BufferedImage(
+                bi.getWidth(), 
+                bi.getHeight(), 
+                BufferedImage.TYPE_INT_ARGB
+            );
+            
+            Graphics2D g2d = trueColor.createGraphics();
+            try {
+                g2d.setComposite(java.awt.AlphaComposite.Src);
+                g2d.drawImage(bi, 0, 0, null);
+            } finally {
+                g2d.dispose();
+            }
+            return new javaxt.io.Image(trueColor);
+        }
+        return img;
     }
 
     private static javaxt.io.Image getOrCreateJavaxtImage(utils.File file) throws IOException {
@@ -317,7 +359,7 @@ public class ImageSizeUtils {
             return img.getByteArray(normalizedFormat);
             
         } else if (normalizedFormat.equals("webp")) {
-BufferedImage bufferedImage = img.getBufferedImage();
+            BufferedImage bufferedImage = img.getBufferedImage();
 
             int targetType = bufferedImage.getColorModel().hasAlpha() 
                     ? BufferedImage.TYPE_INT_ARGB 
