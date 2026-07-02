@@ -97,31 +97,58 @@ public class ImageSizeUtils {
         }
     }
 
-    /**
-     * Ingests the raw stream into an image container and forces an immediate normalization pass
-     * if the incoming file utilizes an indexed palette or an unmapped custom layout.
+/**
+     * Safely decodes image content streams using ImageIO first to ensure WebP compatibility,
+     * and guarantees that the resulting image object is normalized to True Color.
      */
     private static javaxt.io.Image loadJavaxtImage(utils.File file) throws IOException {
-        try {
-            javaxt.io.Image img = new javaxt.io.Image(file.getContentStream());
-            return ensureTrueColor(img);
+        try (InputStream is = file.getContentStream()) {
+            // Read using ImageIO first to handle WebP and other plugin-dependent formats properly
+            BufferedImage bi = ImageIO.read(is);
+            if (bi != null) {
+                return ensureTrueColor(new javaxt.io.Image(bi));
+            }
+            // Fallback to javaxt's native stream constructor if ImageIO returns null
+            try (InputStream isFallback = file.getContentStream()) {
+                return ensureTrueColor(new javaxt.io.Image(isFallback));
+            }
         } catch (SQLException e) {
             throw new IOException("Failed to open content stream", e);
         }
     }
 
-    /**
+/**
      * CANVAS NORMALIZATION LAYER:
      * Evaluates if the incoming image asset is constrained to a packed palette (IndexColorModel),
      * a binary matrix, or a custom unmapped space. If true, it extracts and paints the image onto
      * a 32-bit sRGB TrueColor canvas with full alpha-channel fidelity. This ensures that downsampling, 
      * sharpening, or cropping routines never experience palette quantization errors or transparent bleeding.
+     * * Extended to safely detect and transform non-RGB color spaces (like CMYK) using ColorConvertOp
+     * to prevent native encoder crashes (such as WebP NullPointerExceptions).
      */
     private static javaxt.io.Image ensureTrueColor(javaxt.io.Image img) {
         if (img == null || img.getBufferedImage() == null) return img;
         
         BufferedImage bi = img.getBufferedImage();
         int type = bi.getType();
+
+        // FIX FOR CMYK / NON-RGB IMAGES:
+        // If the color space is not standard RGB, we must use ColorConvertOp to map color channels
+        // accurately. Using standard Graphics2D.drawImage on a CMYK canvas corrupts the underlying
+        // raster data and causes native encoders to fail.
+        if (bi.getColorModel().getColorSpace().getType() != ColorSpace.TYPE_RGB) {
+            boolean hasAlpha = bi.getColorModel().hasAlpha();
+            int targetType = hasAlpha ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB;
+            
+            BufferedImage trueColor = new BufferedImage(bi.getWidth(), bi.getHeight(), targetType);
+            try {
+                ColorConvertOp op = new ColorConvertOp(ColorSpace.getInstance(ColorSpace.CS_sRGB), null);
+                op.filter(bi, trueColor);
+                return new javaxt.io.Image(trueColor);
+            } catch (Exception e) {
+                log("ColorConvertOp failed for non-RGB image; falling back to graphics rendering", e);
+            }
+        }
 
         if (type == BufferedImage.TYPE_BYTE_INDEXED || 
             type == BufferedImage.TYPE_BYTE_BINARY || 
