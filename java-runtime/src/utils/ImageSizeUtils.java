@@ -361,13 +361,25 @@ public class ImageSizeUtils {
         } else if (normalizedFormat.equals("webp")) {
             BufferedImage bufferedImage = img.getBufferedImage();
 
+            // 1. WEBP HARD LIMIT: libwebp fundamentally rejects images exceeding 16383 pixels.
+            // Clamp and proportionally scale down massive corporate logo files.
+            int maxDim = 16383;
+            int width = bufferedImage.getWidth();
+            int height = bufferedImage.getHeight();
+            
+            if (width > maxDim || height > maxDim) {
+                float scale = Math.min((float) maxDim / width, (float) maxDim / height);
+                width = Math.round(width * scale);
+                height = Math.round(height * scale);
+                org.webdsl.logging.Logger.warn("Image exceeds WebP limits. Clamping dimensions to: " + width + "x" + height);
+            }
             int targetType = bufferedImage.getColorModel().hasAlpha() 
                     ? BufferedImage.TYPE_INT_ARGB 
                     : BufferedImage.TYPE_INT_RGB;
                     
             BufferedImage standardized = new BufferedImage(
-                    bufferedImage.getWidth(), 
-                    bufferedImage.getHeight(), 
+                    width, 
+                    height, 
                     targetType
             );
 
@@ -392,7 +404,26 @@ public class ImageSizeUtils {
             
             bufferedImage = standardized;
 
-            javax.imageio.ImageWriter writer = ImageIO.getImageWritersByMIMEType("image/webp").next();
+            javax.imageio.ImageWriter writer = null;
+            java.util.Iterator<javax.imageio.ImageWriter> writers = ImageIO.getImageWritersByMIMEType("image/webp");
+            
+            while (writers.hasNext()) {
+                javax.imageio.ImageWriter w = writers.next();
+                try {
+                    // Using instanceof safely screens out writers belonging to another web app.
+                    // If the writer belongs to a different classloader, this evaluates to false.
+                    if (w.getDefaultWriteParam() instanceof com.luciad.imageio.webp.WebPWriteParam) {
+                        writer = w;
+                        break;
+                    }
+                } catch (Throwable t) {
+                    // Bypasses any unstable or conflicting registration states
+                }
+            }
+
+            if (writer == null) {
+                throw new java.io.IOException("No WebP ImageWriter found matching this application's ClassLoader context.");
+            }
             com.luciad.imageio.webp.WebPWriteParam writeParam = (com.luciad.imageio.webp.WebPWriteParam) writer.getDefaultWriteParam();
             
             // Native Configuration Binding Pass
