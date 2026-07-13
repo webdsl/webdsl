@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -78,7 +80,14 @@ import javax.persistence.Transient;
   public void setContentFromString(String s) throws java.io.IOException{
     setContentStream(new ByteArrayInputStream(s.getBytes(StandardCharsets.UTF_8)));
   }
-  
+
+  /**
+   * Creates a File entity from the file at the specified path.
+   * The filename of the File entity is the filename of the file.
+   *
+   * @param fullPath the full path to the file on disk
+   * @return the created File entity
+   */
   public static File createFromFilePath(String fullPath) {
     File file = null;
     try {
@@ -91,14 +100,45 @@ import javax.persistence.Transient;
           String contentType = Files.probeContentType( fileOnDisk.toPath() );
           file.setContentType(contentType);
           file.setFileName( fileOnDisk.getName() );
-        }  
+        }
     } catch (IOException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
     return file;
   }
-  
+
+  /**
+   * Creates a File entity from the file at the specified path,
+   * and gives it the specified custom filename and path.
+   *
+   * @param fullPath the full path to the file on disk
+   * @param path the custom path to save with the file, including the file name
+   * @return the created File entity
+   */
+  public static File createFromFilePath(String fullPath, String path) {
+    File file = createFromFilePath(fullPath);
+    file.setPath(path);
+    return file;
+  }
+
+  /**
+   * Creates a File entity from the file at the specified path,
+   * and gives it a filename and path relative to the specified basePath.
+   *
+   * @param fullPath the full path to the file on disk
+   * @param basePath the base path relative to which the path of the file is determined
+   * @return the created File entity
+   */
+  public static File createFromFilePathRelative(String fullPath, String basePath) {
+	try {
+		return createFromFilePath(fullPath, Paths.get(basePath).relativize(Paths.get(fullPath)).toString());
+    } catch (InvalidPathException e) {
+    	// We cannot convert one of the path strings to a valid Path
+    	return null;
+    }
+  }
+
   public static File createFromString(String s, String fileName){
 	try{
 	  utils.File file = new utils.File();
@@ -131,16 +171,18 @@ import javax.persistence.Transient;
     }
   }
 
+  // The field stores the whole path (e.g., `myfir/myfile.txt`) in Unix format (with forward slashes)
   @org.hibernate.annotations.AccessType(value = "field") protected String fileName = "";
-  
+
+  // Just the file name (e.g., `myfile.txt`)
   public String getFileName()
-  { 
-    return fileName;
+  {
+	  return fileName != null ? (fileName.substring(fileName.lastIndexOf('/') + 1)) : null;
   }
-  
-  public void setFileName(String newitem)
-  { 
-    fileName = newitem;
+
+  public void setFileName(String newFileName)
+  {
+	  fileName = fileName != null ? (fileName.substring(0, fileName.lastIndexOf('/') + 1) + newFileName) : newFileName;
   }
   
   @Transient protected String fileNameForDownload = null;
@@ -150,6 +192,17 @@ import javax.persistence.Transient;
   
   public void setFileNameForDownload(String name){
     fileNameForDownload = name;
+  }
+
+  // The full path (e.g., `mydir/myfile.txt`)
+  public String getPath()
+  {
+    return fileName;
+  }
+
+  public void setPath(String newPath)
+  {
+	  fileName = newPath;
   }
 
   @org.hibernate.annotations.AccessType(value = "field") protected long sizeInBytes = 0;
@@ -187,7 +240,7 @@ import javax.persistence.Transient;
   public utils.File makeClone() {
       utils.File newF = new utils.File();
       newF.setContent(content);
-      newF.setFileName(fileName);
+      newF.setPath(fileName);
       newF.setContentType(contentType);
       return newF;
   }
